@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #f5f7f6;
+  color: #17231f;
+}
+
+.legal-header {
+  background: #fff;
+  border-bottom: 1px solid #e3e9e6;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.legal-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: #17231f;
+}
+
+.legal-brand .logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #d69b2d;
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+
+.legal-brand b {
+  font-size: 15px;
+}
+
+.legal-back {
+  font-size: 12px;
+  font-weight: 600;
+  color: #10b981;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legal-wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 24px 70px;
+}
+
+.legal-wrap h1 {
+  font-size: 28px;
+  letter-spacing: -0.5px;
+}
+
+.legal-updated {
+  color: #71807b;
+  font-size: 12px;
+  margin-top: 8px;
+  margin-bottom: 30px;
+}
+
+.legal-wrap h2 {
+  font-size: 16px;
+  margin-top: 32px;
+  margin-bottom: 10px;
+  color: #10b981;
+}
+
+.legal-wrap p {
+  font-size: 13px;
+  line-height: 1.85;
+  color: #3c4844;
+  margin-bottom: 12px;
+}
+
+.legal-wrap ul {
+  margin: 10px 0 14px 20px;
+}
+
+.legal-wrap li {
+  font-size: 13px;
+  line-height: 1.85;
+  color: #3c4844;
+  margin-bottom: 6px;
+}
+
+.legal-footer {
+  text-align: center;
+  padding: 24px;
+  color: #8b9995;
+  font-size: 10px;
+}
+
+@media(max-width:600px) {
+  .legal-wrap {
+    padding: 28px 18px 50px;
+  }
+
+  .legal-wrap h1 {
+    font-size: 22px;
+  }
+}
