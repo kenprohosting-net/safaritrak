@@ -39,9 +39,9 @@ function notifLink(n) {
     case 'contact_request':
       return 'trusted-contacts.php';
     case 'group_invite':
-      return 'group-travel.php';
+      return 'groups.php?tab=trips';
     case 'sos_alert':
-      return 'safety.php';
+      return 'notifications.php';
     default:
       return null;
   }
@@ -52,12 +52,23 @@ async function loadNotifDropdown() {
   const dot = document.getElementById('notifDot');
   if (!list) return;
 
+  const setStatus = (state, title, message, retryLabel) => {
+    window.SafariTrakUI?.setStatus(list, {
+      state,
+      title,
+      message,
+      retryLabel,
+      onRetry: loadNotifDropdown,
+    });
+  };
+  setStatus('loading', 'Loading notifications', 'Checking for recent updates.');
+
   try {
     const response = await fetch('backend/api/notifications/list.php?limit=6');
     const data = await response.json();
 
-    if (!data.success) {
-      list.innerHTML = '<p class="notif-empty">Could not load notifications.</p>';
+    if (!response.ok || !data.success || !Array.isArray(data.notifications)) {
+      setStatus('error', 'Notifications unavailable', data.message || 'We could not load recent updates.', 'Try again');
       return;
     }
 
@@ -66,7 +77,7 @@ async function loadNotifDropdown() {
     }
 
     if (data.notifications.length === 0) {
-      list.innerHTML = '<p class="notif-empty">Nothing here yet.</p>';
+      setStatus('empty', 'Nothing here yet', 'Journey updates and messages will appear here.');
       return;
     }
 
@@ -81,8 +92,15 @@ async function loadNotifDropdown() {
       const closeTag = link ? 'a' : 'div';
       return '<' + tag + ' class="notif-item' + unreadClass + sosClass + '" style="text-decoration:none;color:inherit">' + inner + '</' + closeTag + '>';
     }).join('');
+    list.removeAttribute('aria-busy');
   } catch (err) {
-    list.innerHTML = '<p class="notif-empty">Could not load notifications.</p>';
+    const offline = navigator.onLine === false;
+    setStatus(
+      offline ? 'offline' : 'error',
+      offline ? 'You are offline' : 'Notifications unavailable',
+      offline ? 'Reconnect to load recent updates.' : 'We could not load recent updates.',
+      'Try again'
+    );
   }
 }
 
@@ -103,7 +121,14 @@ document.getElementById('notifBell')?.addEventListener('click', async () => {
       });
       document.getElementById('notifDot')?.style.setProperty('display', 'none');
     } catch (err) {
-      /* silent */
+      const list = document.getElementById('notifDropdownList');
+      window.SafariTrakUI?.setStatus(list, {
+        state: navigator.onLine === false ? 'offline' : 'error',
+        title: 'Could not update notifications',
+        message: 'Your unread updates may still be marked unread.',
+        retryLabel: 'Try again',
+        onRetry: loadNotifDropdown,
+      });
     }
   }
 });

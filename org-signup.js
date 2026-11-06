@@ -46,7 +46,7 @@ if (orgSignupForm) {
       valid = false;
     }
 
-    if (password.value.trim().length < 6) {
+    if (password.value.length < 12 || new TextEncoder().encode(password.value).length > 1024) {
       showError('orgPasswordError', true);
       valid = false;
     }
@@ -61,6 +61,7 @@ if (orgSignupForm) {
     setSubmitting(submitBtn, true, 'Create organization account');
     const { ok, data } = await postJSON('backend/api/org/signup.php', {
       org_name: orgName.value.trim(),
+      account_type: document.getElementById('orgAccountType').value,
       full_name: fullName.value.trim(),
       username: username.value.trim(),
       email: email.value.trim(),

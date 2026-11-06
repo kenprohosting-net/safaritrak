@@ -1,18 +1,5 @@
-# Dependencies
 /vendor/
-
-# Environment and sensitive configuration
-/backend/config/env.php
-
-# Cache and temporary files
-/backend/api/places/cache/*.json
-!/backend/api/places/cache/.htaccess
-*.log
-
-# Editor and IDE configurations
-.vscode/
-.idea/
-
-# OS metadata
-.DS_Store
-Thumbs.db
+/backend/config/env.local.php
+.env
+.env.*
+!.env.example

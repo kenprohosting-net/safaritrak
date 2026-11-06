@@ -20,7 +20,7 @@ $input = st_input();
 $orgId = (int) ($input['organization_id'] ?? 0);
 $action = $input['action'] ?? '';
 
-if (!in_array($action, ['suspend', 'reactivate'], true)) {
+if (!in_array($action, ['approve', 'reject', 'suspend', 'reactivate'], true)) {
     st_json_error('That action is not recognized.');
 }
 
@@ -28,6 +28,19 @@ $orgStmt = $db->prepare('SELECT id FROM organizations WHERE id = ?');
 $orgStmt->execute([$orgId]);
 if (!$orgStmt->fetch()) {
     st_json_error('That organization could not be found.', 404);
+}
+
+if (in_array($action, ['approve', 'reject'], true)) {
+    $reviewStatus = $action === 'approve' ? 'approved' : 'rejected';
+    $reviewStmt = $db->prepare(
+        'UPDATE organization_profiles SET review_status = ?, reviewed_by = ?, reviewed_at = UTC_TIMESTAMP()
+         WHERE organization_id = ?'
+    );
+    $reviewStmt->execute([$reviewStatus, $userId, $orgId]);
+    if ($reviewStmt->rowCount() === 0) {
+        st_json_error('This organization has no reviewable account profile.', 409);
+    }
+    st_json_ok(['status' => $reviewStatus]);
 }
 
 $newStatus = $action === 'suspend' ? 1 : 0;

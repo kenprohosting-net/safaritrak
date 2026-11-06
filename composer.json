@@ -1,5 +1,17 @@
 {
     "require": {
-        "phpmailer/phpmailer": "*"
+        "phpmailer/phpmailer": "^7.1"
+    },
+    "scripts": {
+        "test": [
+            "php tests/smoke.php",
+            "php tests/security-foundation.php",
+            "php tests/session-integration.php",
+            "php tests/map-privacy.php"
+        ],
+        "test:mysql-migrations": "php tests/mysql-migration-restore.php",
+        "test:mysql-live-backup": "php tests/mysql-live-backup-restore.php",
+        "migrate:help": "php backend/scripts/migrate.php --help",
+        "migrate:status": "php backend/scripts/migrate.php status"
     }
 }

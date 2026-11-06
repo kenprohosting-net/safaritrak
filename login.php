@@ -2,13 +2,14 @@
 require_once __DIR__ . '/backend/includes/session.php';
 require_once __DIR__ . '/backend/config/database.php';
 require_once __DIR__ . '/backend/includes/helpers.php';
+require_once __DIR__ . '/backend/includes/rate-limit.php';
 
 st_start_session();
-
-$db = safaritrak_db();
+$csrfToken = st_csrf_token();
 
 // If user is already logged in, determine their dynamic role from the DB tables and redirect
 if (!empty($_SESSION['user_id'])) {
+    $db = safaritrak_db();
 
     $paStmt = $db->prepare('SELECT id FROM platform_admins WHERE user_id = ? LIMIT 1');
     $paStmt->execute([$_SESSION['user_id']]);
@@ -28,7 +29,7 @@ if (!empty($_SESSION['user_id'])) {
         exit();
     }
 
-    $_SESSION['role'] = 'user';
+    $_SESSION['role'] = 'traveler';
     header('Location: index.php');
     exit();
 }
@@ -40,11 +41,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $usernameInput = trim($_POST['username'] ?? '');
     $passwordInput = $_POST['password'] ?? '';
 
-    if (empty($usernameInput) || empty($passwordInput)) {
+    if (!st_validate_csrf($_POST['_csrf'] ?? null)) {
+        http_response_code(403);
+        $error = 'Your security token expired. Refresh this page and try again.';
+    } elseif (empty($usernameInput) || empty($passwordInput)) {
         $error = 'Please enter both username and password.';
     } else {
-        $stmt = $db->prepare('SELECT * FROM users WHERE username = ? OR email = ? LIMIT 1');
-        $stmt->execute([$usernameInput, $usernameInput]);
+        $db = safaritrak_db();
+        $clientAddress = st_client_address();
+        $rateLimitKey = strtolower($usernameInput);
+        $retryAfter = st_rate_limit_consume($db, 'login-ip', $clientAddress, 20, 900);
+        if ($retryAfter === 0) {
+            $retryAfter = st_rate_limit_consume($db, 'login-identifier', $rateLimitKey, 8, 900);
+        }
+        if ($retryAfter > 0) {
+            http_response_code(429);
+            header('Retry-After: ' . $retryAfter);
+            $error = 'Too many sign-in attempts. Wait before trying again.';
+        } else {
+        $phoneIdentifier = preg_replace('/\D/', '', $usernameInput) ?? '';
+        $stmt = $db->prepare('SELECT * FROM users WHERE username = ? OR email = ? OR phone = ? LIMIT 1');
+        $stmt->execute([$usernameInput, $usernameInput, $phoneIdentifier]);
         $user = $stmt->fetch();
 
         if ($user && password_verify($passwordInput, $user['password_hash'])) {
@@ -53,7 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (empty($user['email_verified_at'])) {
                 $error = 'Please verify your email before logging in. Check your inbox for the verification link, or sign up again to request a new one.';
             } else {
-                $_SESSION['user_id'] = (int) $user['id'];
+                st_rate_limit_clear($db, 'login-identifier', $rateLimitKey);
+                st_login_user($user, !empty($_POST['remember']), $db);
 
                 // Check Platform Admin status
                 $paStmt = $db->prepare('SELECT id FROM platform_admins WHERE user_id = ? LIMIT 1');
@@ -73,13 +91,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['organization_id'] = (int) $orgAdminData['organization_id'];
                     header('Location: org-dashboard.php');
                 } else {
-                    $_SESSION['role'] = 'user';
+                    $_SESSION['role'] = 'traveler';
                     header('Location: index.php');
                 }
                 exit();
             }
         } else {
             $error = 'Invalid username or password.';
+        }
         }
     }
 }
@@ -90,7 +109,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SafariTrak | Login</title>
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="auth-theme.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
@@ -110,6 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <form class="login-form" id="loginForm" method="POST" action="login.php" novalidate>
+      <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
       <div class="input-group">
         <input type="text" name="username" id="loginUsername" placeholder="Username or Email" value="<?= htmlspecialchars($usernameInput) ?>" required>
         <i class="fa-regular fa-user input-icon"></i>
@@ -144,5 +165,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </div>
 
   <script src="auth.js"></script>
+  <script src="auth-theme.js"></script>
 </body>
 </html>

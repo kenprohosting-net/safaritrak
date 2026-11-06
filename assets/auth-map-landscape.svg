@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" fill="none">
+  <defs>
+    <linearGradient id="land" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#10152f"/>
+      <stop offset=".55" stop-color="#19102d"/>
+      <stop offset="1" stop-color="#092439"/>
+    </linearGradient>
+    <linearGradient id="route" x1="160" y1="880" x2="1410" y2="150" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#27e8ef"/>
+      <stop offset=".5" stop-color="#ae5bff"/>
+      <stop offset="1" stop-color="#ff5ba8"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="grid" width="58" height="58" patternUnits="userSpaceOnUse">
+      <path d="M58 0H0V58" stroke="#9fd9ff" stroke-opacity=".11"/>
+      <circle cx="0" cy="0" r="2" fill="#9fd9ff" fill-opacity=".28"/>
+    </pattern>
+  </defs>
+  <path fill="url(#land)" d="M0 0h1600v1000H0z"/>
+  <path fill="url(#grid)" d="M0 0h1600v1000H0z"/>
+  <g stroke="#56c9ed" stroke-opacity=".23" stroke-width="2">
+    <path d="M-60 175c175-66 248 84 411 22s230-157 407-79 204 168 397 86 305-98 505-12"/>
+    <path d="M-74 203c181-71 254 82 419 20s228-154 405-76 207 163 397 83 303-98 511-10"/>
+    <path d="M-90 233c188-76 261 78 426 17s228-151 405-73 211 159 397 80 302-98 519-8"/>
+    <path d="M-70 703c142-111 269-64 395-5s243 81 365 7 204-229 384-190 314 97 564-16"/>
+    <path d="M-73 734c144-115 269-66 399-6s245 81 367 5 204-224 384-186 318 94 567-18"/>
+    <path d="M-76 767c146-118 272-69 402-8s247 82 370 5 205-220 386-182 321 92 570-20"/>
+    <path d="M398-60c51 168 106 232 87 385s-100 178-69 326 104 225 59 403"/>
+    <path d="M431-66c53 174 110 238 90 390s-102 181-71 330 106 229 59 409"/>
+    <path d="M1128-80c-37 176-9 255 91 369s168 121 189 293-22 231 69 386"/>
+  </g>
+  <g stroke="url(#route)" stroke-linecap="round" filter="url(#glow)">
+    <path d="M129 832c136-65 198-102 283-86 112 21 118-145 239-145 106 0 103 106 216 76 94-25 63-151 174-181 96-27 133 41 217-11s91-133 202-184" stroke-width="7"/>
+  </g>
+  <path d="M129 832c136-65 198-102 283-86 112 21 118-145 239-145 106 0 103 106 216 76 94-25 63-151 174-181 96-27 133 41 217-11s91-133 202-184" stroke="#f4efff" stroke-opacity=".85" stroke-width="2" stroke-dasharray="8 15" stroke-linecap="round"/>
+  <g filter="url(#glow)">
+    <circle cx="129" cy="832" r="15" fill="#27e8ef" stroke="#e7fdff" stroke-width="5"/>
+    <circle cx="1460" cy="301" r="15" fill="#ff5ba8" stroke="#fff0f6" stroke-width="5"/>
+  </g>
+  <g fill="#dff8ff" fill-opacity=".72" font-family="system-ui,sans-serif" font-size="19" letter-spacing="3">
+    <text x="177" y="814">NORTH ROUTE</text>
+    <text x="1173" y="390">CITY CENTRE</text>
+    <text x="520" y="277">RIVER PARK</text>
+    <text x="1000" y="795">EAST DISTRICT</text>
+  </g>
+  <g fill="#49d7ef" fill-opacity=".62">
+    <circle cx="275" cy="320" r="4"/><circle cx="782" cy="194" r="4"/><circle cx="965" cy="552" r="4"/>
+    <circle cx="1320" cy="670" r="4"/><circle cx="584" cy="677" r="4"/><circle cx="113" cy="535" r="4"/>
+  </g>
+</svg>

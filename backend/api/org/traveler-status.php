@@ -19,12 +19,21 @@ if (!in_array($action, ['deactivate', 'reactivate'], true)) {
 
 $db = safaritrak_db();
 
-$adminStmt = $db->prepare('SELECT organization_id, o.name AS org_name FROM organization_admins oa JOIN organizations o ON o.id = oa.organization_id WHERE oa.user_id = ?');
+$adminStmt = $db->prepare(
+    'SELECT oa.organization_id, o.name AS org_name, o.is_suspended, p.review_status
+     FROM organization_admins oa
+     JOIN organizations o ON o.id = oa.organization_id
+     JOIN organization_profiles p ON p.organization_id = oa.organization_id
+     WHERE oa.user_id = ?'
+);
 $adminStmt->execute([$userId]);
 $admin = $adminStmt->fetch();
 
 if (!$admin) {
     st_json_error('You do not manage an organization.', 403);
+}
+if ($admin['review_status'] !== 'approved' || (int) $admin['is_suspended'] === 1) {
+    st_json_error('Your organization is not approved to manage members.', 403);
 }
 
 $stmt = $db->prepare('SELECT id, user_id, status FROM organization_travelers WHERE id = ? AND organization_id = ?');

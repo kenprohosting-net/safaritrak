@@ -146,6 +146,41 @@ updatePasswordBtn?.addEventListener('click', async () => {
   }
 });
 
+const saveConsentBtn = document.getElementById('saveConsentBtn');
+const consentStatus = document.getElementById('consentStatus');
+const consentError = document.getElementById('consentError');
+
+saveConsentBtn?.addEventListener('click', async () => {
+  const termsAccepted = document.getElementById('acceptCurrentTerms')?.checked;
+  const privacyAccepted = document.getElementById('acceptCurrentPrivacy')?.checked;
+  if (consentError) consentError.textContent = '';
+  if (!termsAccepted || !privacyAccepted) {
+    if (consentError) consentError.textContent = 'Review and accept both documents before continuing.';
+    return;
+  }
+
+  saveConsentBtn.disabled = true;
+  const originalText = saveConsentBtn.textContent;
+  saveConsentBtn.textContent = 'Saving...';
+  try {
+    const data = await stPostJson('backend/api/consent.php', {
+      terms: termsAccepted,
+      privacy: privacyAccepted,
+    });
+    if (!data.success) {
+      if (consentError) consentError.textContent = data.message || 'Your acceptance could not be recorded.';
+      return;
+    }
+    if (consentStatus) consentStatus.textContent = data.message;
+    document.getElementById('consentAcceptance')?.remove();
+  } catch (err) {
+    if (consentError) consentError.textContent = 'Something went wrong recording your acceptance. Please try again.';
+  } finally {
+    saveConsentBtn.disabled = false;
+    saveConsentBtn.textContent = originalText;
+  }
+});
+
 /* ---------------- Notification / privacy toggles ---------------- */
 
 document.querySelectorAll('input[type="checkbox"][data-setting]').forEach((checkbox) => {
@@ -277,7 +312,7 @@ confirmDeleteAccountBtn?.addEventListener('click', async () => {
   confirmDeleteAccountBtn.textContent = 'Deleting...';
 
   try {
-    const data = await stPostJson('delete.php', { password });
+    const data = await stPostJson('backend/api/delete-account.php', { password });
 
     if (!data.success) {
       if (deleteAccountPasswordError) {

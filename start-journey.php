@@ -1,8 +1,13 @@
 <?php
 require __DIR__ . '/backend/includes/auth-guard.php';
+$showAppMapBackground = true;
+$initialDestination = isset($_GET['destination']) && is_string($_GET['destination'])
+    ? trim($_GET['destination'])
+    : '';
+$initialDestinationLat = isset($_GET['end_lat']) && is_numeric($_GET['end_lat']) ? (float) $_GET['end_lat'] : '';
+$initialDestinationLng = isset($_GET['end_lng']) && is_numeric($_GET['end_lng']) ? (float) $_GET['end_lng'] : '';
 
 $db = safaritrak_db();
-
 $contactsStmt = $db->prepare(
     'SELECT tc.id, COALESCE(u.full_name, tc.invite_name) AS display_name
      FROM trusted_contacts tc
@@ -12,11 +17,6 @@ $contactsStmt = $db->prepare(
 );
 $contactsStmt->execute([$currentUser['id']]);
 $confirmedContacts = $contactsStmt->fetchAll();
-
-// Fetch unread messages count using receiver_id and read_at NULL check
-$unreadStmt = $db->prepare('SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND read_at IS NULL');
-$unreadStmt->execute([$currentUser['id']]);
-$unreadConversationCount = (int) $unreadStmt->fetchColumn();
 ?>
 <!doctype html>
 <html lang="en">
@@ -24,29 +24,13 @@ $unreadConversationCount = (int) $unreadStmt->fetchColumn();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafariTrak | Start Journey</title>
-<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
-<div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small></div></div>
-  <nav>
-    <a href="index.php"><i class="fa-solid fa-grid-2"></i>Dashboard</a>
-    <a class="active" href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
-    <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
-    <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
-    <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
-    <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
-  </nav>
-  <div class="bottom">
-    <a href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
-    <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span><?= st_avatar_inner($currentUser) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
-  </div>
-</aside>
+<?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
+<div class="app app--map-layout">
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
 <header>
@@ -57,7 +41,9 @@ $unreadConversationCount = (int) $unreadStmt->fetchColumn();
       <button type="button" class="notif-bell" id="notifBell"><i class="fa-regular fa-bell"></i><span class="notif-dot" id="notifDot"></span></button>
       <div class="notif-dropdown" id="notifDropdown">
         <div class="notif-dropdown-head"><b>Notifications</b><a href="notifications.php">View all</a></div>
-        <div class="notif-list" id="notifDropdownList"><p class="notif-empty">Loading...</p></div>
+        <div class="notif-list" id="notifDropdownList">
+          <p class="notif-empty">Loading...</p>
+        </div>
       </div>
     </div>
     <div class="avatar"><?= st_avatar_inner($currentUser) ?></div>
@@ -71,43 +57,25 @@ $unreadConversationCount = (int) $unreadStmt->fetchColumn();
   <a class="btn-ghost" href="my-journeys.php"><i class="fa-solid fa-arrow-left"></i>Back to my journeys</a>
 </div>
 
-<p style="font-size:11px;color:var(--muted);margin:-10px 0 16px">Travelling with other people? <a href="group-travel.php" style="color:var(--p);font-weight:700;text-decoration:none">Create a group journey instead</a></p>
-
-<div id="journeyFormError" class="hint" style="display:none;margin:-4px 0 16px;padding:12px 14px;border-radius:9px;background:#fff0f0;border:1px solid #f0c0c0;color:#a92323;font-size:12px"></div>
-
-<div class="card map-card" style="margin-bottom:18px">
-  <div class="card-head"><div><label>ROUTE PREVIEW</label><h3>Your journey on the map</h3></div></div>
-  <div id="map"></div>
-  <div class="legend"><span><i class="current"></i>Starting point</span><span><i class="destination"></i>Destination</span></div>
-</div>
+<p style="font-size:11px;color:var(--muted);margin:-10px 0 16px">Travelling with other people? <a href="groups.php?tab=trips" style="color:var(--p);font-weight:700;text-decoration:none">Create a group journey instead</a></p>
 
 <div class="card">
   <div class="card-head"><div><label>TRIP DETAILS</label><h3>Journey information</h3></div></div>
   <form class="form-grid" id="startJourneyForm" novalidate>
 
-    <div class="form-field full">
+    <div class="form-field">
       <label for="startPoint">Starting point</label>
-      <div style="display:flex;gap:8px">
-        <input type="text" id="startPoint" placeholder="e.g. Nairobi CBD" required style="flex:1">
-        <button type="button" class="btn-ghost" id="findStartBtn" style="white-space:nowrap"><i class="fa-solid fa-magnifying-glass"></i> Find</button>
-      </div>
-      <div id="startResults" style="display:none;margin-top:6px;border:1px solid var(--line);border-radius:9px;overflow:hidden"></div>
-      <p class="hint" id="startStatus" style="margin-top:6px">Search for your starting point and select a result, or use your current location.</p>
-      <button type="button" class="btn-ghost" id="useMyLocationBtn" style="margin-top:8px;align-self:flex-start;font-size:9px;padding:7px 10px"><i class="fa-solid fa-location-crosshairs"></i> Use my current location</button>
+      <input type="text" id="startPoint" data-location-autocomplete placeholder="e.g. Nairobi CBD" required>
+      <button type="button" class="btn-ghost" id="useMyLocationBtn" style="margin-top:6px;align-self:flex-start;font-size:9px;padding:7px 10px"><i class="fa-solid fa-location-crosshairs"></i> Use my current location</button>
       <input type="hidden" id="startLat">
       <input type="hidden" id="startLng">
     </div>
 
-    <div class="form-field full">
+    <div class="form-field">
       <label for="endPoint">Destination</label>
-      <div style="display:flex;gap:8px">
-        <input type="text" id="endPoint" placeholder="e.g. Meru Town" required style="flex:1">
-        <button type="button" class="btn-ghost" id="findEndBtn" style="white-space:nowrap"><i class="fa-solid fa-magnifying-glass"></i> Find</button>
-      </div>
-      <div id="endResults" style="display:none;margin-top:6px;border:1px solid var(--line);border-radius:9px;overflow:hidden"></div>
-      <p class="hint" id="endStatus" style="margin-top:6px">Search for your destination and select a result.</p>
-      <input type="hidden" id="endLat">
-      <input type="hidden" id="endLng">
+      <input type="text" id="endPoint" data-location-autocomplete placeholder="e.g. Meru Town" value="<?= htmlspecialchars($initialDestination, ENT_QUOTES, 'UTF-8') ?>" required>
+      <input type="hidden" id="endLat" value="<?= htmlspecialchars((string) $initialDestinationLat, ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" id="endLng" value="<?= htmlspecialchars((string) $initialDestinationLng, ENT_QUOTES, 'UTF-8') ?>">
     </div>
 
     <div class="form-field">
@@ -162,12 +130,13 @@ $unreadConversationCount = (int) $unreadStmt->fetchColumn();
 </div>
 
 </div>
-<footer><?= '© ' . date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
+<p class="route-preview-status" id="routePreviewStatus" role="status" aria-live="polite">Choose a starting point and destination from the suggestions to preview a driving route.</p>
+<footer>&copy; <?= date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
 </main>
 </div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="dashboard.js"></script>
-<script src="notifications-widget.js"></script>
-<script src="start-journey.js"></script>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
+<script src="notifications-widget.js?v=<?= hash_file('sha256', __DIR__ . '/notifications-widget.js') ?>"></script>
+<script src="location-autocomplete.js?v=<?= hash_file('sha256', __DIR__ . '/location-autocomplete.js') ?>"></script>
+<script src="start-journey.js?v=<?= hash_file('sha256', __DIR__ . '/start-journey.js') ?>"></script>
 </body>
 </html>

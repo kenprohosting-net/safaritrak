@@ -15,52 +15,106 @@ function relativeChatTime(dateString) {
 }
 
 function initialsOf(name) {
-  return name.split(/\s+/).slice(0, 2).map(p => p.charAt(0).toUpperCase()).join('') || '?';
+  return (name || '').split(/\s+/).slice(0, 2).map(p => p.charAt(0).toUpperCase()).join('') || '?';
 }
 
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+function localAvatarPath(path) {
+  if (typeof path !== 'string' || path === '') return '';
+  try {
+    const url = new URL(path, window.location.href);
+    return url.origin === window.location.origin ? url.href : '';
+  } catch (error) {
+    return '';
+  }
 }
 
 function renderConversationList() {
   const container = document.getElementById('chatListItems');
 
   if (conversations.length === 0) {
-    container.innerHTML = '<p class="notif-empty">No confirmed trusted contacts yet. Add one to start messaging.</p>';
+    window.SafariTrakUI?.setStatus(container, {
+      state: 'empty',
+      title: 'No conversations yet',
+      message: 'Add a confirmed trusted person to start messaging.',
+      linkLabel: 'Manage trusted people',
+      linkHref: 'trusted-contacts.php',
+    });
     return;
   }
 
-  container.innerHTML = conversations.map(c => {
-    const activeClass = c.user_id === activeUserId ? ' active' : '';
-    const preview = c.last_message
-      ? (c.last_message_mine ? 'You: ' : '') + escapeHtml(c.last_message)
+  container.replaceChildren();
+  conversations.forEach(conversation => {
+    const item = document.createElement('li');
+    const button = document.createElement('button');
+    const isActive = conversation.user_id === activeUserId;
+    button.className = 'chat-item' + (isActive ? ' active' : '');
+    button.type = 'button';
+    button.dataset.userId = String(conversation.user_id);
+    button.dataset.name = conversation.full_name;
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    button.addEventListener('click', () => openThread(conversation.user_id));
+
+    const avatar = document.createElement('span');
+    avatar.className = 'person';
+    avatar.setAttribute('aria-hidden', 'true');
+    const avatarPath = localAvatarPath(conversation.avatar_path);
+    if (avatarPath) {
+      const image = document.createElement('img');
+      image.src = avatarPath;
+      image.className = 'avatar-img';
+      image.alt = '';
+      avatar.append(image);
+    } else {
+      avatar.textContent = initialsOf(conversation.full_name);
+    }
+
+    const meta = document.createElement('span');
+    meta.className = 'meta';
+    const name = document.createElement('b');
+    name.textContent = conversation.full_name;
+    const preview = document.createElement('small');
+    preview.textContent = conversation.last_message
+      ? (conversation.last_message_mine ? 'You: ' : '') + conversation.last_message
       : 'Say hello';
-    const avatar = c.avatar_path
-      ? '<img src="' + c.avatar_path + '" class="avatar-img" alt="">'
-      : initialsOf(c.full_name);
-    const badge = c.unread_count > 0 ? '<em style="background:var(--gold);color:#fff;border-radius:20px;padding:2px 7px;font-size:9px;margin-left:auto">' + c.unread_count + '</em>' : '';
+    meta.append(name, preview);
+    button.append(avatar, meta);
 
-    return '<div class="chat-item' + activeClass + '" data-user-id="' + c.user_id + '" data-name="' + escapeHtml(c.full_name) + '">' +
-      '<span class="person">' + avatar + '</span>' +
-      '<div class="meta"><b>' + escapeHtml(c.full_name) + '</b><small>' + preview + '</small></div>' +
-      badge +
-      '</div>';
-  }).join('');
-
-  container.querySelectorAll('.chat-item').forEach(item => {
-    item.addEventListener('click', () => openThread(parseInt(item.getAttribute('data-user-id'), 10)));
+    if (conversation.unread_count > 0) {
+      const unread = document.createElement('em');
+      unread.textContent = String(conversation.unread_count);
+      unread.setAttribute('aria-label', `${conversation.unread_count} unread messages`);
+      button.append(unread);
+    }
+    item.append(button);
+    container.append(item);
   });
+  container.removeAttribute('aria-busy');
 }
 
 async function loadConversations() {
+  const container = document.getElementById('chatListItems');
+  window.SafariTrakUI?.setStatus(container, {
+    state: 'loading',
+    title: 'Loading conversations',
+    message: 'Checking your trusted people.',
+  });
   try {
     const response = await fetch('backend/api/messages/conversations.php');
     const data = await response.json();
-    if (!data.success) return;
+    if (!response.ok || !data.success || !Array.isArray(data.conversations)) {
+      window.SafariTrakUI?.setStatus(container, {
+        state: 'error',
+        title: 'Conversations unavailable',
+        message: data.message || 'We could not load your conversations.',
+        retryLabel: 'Try again',
+        onRetry: loadConversations,
+      });
+      return;
+    }
 
-    conversations = data.conversations;
+    conversations = data.conversations
+      .filter(conversation => Number.isSafeInteger(Number(conversation.user_id)) && Number(conversation.user_id) > 0)
+      .map(conversation => ({ ...conversation, user_id: Number(conversation.user_id) }));
     renderConversationList();
 
     const params = new URLSearchParams(window.location.search);
@@ -72,7 +126,14 @@ async function loadConversations() {
       openThread(conversations[0].user_id);
     }
   } catch (err) {
-    document.getElementById('chatListItems').innerHTML = '<p class="notif-empty">Could not load conversations.</p>';
+    const offline = navigator.onLine === false;
+    window.SafariTrakUI?.setStatus(container, {
+      state: offline ? 'offline' : 'error',
+      title: offline ? 'You are offline' : 'Conversations unavailable',
+      message: offline ? 'Reconnect to load your conversations.' : 'We could not load your conversations.',
+      retryLabel: 'Try again',
+      onRetry: loadConversations,
+    });
   }
 }
 
@@ -84,30 +145,45 @@ async function openThread(userId) {
   const chatMessages = document.getElementById('chatMessages');
   const chatForm = document.getElementById('chatForm');
 
-  chatMessages.innerHTML = '<p class="notif-empty">Loading...</p>';
+  window.SafariTrakUI?.setStatus(chatMessages, {
+    state: 'loading',
+    title: 'Loading messages',
+    message: 'Opening this conversation.',
+  });
 
   try {
     const response = await fetch('backend/api/messages/thread.php?with=' + userId);
     const data = await response.json();
 
-    if (!data.success) {
-      chatMessages.innerHTML = '<p class="notif-empty">' + escapeHtml(data.message || 'Could not load this conversation.') + '</p>';
+    if (userId !== activeUserId) return;
+    if (!response.ok || !data.success || !Array.isArray(data.messages) || !data.other) {
+      window.SafariTrakUI?.setStatus(chatMessages, {
+        state: navigator.onLine === false ? 'offline' : 'error',
+        title: 'Conversation unavailable',
+        message: data.message || 'We could not load this conversation.',
+        retryLabel: 'Try again',
+        onRetry: () => openThread(userId),
+      });
       chatForm.style.display = 'none';
       return;
     }
 
-    const avatar = data.other.avatar_path
-      ? '<img src="' + data.other.avatar_path + '" class="avatar-img" alt="">'
-      : initialsOf(data.other.full_name);
-
-    chatHead.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span class="person">${avatar}</span>
-          <b>${escapeHtml(data.other.full_name)}</b>
-        </div>
-      </div>
-    `;
+    chatHead.replaceChildren();
+    const person = document.createElement('span');
+    person.className = 'person';
+    const avatarPath = localAvatarPath(data.other.avatar_path);
+    if (avatarPath) {
+      const image = document.createElement('img');
+      image.src = avatarPath;
+      image.className = 'avatar-img';
+      image.alt = '';
+      person.append(image);
+    } else {
+      person.textContent = initialsOf(data.other.full_name);
+    }
+    const name = document.createElement('b');
+    name.textContent = data.other.full_name;
+    chatHead.append(person, name);
 
     chatForm.style.display = 'flex';
     renderMessages(data.messages);
@@ -116,7 +192,16 @@ async function openThread(userId) {
     if (conv) conv.unread_count = 0;
     renderConversationList();
   } catch (err) {
-    chatMessages.innerHTML = '<p class="notif-empty">Something went wrong loading this conversation.</p>';
+    if (userId !== activeUserId) return;
+    const offline = navigator.onLine === false;
+    window.SafariTrakUI?.setStatus(chatMessages, {
+      state: offline ? 'offline' : 'error',
+      title: offline ? 'You are offline' : 'Conversation unavailable',
+      message: offline ? 'Reconnect to load this conversation.' : 'We could not load this conversation.',
+      retryLabel: 'Try again',
+      onRetry: () => openThread(userId),
+    });
+    chatForm.style.display = 'none';
   }
 }
 
@@ -124,21 +209,40 @@ function renderMessages(messages) {
   const chatMessages = document.getElementById('chatMessages');
 
   if (messages.length === 0) {
-    chatMessages.innerHTML = '<p class="notif-empty">No messages yet. Say hello.</p>';
+    window.SafariTrakUI?.setStatus(chatMessages, {
+      state: 'empty',
+      title: 'No messages yet',
+      message: 'Send a message to start this conversation.',
+    });
     return;
   }
 
-  chatMessages.innerHTML = messages.map(m => {
-    const isMine = m.is_mine ? 'me' : 'them';
-    return `
-      <div class="bubble ${isMine}" data-msg-id="${m.id}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-        <span>${escapeHtml(m.body)}</span>
-        <button type="button" class="delete-single-msg-btn" onclick="deleteSingleMessage(${m.id})" title="Delete message" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:12px; opacity:0.7;">
-          <i class="fa-solid fa-trash"></i>
-        </button>
-      </div>
-    `;
-  }).join('');
+  chatMessages.replaceChildren();
+  messages.forEach(message => {
+    const bubble = document.createElement('div');
+    bubble.className = `bubble ${message.is_mine ? 'me' : 'them'}`;
+    bubble.dataset.msgId = String(message.id);
+    bubble.style.display = 'flex';
+    bubble.style.alignItems = 'center';
+    bubble.style.justifyContent = 'space-between';
+    bubble.style.gap = '8px';
+
+    const body = document.createElement('span');
+    body.textContent = message.body;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'delete-single-msg-btn';
+    remove.setAttribute('aria-label', 'Delete message');
+    remove.title = 'Delete message';
+    remove.style.cssText = 'background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px;opacity:.7';
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid fa-trash';
+    icon.setAttribute('aria-hidden', 'true');
+    remove.append(icon);
+    remove.addEventListener('click', () => deleteSingleMessage(message.id));
+    bubble.append(body, remove);
+    chatMessages.append(bubble);
+  });
 
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -173,6 +277,8 @@ document.getElementById('chatForm')?.addEventListener('submit', async (e) => {
   const text = input.value.trim();
   if (!text || !activeUserId) return;
 
+  const notice = document.getElementById('chatNotice');
+  notice?.replaceChildren();
   input.disabled = true;
 
   try {
@@ -184,7 +290,11 @@ document.getElementById('chatForm')?.addEventListener('submit', async (e) => {
     const data = await response.json();
 
     if (!data.success) {
-      alert(data.message || 'That message could not be sent.');
+      window.SafariTrakUI?.setStatus(notice, {
+        state: 'error',
+        title: 'Message not sent',
+        message: data.message || 'That message could not be sent.',
+      });
       return;
     }
 
@@ -199,6 +309,7 @@ document.getElementById('chatForm')?.addEventListener('submit', async (e) => {
     }
 
     input.value = '';
+    notice?.replaceChildren();
 
     const conv = conversations.find(c => c.user_id === activeUserId);
     if (conv) {
@@ -209,7 +320,12 @@ document.getElementById('chatForm')?.addEventListener('submit', async (e) => {
       renderConversationList();
     }
   } catch (err) {
-    alert('Something went wrong sending that message. Please try again.');
+    const offline = navigator.onLine === false;
+    window.SafariTrakUI?.setStatus(notice, {
+      state: offline ? 'offline' : 'error',
+      title: offline ? 'You are offline' : 'Message not sent',
+      message: offline ? 'Reconnect and try sending again.' : 'Something went wrong sending this message.',
+    });
   } finally {
     input.disabled = false;
     input.focus();
@@ -218,10 +334,18 @@ document.getElementById('chatForm')?.addEventListener('submit', async (e) => {
 
 document.getElementById('chatSearch')?.addEventListener('input', (e) => {
   const term = e.target.value.trim().toLowerCase();
-  document.querySelectorAll('#chatListItems .chat-item').forEach(item => {
+  const items = [...document.querySelectorAll('#chatListItems .chat-item')];
+  let visibleCount = 0;
+  items.forEach(item => {
     const name = (item.getAttribute('data-name') || '').toLowerCase();
-    item.style.display = name.includes(term) ? 'flex' : 'none';
+    const isVisible = name.includes(term);
+    item.closest('li').hidden = !isVisible;
+    if (isVisible) visibleCount++;
   });
+  const status = document.getElementById('chatSearchStatus');
+  if (status) status.textContent = term && visibleCount === 0
+    ? 'No conversations match your search.'
+    : term ? `${visibleCount} ${visibleCount === 1 ? 'conversation' : 'conversations'} found.` : '';
 });
 
 loadConversations();

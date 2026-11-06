@@ -13,6 +13,15 @@ $db = safaritrak_db();
 
 $status = 'invalid'; // invalid | expired | already | success
 $user = null;
+$successRedirect = 'index.php';
+$groupInviteToken = isset($_GET['group_invite']) && is_string($_GET['group_invite'])
+    && preg_match('/^[a-f0-9]{64}$/', $_GET['group_invite'])
+        ? $_GET['group_invite']
+        : '';
+$organizationInviteToken = isset($_GET['org_invite']) && is_string($_GET['org_invite'])
+    && preg_match('/^[a-f0-9]{64}$/', $_GET['org_invite'])
+        ? $_GET['org_invite']
+        : '';
 
 if ($token !== '') {
     $tokenHash = hash('sha256', $token);
@@ -46,15 +55,24 @@ if ($token !== '') {
             );
 
             st_send_welcome_email($user);
-            st_login_user($user, false);
+            st_login_user($user, false, $db);
 
+            $orgAdminStmt = $db->prepare('SELECT 1 FROM organization_admins WHERE user_id = ? LIMIT 1');
+            $orgAdminStmt->execute([(int) $user['id']]);
+            if ($orgAdminStmt->fetchColumn()) {
+                $successRedirect = 'org-dashboard.php';
+            } elseif ($groupInviteToken !== '') {
+                $successRedirect = 'group-invite.php?token=' . rawurlencode($groupInviteToken);
+            } elseif ($organizationInviteToken !== '') {
+                $successRedirect = 'organization-invite.php?token=' . rawurlencode($organizationInviteToken);
+            }
             $status = 'success';
         }
     }
 }
 
 $copy = [
-    'success' => ['title' => 'Email verified', 'text' => 'Your account is active. Taking you to your dashboard...', 'redirect' => 'index.php'],
+    'success' => ['title' => 'Email verified', 'text' => 'Your account is active. Taking you to your dashboard...', 'redirect' => $successRedirect],
     'already' => ['title' => 'Already verified', 'text' => 'This email is already verified — you can log in as usual.', 'redirect' => null],
     'expired' => ['title' => 'Link expired', 'text' => 'This verification link has expired. Request a new one from the login screen.', 'redirect' => null],
     'invalid' => ['title' => 'Invalid link', 'text' => 'This verification link is not valid. Request a new one from the login screen.', 'redirect' => null],
@@ -67,6 +85,7 @@ $copy = [
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SafariTrak | Verify Email</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="auth-theme.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
@@ -80,7 +99,7 @@ $copy = [
     <p class="subtitle"><?= htmlspecialchars($copy['text']) ?></p>
 
     <?php if ($status === 'success'): ?>
-      <a class="login-btn" style="display:block;text-align:center;text-decoration:none" href="index.php">Go to dashboard</a>
+      <a class="login-btn" style="display:block;text-align:center;text-decoration:none" href="<?= htmlspecialchars($successRedirect, ENT_QUOTES, 'UTF-8') ?>">Go to dashboard</a>
     <?php else: ?>
       <a class="login-btn" style="display:block;text-align:center;text-decoration:none" href="login.php">Back to login</a>
     <?php endif; ?>
@@ -88,9 +107,10 @@ $copy = [
 
   <?php if ($status === 'success'): ?>
   <script>
-    setTimeout(function () { window.location.href = 'index.php'; }, 2500);
+    setTimeout(function () { window.location.href = <?= json_encode($successRedirect, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>; }, 2500);
   </script>
   <?php endif; ?>
+  <script src="auth-theme.js"></script>
 
 </body>
 </html>

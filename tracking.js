@@ -1,280 +1,159 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // -------------------------------------------------------------------------
-    // 1. State Configuration & Global Variables
-    // -------------------------------------------------------------------------
-    const journeyId = window.journeyId;
-    const isWatcher = window.isWatcher || false;
-    const startCoords = window.startCoordinates;
-    const destCoords = window.destinationCoordinates;
-    let initialTotalDistanceKm = parseFloat(window.totalDistanceKm) || 0;
+const initialCenter = (JOURNEY_START_LAT !== null && JOURNEY_START_LNG !== null)
+  ? [JOURNEY_START_LAT, JOURNEY_START_LNG]
+  : [-1.286389, 36.817223];
 
-    if (!journeyId || !document.getElementById('map')) return;
+const map = L.map('map', {
+  zoomControl: false,
+  scrollWheelZoom: false,
+  doubleClickZoom: false,
+  touchZoom: false,
+  boxZoom: false,
+  keyboard: false,
+}).setView(initialCenter, 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map);
 
-    let map = null;
-    let userMarker = null;
-    let routePolyline = null;      // Path already covered
-    let directionPolyline = null;  // Recommended road directions
-    let watchPositionId = null;
-    let pollingIntervalId = null;
-    
-    // Trackers to suppress GPS jitter & OSRM snapping jumps
-    let lastRecordedLatLng = null; 
-    let lastOSRMQueryLatLng = null;
+const currentIcon = L.divIcon({
+  className: 'st-marker',
+  html: '<div style="width:18px;height:18px;background:#176b5b;border:4px solid white;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,.25)"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9]
+});
 
-    const connectionDot = document.getElementById('connectionDot');
-    const trackingStatus = document.getElementById('trackingStatus');
-    const coveredKmEl = document.getElementById('coveredKm') || document.getElementById('distCoveredEl');
-    const remainingKmEl = document.getElementById('remainingKm') || document.getElementById('distRemainingEl');
-    const totalKmEl = document.getElementById('totalKm') || document.getElementById('totalDistanceEl');
-    const currentSpeedEl = document.getElementById('currentSpeed');
-    const locationAccuracyEl = document.getElementById('locationAccuracy');
+const destinationIcon = L.divIcon({
+  className: 'st-marker',
+  html: '<div style="width:18px;height:18px;background:#d69b2d;border:4px solid white;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,.25)"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9]
+});
 
-    // Distance calculation helper (Haversine formula) in meters
-    function getDistanceMeters(lat1, lon1, lat2, lon2) {
-        const R = 6371e3;
-        const φ1 = lat1 * Math.PI / 180;
-        const φ2 = lat2 * Math.PI / 180;
-        const Δφ = (lat2 - lat1) * Math.PI / 180;
-        const Δλ = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                  Math.cos(φ1) * Math.cos(φ2) *
-                  Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
+const marker = L.marker(initialCenter, { icon: currentIcon }).addTo(map).bindPopup('<b>You are here</b>');
 
-    // -------------------------------------------------------------------------
-    // 2. Map Instantiation & Initialization
-    // -------------------------------------------------------------------------
-    const defaultCenter = startCoords ? [startCoords.lat, startCoords.lng] : [0, 0];
-    map = L.map('map').setView(defaultCenter, 15);
+if (JOURNEY_END_LAT !== null && JOURNEY_END_LNG !== null) {
+  L.marker([JOURNEY_END_LAT, JOURNEY_END_LNG], { icon: destinationIcon }).addTo(map).bindPopup('<b>Destination</b>');
+  if (JOURNEY_START_LAT !== null && JOURNEY_START_LNG !== null) {
+    map.fitBounds([[JOURNEY_START_LAT, JOURNEY_START_LNG], [JOURNEY_END_LAT, JOURNEY_END_LNG]], { padding: [40, 40] });
+  }
+}
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+let lastPositionTime = 0;
 
-    const locatorIcon = L.divIcon({
-        className: 'st-locator',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
+async function pushPosition(lat, lng, speedKmh) {
+  try {
+    const response = await fetch('backend/api/journeys/update-position.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ journey_id: ACTIVE_JOURNEY_ID, lat, lng, speed_kmh: speedKmh }),
     });
+    const data = await response.json();
+    if (data.success) {
+      const coveredEl = document.getElementById('coveredKm');
+      if (coveredEl && data.covered_km !== undefined) {
+        coveredEl.textContent = data.covered_km + ' km';
+      }
+    }
+  } catch (err) {
+    /* Silent retry on next interval */
+  }
+}
 
-    const pinIcon = L.divIcon({
-        className: 'st-pin',
-        iconSize: [26, 34],
-        iconAnchor: [13, 34]
+function handlePosition(position) {
+  const lat = position.coords.latitude;
+  const lng = position.coords.longitude;
+  const speedMs = position.coords.speed;
+  const speedKmh = (speedMs !== null && speedMs !== undefined) ? Math.round(speedMs * 3.6) : null;
+
+  marker.setLatLng([lat, lng]);
+
+  const speedEl = document.getElementById('currentSpeed');
+  if (speedEl) {
+    speedEl.textContent = speedKmh !== null ? speedKmh + ' km/h' : '-';
+  }
+
+  const now = Date.now();
+  if (now - lastPositionTime > 15000) {
+    lastPositionTime = now;
+    pushPosition(lat, lng, speedKmh);
+  }
+}
+
+function locate() {
+  if (!navigator.geolocation) return alert('Location is not supported by this browser.');
+  navigator.geolocation.getCurrentPosition(p => {
+    handlePosition(p);
+    map.setView([p.coords.latitude, p.coords.longitude], 15);
+    marker.openPopup();
+  }, () => alert('Please allow SafariTrak to access your location.'), { enableHighAccuracy: true, timeout: 10000 });
+}
+
+document.getElementById('myLocation')?.addEventListener('click', locate);
+
+if (navigator.geolocation) {
+  navigator.geolocation.watchPosition(handlePosition, () => {}, { enableHighAccuracy: true, maximumAge: 10000 });
+}
+
+document.getElementById('confirmEndJourneyBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('confirmEndJourneyBtn');
+  btn.disabled = true;
+  btn.textContent = 'Ending...';
+
+  try {
+    const response = await fetch('backend/api/journeys/end.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ journey_id: ACTIVE_JOURNEY_ID }),
     });
+    const data = await response.json();
 
-    if (startCoords) {
-        userMarker = L.marker([startCoords.lat, startCoords.lng], { icon: locatorIcon })
-            .addTo(map)
-            .bindPopup('Traveler Location');
-        lastRecordedLatLng = [startCoords.lat, startCoords.lng];
+    if (!data.success) {
+      alert(data.message || 'That journey could not be ended.');
+      btn.disabled = false;
+      btn.textContent = 'End journey';
+      return;
     }
 
-    if (destCoords) {
-        L.marker([destCoords.lat, destCoords.lng], { icon: pinIcon })
-            .addTo(map)
-            .bindPopup('Destination');
+    window.location.href = 'my-journeys.php';
+  } catch (err) {
+    alert('Something went wrong ending that journey. Please try again.');
+    btn.disabled = false;
+    btn.textContent = 'End journey';
+  }
+});
+
+document.querySelectorAll('.stop-sharing-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (!confirm('Stop sharing this journey with them?')) return;
+    btn.disabled = true;
+
+    try {
+      const response = await fetch('backend/api/journeys/stop-sharing.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          journey_id: ACTIVE_JOURNEY_ID,
+          trusted_contact_id: btn.getAttribute('data-contact-id')
+        }),
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        alert(data.message || 'That could not be completed.');
+        btn.disabled = false;
+        return;
+      }
+
+      const row = btn.closest('div');
+      const container = row.parentElement;
+      row.remove();
+
+      if (container && container.querySelectorAll('div').length === 0) {
+        container.innerHTML = '<p class="hint" style="padding:16px 21px;color:var(--muted);font-size:11px">You did not share this journey with anyone.</p>';
+      }
+    } catch (err) {
+      alert('Something went wrong. Please try again.');
+      btn.disabled = false;
     }
-
-    routePolyline = L.polyline([], { color: '#10b981', weight: 4 }).addTo(map);
-    directionPolyline = L.polyline([], { color: '#2563eb', weight: 5, dashArray: '8, 8', opacity: 0.8 }).addTo(map);
-
-    function updateStatus(text, active = true) {
-        if (trackingStatus) trackingStatus.textContent = text;
-        if (connectionDot) {
-            connectionDot.style.background = active ? '#10b981' : '#ef4444';
-        }
-    }
-
-    // OSRM Navigation Route & Metric Synchronization (Throttled by distance)
-    async function updateDirectionRoute(currentLat, currentLng, forceUpdate = false) {
-        if (!destCoords) return;
-
-        // Skip fetch if traveler hasn't moved at least 30 meters since the last route calculation
-        if (!forceUpdate && lastOSRMQueryLatLng) {
-            const moveDist = getDistanceMeters(lastOSRMQueryLatLng[0], lastOSRMQueryLatLng[1], currentLat, currentLng);
-            if (moveDist < 30) return; 
-        }
-
-        try {
-            const url = `https://router.project-osrm.org/route/v1/driving/${currentLng},${currentLat};${destCoords.lng},${destCoords.lat}?overview=full&geometries=geojson`;
-            const response = await fetch(url);
-            const data = await response.json();
-
-            if (data.routes && data.routes.length > 0) {
-                const routeCoordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                directionPolyline.setLatLngs(routeCoordinates);
-
-                const remainingKm = parseFloat((data.routes[0].distance / 1000).toFixed(1));
-
-                if (!initialTotalDistanceKm || initialTotalDistanceKm < remainingKm) {
-                    initialTotalDistanceKm = remainingKm;
-                    if (totalKmEl) totalKmEl.textContent = `${initialTotalDistanceKm} km`;
-                }
-
-                const coveredKm = Math.max(0, (initialTotalDistanceKm - remainingKm)).toFixed(1);
-
-                if (remainingKmEl) remainingKmEl.textContent = `${remainingKm} km`;
-                if (coveredKmEl) coveredKmEl.textContent = `${coveredKm} km`;
-
-                lastOSRMQueryLatLng = [currentLat, currentLng];
-            }
-        } catch (error) {
-            console.error('Error fetching road directions:', error);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // 3. Broadcaster Mode (Traveler Mode)
-    // -------------------------------------------------------------------------
-    if (!isWatcher) {
-        if (startCoords) {
-            updateDirectionRoute(startCoords.lat, startCoords.lng, true);
-        }
-
-        if ('geolocation' in navigator) {
-            watchPositionId = navigator.geolocation.watchPosition(
-                async (position) => {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    const speed = position.coords.speed ? (position.coords.speed * 3.6).toFixed(1) : 0;
-                    const accuracy = position.coords.accuracy ? Math.round(position.coords.accuracy) : null;
-
-                    const latLng = [lat, lng];
-
-                    if (currentSpeedEl) currentSpeedEl.textContent = `${speed} km/h`;
-                    if (locationAccuracyEl) locationAccuracyEl.textContent = accuracy ? `${accuracy} m` : 'Unknown';
-                    updateStatus('Broadcasting live', true);
-
-                    // Skip position processing entirely if accuracy reading is worse than 50 meters
-                    if (accuracy && accuracy > 50) return;
-
-                    if (!userMarker) {
-                        userMarker = L.marker(latLng, { icon: locatorIcon }).addTo(map).bindPopup('Traveler Location');
-                    } else {
-                        userMarker.setLatLng(latLng);
-                    }
-
-                    // Only update trail breadcrumbs if moved > 20 meters
-                    if (!lastRecordedLatLng || getDistanceMeters(lastRecordedLatLng[0], lastRecordedLatLng[1], lat, lng) > 20) {
-                        routePolyline.addLatLng(latLng);
-                        lastRecordedLatLng = latLng;
-                    }
-
-                    map.setView(latLng);
-                    updateDirectionRoute(lat, lng);
-
-                    try {
-                        await fetch('backend/api/tracking/update_location.php', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                journey_id: journeyId,
-                                latitude: lat,
-                                longitude: lng,
-                                speed: speed,
-                                accuracy: accuracy
-                            })
-                        });
-                    } catch (err) {
-                        updateStatus('Connection error', false);
-                    }
-                },
-                (error) => {
-                    console.error('Geolocation error:', error);
-                    updateStatus('GPS Error', false);
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-        } else {
-            updateStatus('GPS not supported', false);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // 4. Watcher Mode (Shared Journey Polling Mode)
-    // -------------------------------------------------------------------------
-    if (isWatcher) {
-        if (startCoords) {
-            updateDirectionRoute(startCoords.lat, startCoords.lng, true);
-        }
-
-        async function fetchTravelerLocation() {
-            try {
-                const response = await fetch(`backend/api/tracking/get_location.php?journey_id=${journeyId}`);
-                const data = await response.json();
-
-                if (data.success && data.latitude != null && data.longitude != null) {
-                    const lat = parseFloat(data.latitude);
-                    const lng = parseFloat(data.longitude);
-
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        const latLng = [lat, lng];
-
-                        if (!userMarker) {
-                            userMarker = L.marker(latLng, { icon: locatorIcon }).addTo(map).bindPopup('Traveler Location');
-                            map.setView(latLng, 15);
-                        } else {
-                            userMarker.setLatLng(latLng);
-                        }
-
-                        if (!lastRecordedLatLng || getDistanceMeters(lastRecordedLatLng[0], lastRecordedLatLng[1], lat, lng) > 20) {
-                            routePolyline.addLatLng(latLng);
-                            lastRecordedLatLng = latLng;
-                        }
-
-                        if (currentSpeedEl && data.speed !== undefined) {
-                            currentSpeedEl.textContent = `${data.speed} km/h`;
-                        }
-
-                        updateStatus('Live (Watching)', true);
-                        updateDirectionRoute(lat, lng);
-                    }
-                } else {
-                    updateStatus('Waiting for traveler updates...', true);
-                }
-            } catch (err) {
-                console.error('Error fetching traveler location:', err);
-                updateStatus('Reconnecting...', false);
-            }
-        }
-
-        fetchTravelerLocation();
-        pollingIntervalId = setInterval(fetchTravelerLocation, 5000);
-    }
-
-    // -------------------------------------------------------------------------
-    // 5. UI Bindings & Lifecycle Management
-    // -------------------------------------------------------------------------
-    document.getElementById('myLocationBtn')?.addEventListener('click', () => {
-        if (userMarker) {
-            map.setView(userMarker.getLatLng(), 15);
-        } else if (startCoords) {
-            map.setView([startCoords.lat, startCoords.lng], 15);
-        }
-    });
-
-    window.safariTrakTracking = {
-        endJourneyDirect: async () => {
-            if (watchPositionId !== null) navigator.geolocation.clearWatch(watchPositionId);
-            if (pollingIntervalId !== null) clearInterval(pollingIntervalId);
-
-            try {
-                const res = await fetch('backend/api/journeys/end.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ journey_id: journeyId })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    window.location.href = 'my-journeys.php';
-                } else {
-                    alert(data.message || 'Could not end journey.');
-                }
-            } catch (err) {
-                alert('An error occurred while stopping the journey.');
-            }
-        }
-    };
+  });
 });

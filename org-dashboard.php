@@ -8,7 +8,12 @@ $myOrg = null;
 $myOrgSuspended = false;
 
 if (!empty($currentUser['organization_id'])) {
-    $orgStmt = $db->prepare('SELECT * FROM organizations WHERE id = ? LIMIT 1');
+    $orgStmt = $db->prepare(
+        'SELECT o.*, p.account_type, p.review_status
+         FROM organizations o
+         LEFT JOIN organization_profiles p ON p.organization_id = o.id
+         WHERE o.id = ? LIMIT 1'
+    );
     $orgStmt->execute([$currentUser['organization_id']]);
     $myOrg = $orgStmt->fetch();
 
@@ -17,8 +22,9 @@ if (!empty($currentUser['organization_id'])) {
     }
 }
 
-if ($myOrg && !$myOrgSuspended) {
+if ($myOrg && !$myOrgSuspended && ($myOrg['review_status'] ?? 'approved') === 'approved') {
     $orgId = (int) $myOrg['id'];
+    $isSchool = ($myOrg['account_type'] ?? '') === 'school';
 
     $totalTravelersStmt = $db->prepare('SELECT COUNT(*) FROM organization_travelers WHERE organization_id = ? AND status = "active"');
     $totalTravelersStmt->execute([$orgId]);
@@ -28,6 +34,26 @@ if ($myOrg && !$myOrgSuspended) {
     $addedThisMonthStmt->execute([$orgId]);
     $addedThisMonth = (int) $addedThisMonthStmt->fetchColumn();
 
+    if ($isSchool) {
+        $roleCountsStmt = $db->prepare(
+            'SELECT member_type, COUNT(*) AS member_count
+             FROM organization_travelers
+             WHERE organization_id = ? AND status = "active"
+             GROUP BY member_type'
+        );
+        $roleCountsStmt->execute([$orgId]);
+        $schoolRoleCounts = array_fill_keys(['student', 'guardian', 'staff'], 0);
+        foreach ($roleCountsStmt->fetchAll() as $roleCount) {
+            $schoolRoleCounts[$roleCount['member_type']] = (int) $roleCount['member_count'];
+        }
+        $pendingRequestsStmt = $db->prepare(
+            'SELECT COUNT(*) FROM organization_membership_requests
+             WHERE organization_id = ? AND status = "pending"'
+        );
+        $pendingRequestsStmt->execute([$orgId]);
+        $pendingEnrollmentCount = (int) $pendingRequestsStmt->fetchColumn();
+        $activity = [];
+    } else {
     $activeJourneysStmt = $db->prepare('SELECT COUNT(*) FROM journeys WHERE status = "active" AND user_id IN (SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active")');
     $activeJourneysStmt->execute([$orgId]);
     $activeJourneys = (int) $activeJourneysStmt->fetchColumn();
@@ -80,6 +106,7 @@ if ($myOrg && !$myOrgSuspended) {
     );
     $activityStmt->execute([$orgId, $orgId, $orgId, $orgId, $orgId]);
     $activity = $activityStmt->fetchAll();
+    }
 }
 
 function admin_relative_time(string $dt): string {
@@ -97,61 +124,42 @@ function admin_relative_time(string $dt): string {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafariTrak | Organization Overview</title>
-<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
-<div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small><span class="org-badge">ORGANIZATION</span></div></div>
-  <nav>
-    <a class="active" href="org-dashboard.php"><i class="fa-solid fa-grid-2"></i>Overview</a>
-    <?php if ($myOrg): ?>
-    <a href="org-travelers.php"><i class="fa-solid fa-users"></i>Travelers</a>
-    <a href="org-groups.php"><i class="fa-solid fa-user-group"></i>Group Journeys</a>
-    <a href="org-reports.php"><i class="fa-solid fa-chart-simple"></i>Reports</a>
-    <?php endif; ?>
-  </nav>
-  <div class="bottom">
-    <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
-    <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account">
-      <span><?= st_avatar_inner($currentUser) ?></span>
-      <div>
-        <b><?= htmlspecialchars($userName) ?></b>
-        <small><?= htmlspecialchars($myOrg['name'] ?? 'Organization admin') ?></small>
-      </div>
-    </div>
-  </div>
-</aside>
+<?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
+<div class="app app--map-layout">
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
 <header>
   <button class="menu" id="menu"><i class="fa-solid fa-bars"></i></button>
   <div><label>ORGANIZATION OVERVIEW</label><h1><?= htmlspecialchars($myOrg['name'] ?? 'Get started') ?></h1></div>
-  <div class="head-actions">
-    <div class="notif-wrap">
-      <button type="button" class="notif-bell" id="notifBell">
-        <i class="fa-regular fa-bell"></i>
-        <span class="notif-dot" id="notifDot"></span>
-      </button>
-      <div class="notif-dropdown" id="notifDropdown">
-        <div class="notif-dropdown-head">
-          <b>Notifications</b>
-          <a href="notifications.php">View all</a>
-        </div>
-        <div class="notif-list" id="notifDropdownList">
-          <p class="notif-empty">Loading...</p>
-        </div>
-      </div>
-    </div>
-    <div class="avatar"><?= st_avatar_inner($currentUser) ?></div>
-  </div>
+  <div class="head-actions"><button><i class="fa-regular fa-bell"></i></button><div class="avatar"><?= st_avatar_inner($currentUser) ?></div></div>
 </header>
 
 <div class="content">
 
-<?php if ($myOrg && $myOrgSuspended): ?>
+<?php if ($myOrg && ($myOrg['review_status'] ?? 'approved') === 'pending'): ?>
+
+<div class="card org-review-card">
+  <div class="card-head"><div><label>APPLICATION RECEIVED</label><h3>Your organization is being reviewed</h3></div></div>
+  <div style="padding:0 21px 21px">
+    <p style="font-size:12px;color:var(--muted);line-height:1.7">Your <?= ($myOrg['account_type'] ?? 'school') === 'car_hire' ? 'car hire' : 'school' ?> account is pending platform approval. Traveler data, school enrollment, and fleet features stay unavailable until review is complete.</p>
+  </div>
+</div>
+
+<?php elseif ($myOrg && ($myOrg['review_status'] ?? 'approved') === 'rejected'): ?>
+
+<div class="card org-review-card">
+  <div class="card-head"><div><label>APPLICATION NOT APPROVED</label><h3>Your organization account was not approved</h3></div></div>
+  <div style="padding:0 21px 21px">
+    <p style="font-size:12px;color:var(--muted);line-height:1.7">Contact SafariTrak support if you think this decision was made in error.</p>
+  </div>
+</div>
+
+<?php elseif ($myOrg && $myOrgSuspended): ?>
 
 <div class="card" style="max-width:480px;margin:30px auto;border:1px solid #f3c8c8">
   <div class="card-head"><div><label style="color:#c94b4b">SUSPENDED</label><h3>This organization has been suspended</h3></div></div>
@@ -167,6 +175,7 @@ function admin_relative_time(string $dt): string {
   <div style="padding:0 21px 21px">
     <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:16px">Manage the people who travel under your organization, keep an eye on their journeys, and see safety reports in one place.</p>
     <div class="form-field" style="margin-bottom:14px"><label>Organization name</label><input type="text" id="orgName" placeholder="e.g. Meru Transport Sacco"></div>
+    <div class="form-field" style="margin-bottom:14px"><label>Account type</label><select id="orgAccountType"><option value="school">School</option><option value="car_hire">Car hire service</option></select></div>
     <p class="hint" id="createOrgError" style="color:#c94b4b;margin-bottom:10px;display:none"></p>
     <button type="button" class="btn-primary" id="createOrgBtn" style="width:100%;justify-content:center">Create organization</button>
   </div>
@@ -175,9 +184,29 @@ function admin_relative_time(string $dt): string {
 <?php else: ?>
 
 <div class="page-head">
-  <div><h2>How your organization is travelling</h2><p>A snapshot of your travelers, group journeys, and safety activity.</p></div>
+  <div><h2><?= $isSchool ? 'School community' : 'How your organization is travelling' ?></h2><p><?= $isSchool ? 'Manage school enrollment and roles. Personal journeys and live locations are not visible through school membership.' : 'A snapshot of your travelers, group journeys, and safety activity.' ?></p></div>
 </div>
 
+<?php if (($myOrg['account_type'] ?? '') === 'car_hire'): ?>
+<div class="card car-hire-dashboard-card">
+  <div class="card-head"><div><label>CAR HIRE OPERATIONS</label><h3>Your rental fleet</h3></div><a class="btn-primary" href="fleet.php"><i class="fa-solid fa-car"></i> Manage fleet &amp; bookings</a></div>
+  <p class="hint" style="padding:0 21px 20px;color:var(--muted);font-size:11px">Publish vehicles, respond to booking requests, and confirm availability directly with customers. Payments are arranged outside SafariTrak.</p>
+</div>
+<?php endif; ?>
+
+<?php if ($isSchool): ?>
+<div class="stat-grid school-membership-stats">
+  <div class="stat-card"><label>ENROLLED MEMBERS</label><strong><?= $totalTravelers ?></strong><small><?= $addedThisMonth ?> added this month</small></div>
+  <div class="stat-card"><label>STUDENTS</label><strong><?= $schoolRoleCounts['student'] ?></strong><small>Active school memberships</small></div>
+  <div class="stat-card"><label>GUARDIANS</label><strong><?= $schoolRoleCounts['guardian'] ?></strong><small>Personal guardian accounts</small></div>
+  <div class="stat-card"><label>PENDING REQUESTS</label><strong><?= $pendingEnrollmentCount ?></strong><small>Review in school community</small></div>
+</div>
+<div class="card school-privacy-notice">
+  <div class="card-head"><div><label>PERSONAL ACCOUNT PRIVACY</label><h3>Enrollment is not location sharing</h3></div></div>
+  <p class="hint" style="padding:0 21px 20px;color:var(--muted);font-size:12px;line-height:1.6">Students, guardians, and staff join with their own SafariTrak accounts. School membership provides access to this school workspace only; it does not expose a member’s personal routes, live location, or safety history.</p>
+  <div style="padding:0 21px 20px"><a class="btn-primary" href="org-travelers.php">Manage school enrollment</a></div>
+</div>
+<?php else: ?>
 <div class="stat-grid">
   <div class="stat-card"><label>TOTAL TRAVELERS</label><strong><?= $totalTravelers ?></strong><small><?= $addedThisMonth ?> added this month</small></div>
   <div class="stat-card"><label>ACTIVE JOURNEYS</label><strong><?= $activeJourneys ?></strong><small>Right now</small></div>
@@ -220,12 +249,13 @@ function admin_relative_time(string $dt): string {
 
 <?php endif; ?>
 
+<?php endif; ?>
+
 </div>
-<footer><?= '© ' . date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
+<footer>&copy; <?= date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
 </main>
 </div>
-<script src="dashboard.js"></script>
-<script src="notifications-widget.js"></script>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
 <?php if (!$myOrg): ?>
 <script src="org-onboarding.js"></script>
 <?php endif; ?>

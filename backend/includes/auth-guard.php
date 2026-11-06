@@ -51,6 +51,8 @@ $unreadStmt = $db->prepare(
 $unreadStmt->execute([$currentUser['id']]);
 $unreadConversationCount = (int) ($unreadStmt->fetch()['c'] ?? 0);
 
+session_write_close();
+
 function st_require_platform_admin(array $user): void {
     if (($user['role'] ?? '') !== 'platform_admin') {
         header('Location: index.php');

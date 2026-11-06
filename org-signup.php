@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SafariTrak | Register Your Organization</title>
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="auth-theme.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
@@ -23,6 +24,15 @@
         <i class="fa-solid fa-building input-icon"></i>
       </div>
       <p class="field-error" id="orgNameError">Enter your organization name</p>
+
+      <div class="input-group">
+        <select id="orgAccountType" required aria-label="Organization type">
+          <option value="school">School or learning institution</option>
+          <option value="car_hire">Car hire service</option>
+        </select>
+        <i class="fa-solid fa-layer-group input-icon"></i>
+      </div>
+      <p class="account-type-hint">New organizations are reviewed before traveler data or fleet tools become available.</p>
 
       <div class="input-group">
         <input type="text" id="fullName" placeholder="Your full name" required>
@@ -49,12 +59,12 @@
       <p class="field-error" id="orgPhoneError">Enter a valid phone number</p>
 
       <div class="input-group">
-        <input type="password" id="orgPassword" placeholder="Password" required>
+        <input type="password" id="orgPassword" placeholder="At least 12 characters" minlength="12" maxlength="1024" autocomplete="new-password" required>
         <button type="button" class="input-icon" id="toggleOrgPassword" aria-label="Show password">
           <i class="fa-regular fa-eye-slash"></i>
         </button>
       </div>
-      <p class="field-error" id="orgPasswordError">Password must be at least 6 characters</p>
+      <p class="field-error" id="orgPasswordError">Password must be at least 12 characters and no more than 1024 bytes</p>
 
       <div class="remember-me">
         <input type="checkbox" id="orgTerms" required>
@@ -74,6 +84,7 @@
   </div>
 
   <script src="auth.js"></script>
+  <script src="auth-theme.js"></script>
   <script src="org-signup.js"></script>
 </body>
 </html>

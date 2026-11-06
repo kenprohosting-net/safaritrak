@@ -1,487 +1,107 @@
-let map = null;
+const initialCenter = (window.WATCH_START_LAT !== null && window.WATCH_START_LNG !== null)
+  ? [window.WATCH_START_LAT, window.WATCH_START_LNG]
+  : [-1.286389, 36.817223];
 
-let currentMarker = null;
+const map = L.map('map', {
+  zoomControl: false,
+  scrollWheelZoom: false,
+  doubleClickZoom: false,
+  touchZoom: false,
+  boxZoom: false,
+  keyboard: false,
+}).setView(initialCenter, 11);
 
-let destinationMarker = null;
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map);
 
-let distanceLine = null;
-
-let distanceLabel = null;
-
-let updateTimer = null;
-
-let firstLoad = true;
-
-const normalLocationIcon = L.divIcon({
-    className: 'normal-location-marker',
-    html: '<div class="location-dot"></div>',
-    iconSize: [30, 30],
-    iconAnchor: [15, 15]
+const currentIcon = L.divIcon({
+  className: 'st-marker',
+  html: '<div style="width:18px;height:18px;background:#176b5b;border:4px solid white;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,.25)"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9]
 });
 
 const destinationIcon = L.divIcon({
-    className: 'destination-marker',
-    html: '<div class="destination-pin">🏁</div>',
-    iconSize: [36, 36],
-    iconAnchor: [18, 32]
+  className: 'st-marker',
+  html: '<div style="width:18px;height:18px;background:#d69b2d;border:4px solid white;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,.25)"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9]
 });
 
-function initializeMap() {
+let currentMarker = null;
+let routeLine = null;
 
-    map = L.map('map').setView(
-        [-1.286389, 36.817223],
-        13
-    );
-
-    L.tileLayer(
-        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        {
-            maxZoom: 19,
-            attribution:
-                '&copy; OpenStreetMap contributors'
-        }
-    ).addTo(map);
-
-    loadJourney();
-
-    updateTimer = setInterval(
-        loadJourney,
-        5000
-    );
+if (window.WATCH_END_LAT !== null && window.WATCH_END_LNG !== null) {
+  L.marker([window.WATCH_END_LAT, window.WATCH_END_LNG], { icon: destinationIcon })
+    .addTo(map)
+    .bindPopup('<b>Destination</b>');
 }
 
-function loadJourney() {
-
-    if (!journeyId) {
-        showError('Journey ID is missing.');
-        return;
-    }
-
-    fetch(
-        `../backend/api/journeys/get-shared-journey.php?journey_id=${encodeURIComponent(journeyId)}`
-    )
-    .then(response => {
-
-        if (!response.ok) {
-            throw new Error(
-                `HTTP error ${response.status}`
-            );
-        }
-
-        return response.json();
-    })
-    .then(data => {
-
-        if (!data.success) {
-            showError(
-                data.message ||
-                'Unable to load journey.'
-            );
-
-            return;
-        }
-
-        hideError();
-
-        updateJourney(data);
-    })
-    .catch(error => {
-
-        console.error(
-            'Journey loading error:',
-            error
-        );
-
-        showError(
-            'Unable to connect to the journey server.'
-        );
-    });
+function relativeTime(dateString) {
+  const then = new Date(dateString.replace(' ', 'T'));
+  const diffMin = Math.floor((Date.now() - then.getTime()) / 60000);
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return diffMin + ' min ago';
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return diffHr + ' hr ago';
+  return then.toLocaleDateString();
 }
 
-function updateJourney(data) {
+async function refresh() {
+  try {
+    const response = await fetch('backend/api/journeys/shared-detail.php?id=' + window.WATCH_JOURNEY_ID);
+    const data = await response.json();
 
-    const latitude =
-        parseFloat(data.latitude);
-
-    const longitude =
-        parseFloat(data.longitude);
-
-    const destinationLatitude =
-        parseFloat(
-            data.destination_latitude
-        );
-
-    const destinationLongitude =
-        parseFloat(
-            data.destination_longitude
-        );
-
-    if (
-        Number.isNaN(latitude) ||
-        Number.isNaN(longitude)
-    ) {
-        return;
+    if (!data.success) {
+      const coveredEl = document.getElementById('coveredKm');
+      if (coveredEl) coveredEl.textContent = 'Not available';
+      return;
     }
 
-    if (
-        Number.isNaN(destinationLatitude) ||
-        Number.isNaN(destinationLongitude)
-    ) {
-        return;
-    }
+    const coveredEl = document.getElementById('coveredKm');
+    if (coveredEl) coveredEl.textContent = data.covered_km + ' km';
 
-    updateCurrentLocation(
-        latitude,
-        longitude
-    );
+    const positions = data.positions || [];
 
-    updateDestination(
-        destinationLatitude,
-        destinationLongitude
-    );
+    if (positions.length > 0) {
+      const latlngs = positions.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
 
-    updateDistanceLine(
-        latitude,
-        longitude,
-        destinationLatitude,
-        destinationLongitude,
-        data.distance_remaining_km
-    );
+      if (routeLine) {
+        routeLine.setLatLngs(latlngs);
+      } else {
+        routeLine = L.polyline(latlngs, { color: '#10b981', weight: 3 }).addTo(map);
+      }
 
-    updateInformation(data);
+      const last = positions[positions.length - 1];
+      const lastLatLng = [parseFloat(last.lat), parseFloat(last.lng)];
 
-    if (firstLoad) {
+      if (currentMarker) {
+        currentMarker.setLatLng(lastLatLng);
+      } else {
+        currentMarker = L.marker(lastLatLng, { icon: currentIcon }).addTo(map);
+        map.setView(lastLatLng, 13);
+      }
 
-        const bounds = L.latLngBounds([
-            [
-                latitude,
-                longitude
-            ],
-            [
-                destinationLatitude,
-                destinationLongitude
-            ]
-        ]);
-
-        map.fitBounds(
-            bounds,
-            {
-                padding: [60, 60],
-                maxZoom: 16
-            }
-        );
-
-        firstLoad = false;
-    }
-}
-
-function updateCurrentLocation(
-    latitude,
-    longitude
-) {
-
-    const position = [
-        latitude,
-        longitude
-    ];
-
-    if (!currentMarker) {
-
-        currentMarker = L.marker(
-            position,
-            {
-                icon: normalLocationIcon
-            }
-        ).addTo(map);
-
-        currentMarker.bindPopup(
-            'Current location'
-        );
-
+      const lastUpdateEl = document.getElementById('lastUpdate');
+      if (lastUpdateEl) lastUpdateEl.textContent = relativeTime(last.recorded_at);
     } else {
-
-        currentMarker.setLatLng(
-            position
-        );
+      const lastUpdateEl = document.getElementById('lastUpdate');
+      if (lastUpdateEl) lastUpdateEl.textContent = 'No updates yet';
     }
+
+    if (data.journey && data.journey.status !== 'active') {
+      if (pollHandle) clearInterval(pollHandle);
+    }
+  } catch (err) {
+    /* keep the last known state on a failed refresh */
+  }
 }
 
-function updateDestination(
-    latitude,
-    longitude
-) {
+let pollHandle = null;
+refresh();
 
-    const position = [
-        latitude,
-        longitude
-    ];
-
-    if (!destinationMarker) {
-
-        destinationMarker = L.marker(
-            position,
-            {
-                icon: destinationIcon
-            }
-        ).addTo(map);
-
-        destinationMarker.bindPopup(
-            'Destination'
-        );
-
-    } else {
-
-        destinationMarker.setLatLng(
-            position
-        );
-    }
+if (window.WATCH_IS_ACTIVE) {
+  pollHandle = setInterval(refresh, 15000);
 }
-
-function updateDistanceLine(
-    currentLatitude,
-    currentLongitude,
-    destinationLatitude,
-    destinationLongitude,
-    distance
-) {
-
-    const currentPosition = [
-        currentLatitude,
-        currentLongitude
-    ];
-
-    const destinationPosition = [
-        destinationLatitude,
-        destinationLongitude
-    ];
-
-    if (distanceLine) {
-        map.removeLayer(distanceLine);
-    }
-
-    distanceLine = L.polyline(
-        [
-            currentPosition,
-            destinationPosition
-        ],
-        {
-            dashArray: '6, 10',
-            weight: 3,
-            opacity: 0.8
-        }
-    ).addTo(map);
-
-    const midpointLatitude =
-        (
-            currentLatitude +
-            destinationLatitude
-        ) / 2;
-
-    const midpointLongitude =
-        (
-            currentLongitude +
-            destinationLongitude
-        ) / 2;
-
-    if (distanceLabel) {
-        map.removeLayer(distanceLabel);
-    }
-
-    distanceLabel = L.marker(
-        [
-            midpointLatitude,
-            midpointLongitude
-        ],
-        {
-            icon: L.divIcon({
-                className:
-                    'distance-label',
-                html:
-                    `<span>
-                        📏 ${distance} km
-                    </span>`,
-                iconSize: [
-                    120,
-                    30
-                ],
-                iconAnchor: [
-                    60,
-                    15
-                ]
-            }),
-            interactive: false
-        }
-    ).addTo(map);
-}
-
-function updateInformation(data) {
-
-    const distanceElement =
-        document.getElementById(
-            'distanceRemaining'
-        );
-
-    const speedElement =
-        document.getElementById(
-            'currentSpeed'
-        );
-
-    const etaElement =
-        document.getElementById(
-            'eta'
-        );
-
-    const statusElement =
-        document.getElementById(
-            'trackingStatus'
-        );
-
-    const destinationElement =
-        document.getElementById(
-            'destinationName'
-        );
-
-    const updatedElement =
-        document.getElementById(
-            'lastUpdated'
-        );
-
-    const liveDot =
-        document.getElementById(
-            'liveDot'
-        );
-
-    if (distanceElement) {
-
-        distanceElement.textContent =
-            `${data.distance_remaining_km} km`;
-    }
-
-    if (speedElement) {
-
-        speedElement.textContent =
-            `${data.speed_kmh} km/h`;
-    }
-
-    if (etaElement) {
-
-        if (
-            data.eta_minutes !== null &&
-            data.eta_minutes !== undefined
-        ) {
-
-            etaElement.textContent =
-                `${data.eta_minutes} min`;
-
-        } else {
-
-            etaElement.textContent =
-                'Calculating...';
-        }
-    }
-
-    if (statusElement) {
-
-        if (data.status === 'active') {
-
-            statusElement.textContent =
-                'Live';
-
-        } else {
-
-            statusElement.textContent =
-                'Journey ended';
-        }
-    }
-
-    if (liveDot) {
-
-        liveDot.style.opacity =
-            data.status === 'active'
-                ? '1'
-                : '0.4';
-    }
-
-    if (destinationElement) {
-
-        destinationElement.textContent =
-            data.destination_name ||
-            'Destination';
-    }
-
-    if (updatedElement) {
-
-        updatedElement.textContent =
-            formatUpdatedTime(
-                data.updated_at
-            );
-    }
-}
-
-function formatUpdatedTime(
-    timestamp
-) {
-
-    if (!timestamp) {
-        return '--';
-    }
-
-    const date =
-        new Date(
-            timestamp.replace(' ', 'T')
-        );
-
-    if (Number.isNaN(date.getTime())) {
-        return timestamp;
-    }
-
-    return date.toLocaleTimeString();
-}
-
-function showError(message) {
-
-    const errorElement =
-        document.getElementById(
-            'mapError'
-        );
-
-    if (!errorElement) {
-        return;
-    }
-
-    errorElement.textContent =
-        message;
-
-    errorElement.style.display =
-        'block';
-}
-
-function hideError() {
-
-    const errorElement =
-        document.getElementById(
-            'mapError'
-        );
-
-    if (!errorElement) {
-        return;
-    }
-
-    errorElement.style.display =
-        'none';
-}
-
-window.addEventListener(
-    'load',
-    initializeMap
-);
-
-window.addEventListener(
-    'beforeunload',
-    function() {
-
-        if (updateTimer) {
-            clearInterval(updateTimer);
-        }
-    }
-);

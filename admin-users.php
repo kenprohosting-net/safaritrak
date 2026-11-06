@@ -24,57 +24,19 @@ $users = $usersStmt->fetchAll();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafariTrak | Users</title>
-<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
-<div class="app">
-<aside class="sidebar platform-sidebar" id="sidebar">
-  <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small><span class="platform-badge">PLATFORM ADMIN</span></div></div>
-  <nav>
-    <a href="admin-dashboard.php"><i class="fa-solid fa-grid-2"></i>Overview</a>
-    <a class="active" href="admin-users.php"><i class="fa-solid fa-users"></i>Users</a>
-    <a href="admin-organizations.php"><i class="fa-solid fa-building"></i>Organizations</a>
-    <a href="admin-safety.php"><i class="fa-solid fa-triangle-exclamation"></i>Safety</a>
-    <?php if ($myPlatformRole['role'] === 'owner'): ?>
-    <a href="admin-admins.php"><i class="fa-solid fa-user-shield"></i>Admins</a>
-    <?php endif; ?>
-  </nav>
-  <div class="bottom">
-    <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
-    <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account">
-      <span><?= st_avatar_inner($currentUser) ?></span>
-      <div>
-        <b><?= htmlspecialchars($userName) ?></b>
-        <small>SafariTrak <?= htmlspecialchars(ucfirst($myPlatformRole['role'])) ?></small>
-      </div>
-    </div>
-  </div>
-</aside>
+<?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
+<div class="app app--map-layout">
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
 <header>
   <button class="menu" id="menu"><i class="fa-solid fa-bars"></i></button>
   <div><label>EVERYONE ON SAFARITRAK</label><h1>Users</h1></div>
-  <div class="head-actions">
-    <div class="notif-wrap">
-      <button type="button" class="notif-bell" id="notifBell">
-        <i class="fa-regular fa-bell"></i>
-        <span class="notif-dot" id="notifDot"></span>
-      </button>
-      <div class="notif-dropdown" id="notifDropdown">
-        <div class="notif-dropdown-head">
-          <b>Notifications</b>
-          <a href="notifications.php">View all</a>
-        </div>
-        <div class="notif-list" id="notifDropdownList">
-          <p class="notif-empty">Loading...</p>
-        </div>
-      </div>
-    </div>
-    <div class="avatar"><?= st_avatar_inner($currentUser) ?></div>
-  </div>
+  <div class="head-actions"><button><i class="fa-regular fa-bell"></i></button><div class="avatar">S</div></div>
 </header>
 
 <div class="content">
@@ -127,11 +89,10 @@ $users = $usersStmt->fetchAll();
 </div>
 
 </div>
-<footer><?= '© ' . date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
+<footer>&copy; <?= date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
 </main>
 </div>
-<script src="dashboard.js"></script>
-<script src="notifications-widget.js"></script>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
 <script src="admin-users.js"></script>
 </body>
 </html>
