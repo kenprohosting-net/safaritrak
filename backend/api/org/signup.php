@@ -4,24 +4,31 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/response.php';
 require_once __DIR__ . '/../../includes/session.php';
 require_once __DIR__ . '/../../includes/mailer.php';
+require_once __DIR__ . '/../../includes/password-policy.php';
+require_once __DIR__ . '/../../includes/rate-limit.php';
+require_once __DIR__ . '/../../includes/consent.php';
 
 st_start_session();
 st_require_method('POST');
 
 $input = st_input();
 
-$orgName = trim($input['org_name'] ?? '');
-$fullName = trim($input['full_name'] ?? '');
-$username = trim($input['username'] ?? '');
-$email = trim(strtolower($input['email'] ?? ''));
-$phone = preg_replace('/\D/', '', $input['phone'] ?? '');
-$password = (string) ($input['password'] ?? '');
+$orgName = trim(st_input_string($input, 'org_name'));
+$accountType = st_input_string($input, 'account_type');
+$fullName = trim(st_input_string($input, 'full_name'));
+$username = trim(st_input_string($input, 'username'));
+$email = trim(strtolower(st_input_string($input, 'email')));
+$phone = preg_replace('/\D/', '', st_input_string($input, 'phone'));
+$password = st_input_string($input, 'password');
 $terms = !empty($input['terms']);
 
 $errors = [];
 
 if ($orgName === '' || mb_strlen($orgName) > 160) {
     $errors['org_name'] = 'Enter your organization name.';
+}
+if (!in_array($accountType, ['school', 'car_hire'], true)) {
+    $errors['account_type'] = 'Choose a school or car hire account.';
 }
 if ($fullName === '') {
     $errors['full_name'] = 'Enter your full name.';
@@ -35,8 +42,9 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 if (strlen($phone) < 9) {
     $errors['phone'] = 'Enter a valid phone number.';
 }
-if (strlen($password) < 6) {
-    $errors['password'] = 'Password must be at least 6 characters.';
+$passwordError = st_password_policy_error($password);
+if ($passwordError !== null) {
+    $errors['password'] = $passwordError;
 }
 if (!$terms) {
     $errors['terms'] = 'You need to accept the terms to continue.';
@@ -47,6 +55,17 @@ if (!empty($errors)) {
 }
 
 $db = safaritrak_db();
+$retryAfter = st_rate_limit_consume(
+    $db,
+    'org-register-ip',
+    st_client_address(),
+    st_local_development_rate_limit_maximum(5),
+    3600
+);
+if ($retryAfter > 0) {
+    header('Retry-After: ' . $retryAfter);
+    st_json_error('Too many organization requests. Wait before trying again.', 429);
+}
 
 $dupeStmt = $db->prepare('SELECT username, email, phone FROM users WHERE username = ? OR email = ? OR phone = ?');
 $dupeStmt->execute([$username, $email, $phone]);
@@ -70,10 +89,16 @@ try {
     );
     $insertUser->execute([$fullName, $username, $email, $phone, password_hash($password, PASSWORD_DEFAULT)]);
     $userId = (int) $db->lastInsertId();
+    st_record_consent($db, $userId);
 
     $insertOrg = $db->prepare('INSERT INTO organizations (name) VALUES (?)');
     $insertOrg->execute([$orgName]);
     $orgId = (int) $db->lastInsertId();
+
+    $profileStmt = $db->prepare(
+        'INSERT INTO organization_profiles (organization_id, account_type, review_status) VALUES (?, ?, "pending")'
+    );
+    $profileStmt->execute([$orgId, $accountType]);
 
     $insertAdmin = $db->prepare('INSERT INTO organization_admins (organization_id, user_id, role) VALUES (?, ?, "owner")');
     $insertAdmin->execute([$orgId, $userId]);
@@ -102,14 +127,19 @@ $userStmt = $db->prepare('SELECT id, full_name, username, email FROM users WHERE
 $userStmt->execute([$userId]);
 $user = $userStmt->fetch();
 
-st_send_verification_email($user, $token);
+$mailSent = st_send_verification_email($user, $token);
+$devMode = getenv('SAFARITRAK_DEV_MODE') === '1';
 
 $response = [
     'need_verification' => true,
-    'message' => 'Almost there — we sent a verification link to ' . $email . '. Verify it to start managing ' . $orgName . '.',
+    'message' => $devMode
+        ? 'Your organization account was created. Local development mode is enabled; use the verification link below to activate it.'
+        : ($mailSent
+            ? 'Almost there — we sent a verification link to ' . $email . '. Verify it to start managing ' . $orgName . '.'
+            : 'Your organization account was created, but we could not send the verification email. Please use the resend option on the login page or contact support.'),
 ];
 
-if (getenv('SAFARITRAK_DEV_MODE') === '1') {
+if ($devMode) {
     $response['dev_verification_link'] = 'verify-email.php?token=' . $token;
 }
 

@@ -18,13 +18,26 @@ if (strlen($phone) < 9) {
 
 $db = safaritrak_db();
 
-$adminStmt = $db->prepare('SELECT organization_id FROM organization_admins WHERE user_id = ?');
+$adminStmt = $db->prepare(
+    'SELECT oa.organization_id, p.account_type, p.review_status, o.is_suspended
+     FROM organization_admins oa
+     JOIN organization_profiles p ON p.organization_id = oa.organization_id
+     JOIN organizations o ON o.id = oa.organization_id
+     WHERE oa.user_id = ?'
+);
 $adminStmt->execute([$userId]);
-$orgId = $adminStmt->fetchColumn();
+$admin = $adminStmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$orgId) {
+if (!$admin) {
     st_json_error('You do not manage an organization.', 403);
 }
+if ($admin['review_status'] !== 'approved' || (int) $admin['is_suspended'] === 1) {
+    st_json_error('Your organization is not approved to manage members.', 403);
+}
+if ($admin['account_type'] === 'school') {
+    st_json_error('School members must request access through an enrollment invitation and be approved by an administrator.', 403);
+}
+$orgId = (int) $admin['organization_id'];
 
 $travelerStmt = $db->prepare('SELECT id, full_name FROM users WHERE phone = ?');
 $travelerStmt->execute([$phone]);

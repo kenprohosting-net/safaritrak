@@ -31,14 +31,6 @@ if ($myPlatformRole) {
     $activeJourneysStmt = $db->query('SELECT COUNT(*) FROM journeys WHERE status = "active"');
     $activeJourneysNow = (int) $activeJourneysStmt->fetchColumn();
 
-    $activeSosStmt = $db->query(
-        'SELECT sa.id, sa.created_at, sa.lat, sa.lng, u.id AS user_id, u.full_name, u.phone
-         FROM sos_alerts sa JOIN users u ON u.id = sa.user_id
-         WHERE sa.status = "active"
-         ORDER BY sa.created_at ASC'
-    );
-    $activeSosAlerts = $activeSosStmt->fetchAll();
-
     $suspendedUsersStmt = $db->query('SELECT COUNT(*) FROM users WHERE is_suspended = 1');
     $suspendedUsers = (int) $suspendedUsersStmt->fetchColumn();
 
@@ -61,59 +53,19 @@ if ($myPlatformRole) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafariTrak | Platform Admin</title>
-<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
-<div class="app">
-<aside class="sidebar platform-sidebar" id="sidebar">
-  <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small><span class="platform-badge">PLATFORM ADMIN</span></div></div>
-  <nav>
-    <a class="active" href="admin-dashboard.php"><i class="fa-solid fa-grid-2"></i>Overview</a>
-    <?php if ($myPlatformRole): ?>
-    <a href="admin-users.php"><i class="fa-solid fa-users"></i>Users</a>
-    <a href="admin-organizations.php"><i class="fa-solid fa-building"></i>Organizations</a>
-    <a href="admin-safety.php"><i class="fa-solid fa-triangle-exclamation"></i>Safety<?= !empty($activeSosAlerts) ? ' <em>' . count($activeSosAlerts) . '</em>' : '' ?></a>
-    <?php if (($myPlatformRole['role'] ?? '') === 'owner'): ?>
-    <a href="admin-admins.php"><i class="fa-solid fa-user-shield"></i>Admins</a>
-    <?php endif; ?>
-    <?php endif; ?>
-  </nav>
-  <div class="bottom">
-    <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
-    <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account">
-      <span><?= st_avatar_inner($currentUser) ?></span>
-      <div>
-        <b><?= htmlspecialchars($userName) ?></b>
-        <small>SafariTrak <?= $myPlatformRole ? htmlspecialchars(ucfirst($myPlatformRole['role'])) : 'Staff' ?></small>
-      </div>
-    </div>
-  </div>
-</aside>
+<?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
+<div class="app app--map-layout">
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
 <header>
   <button class="menu" id="menu"><i class="fa-solid fa-bars"></i></button>
   <div><label>PLATFORM OVERVIEW</label><h1>SafariTrak Admin</h1></div>
-  <div class="head-actions">
-    <div class="notif-wrap">
-      <button type="button" class="notif-bell" id="notifBell">
-        <i class="fa-regular fa-bell"></i>
-        <span class="notif-dot" id="notifDot"></span>
-      </button>
-      <div class="notif-dropdown" id="notifDropdown">
-        <div class="notif-dropdown-head">
-          <b>Notifications</b>
-          <a href="notifications.php">View all</a>
-        </div>
-        <div class="notif-list" id="notifDropdownList">
-          <p class="notif-empty">Loading...</p>
-        </div>
-      </div>
-    </div>
-    <div class="avatar"><?= st_avatar_inner($currentUser) ?></div>
-  </div>
+  <div class="head-actions"><button><i class="fa-regular fa-bell"></i></button><div class="avatar"><?= st_avatar_inner($currentUser) ?></div></div>
 </header>
 
 <div class="content">
@@ -143,21 +95,6 @@ if ($myPlatformRole) {
 <div class="page-head">
   <div><h2>How SafariTrak is doing</h2><p>Everything happening across every traveler and organization.</p></div>
 </div>
-
-<?php if (!empty($activeSosAlerts)): ?>
-<div class="card" style="margin-bottom:18px;border:1px solid #f3c8c8">
-  <div class="card-head"><div><label style="color:#c94b4b">URGENT</label><h3><?= count($activeSosAlerts) ?> active SOS alert<?= count($activeSosAlerts) == 1 ? '' : 's' ?></h3></div><a href="admin-safety.php">View all</a></div>
-  <div class="journey-list">
-    <?php foreach (array_slice($activeSosAlerts, 0, 4) as $sa): ?>
-    <div class="journey-row" style="cursor:default">
-      <div class="jicon" style="background:#fdecec;color:#c94b4b"><i class="fa-solid fa-triangle-exclamation"></i></div>
-      <div class="jinfo"><b><?= htmlspecialchars($sa['full_name']) ?></b><small><?= htmlspecialchars($sa['phone']) ?> &middot; <?= (new DateTime($sa['created_at']))->format('g:i A, j M') ?></small></div>
-      <div class="jmeta"><a href="admin-safety.php" class="btn-primary">Respond</a></div>
-    </div>
-    <?php endforeach; ?>
-  </div>
-</div>
-<?php endif; ?>
 
 <div class="stat-grid">
   <div class="stat-card"><label>TOTAL USERS</label><strong><?= $totalUsers ?></strong><small><?= $newUsersThisMonth ?> new this month</small></div>
@@ -194,11 +131,10 @@ if ($myPlatformRole) {
 <?php endif; ?>
 
 </div>
-<footer><?= '© ' . date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
+<footer>&copy; <?= date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
 </main>
 </div>
-<script src="dashboard.js"></script>
-<script src="notifications-widget.js"></script>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
 <?php if (!$myPlatformRole && !$platformAdminExists): ?>
 <script src="platform-onboarding.js"></script>
 <?php endif; ?>

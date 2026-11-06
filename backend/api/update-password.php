@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/password-policy.php';
 
 st_start_session();
 st_require_method('POST');
@@ -12,11 +13,13 @@ if (empty($_SESSION['user_id'])) {
 }
 
 $userId = (int) $_SESSION['user_id'];
+$currentSessionId = session_id();
+session_write_close();
 $input = st_input();
 
-$currentPassword = (string) ($input['current_password'] ?? '');
-$newPassword = (string) ($input['new_password'] ?? '');
-$confirmPassword = (string) ($input['confirm_password'] ?? '');
+$currentPassword = st_input_string($input, 'current_password');
+$newPassword = st_input_string($input, 'new_password');
+$confirmPassword = st_input_string($input, 'confirm_password');
 
 $errors = [];
 
@@ -24,11 +27,12 @@ if ($currentPassword === '') {
     $errors['current_password'] = 'Enter your current password.';
 }
 
-if (strlen($newPassword) < 6) {
-    $errors['new_password'] = 'New password must be at least 6 characters.';
+$passwordError = st_password_policy_error($newPassword);
+if ($passwordError !== null) {
+    $errors['new_password'] = $passwordError;
 }
 
-if ($confirmPassword !== '' && $newPassword !== $confirmPassword) {
+if ($newPassword !== $confirmPassword) {
     $errors['confirm_password'] = 'Passwords do not match.';
 }
 
@@ -58,5 +62,9 @@ $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
 
 $updateStmt = $db->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
 $updateStmt->execute([$newHash, $userId]);
+$invalidateOtherSessionsStmt = $db->prepare(
+    'DELETE FROM sessions WHERE user_id = ? AND id <> ?'
+);
+$invalidateOtherSessionsStmt->execute([$userId, $currentSessionId]);
 
 st_json_ok(['message' => 'Your password has been updated.']);

@@ -31,28 +31,13 @@ $incoming = $incomingStmt->fetchAll();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafariTrak | Trusted Contacts</title>
-<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
-<div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small></div></div>
-  <nav>
-    <a href="index.php"><i class="fa-solid fa-grid-2"></i>Dashboard</a>
-    <a href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
-    <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
-    <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
-    <a class="active" href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
-    <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
-  </nav>
-  <div class="bottom">
-    <a href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
-    <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span><?= st_avatar_inner($currentUser) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
-  </div>
-</aside>
+<?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
+<div class="app app--map-layout">
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
 <header>
@@ -78,6 +63,24 @@ $incoming = $incomingStmt->fetchAll();
   <div><h2>Who can keep an eye on you</h2><p>Manage who can see your journeys and get notified if something goes wrong.</p></div>
   <button type="button" class="btn-primary" data-open-modal="addContactModal"><i class="fa-solid fa-user-plus"></i>Add trusted contact</button>
 </div>
+
+<section class="card live-share-card" aria-labelledby="liveShareTitle">
+  <div>
+    <label>OPTIONAL LIVE LINK</label>
+    <h3 id="liveShareTitle">Share your location without adding a contact</h3>
+    <p>Only available during an active journey. Anyone with the link can see that journey’s latest location; the link expires after one hour and can be revoked sooner.</p>
+  </div>
+  <div class="live-share-actions">
+    <button type="button" class="btn-primary" id="createLiveShareBtn">Create live link</button>
+    <button type="button" class="btn-ghost" id="revokeLiveShareBtn" disabled>Revoke link</button>
+  </div>
+  <input type="url" id="liveShareUrl" aria-label="Live-location sharing link" readonly hidden>
+  <div class="live-share-actions" id="liveShareLinkActions" hidden>
+    <button type="button" class="btn-ghost" id="copyLiveShareBtn">Copy link</button>
+    <button type="button" class="btn-ghost" id="shareLiveShareBtn">Share link</button>
+  </div>
+  <p id="liveShareStatus" role="status" aria-live="polite"></p>
+</section>
 
 <?php if (!empty($incoming)): ?>
 <div class="card" style="margin-bottom:18px">
@@ -142,14 +145,35 @@ $incoming = $incomingStmt->fetchAll();
   <div class="modal">
     <div class="modal-head"><div><h3>Add a trusted contact</h3><p>Invite someone to keep track of your journeys.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
-      <div class="form-field" style="margin-bottom:12px"><label>Full name</label><input type="text" id="addContactName" placeholder="e.g. Grace Njeri"></div>
-      <div class="form-field" style="margin-bottom:12px"><label>Phone number</label><input type="tel" id="addContactPhone" placeholder="e.g. 0712 345 678"></div>
-      <div class="form-field"><label>Relationship</label><input type="text" id="addContactRelationship" placeholder="e.g. Sister, Friend, Colleague"></div>
-      <p class="hint" id="addContactError" style="color:#c94b4b;margin-top:10px;display:none"></p>
+      <section class="contact-finder" aria-labelledby="contactFinderHeading">
+        <h4 id="contactFinderHeading">Find a SafariTrak friend</h4>
+        <p>Search by name or username, then send a request. You’ll be connected when they accept.</p>
+        <label class="form-field" for="contactSearchInput">
+          <span>Search people</span>
+          <input type="search" id="contactSearchInput" autocomplete="off" minlength="2" maxlength="60" placeholder="Name or username">
+        </label>
+        <p class="contact-search-status" id="contactSearchStatus" role="status" aria-live="polite"></p>
+        <div class="contact-search-results" id="contactSearchResults"></div>
+      </section>
+      <div class="contact-invite-divider"><span>or invite someone by email</span></div>
+      <div class="form-field" style="margin-bottom:12px"><label for="addContactName">Full name</label><input type="text" id="addContactName" maxlength="120" placeholder="e.g. Grace Njeri"></div>
+      <div class="form-field" style="margin-bottom:12px"><label for="addContactEmail">Email (optional)</label><input type="email" id="addContactEmail" maxlength="160" placeholder="name@example.com"></div>
+      <div class="form-field"><label for="addContactRelationship">Relationship (optional)</label><input type="text" id="addContactRelationship" maxlength="60" placeholder="e.g. Sister, Friend, Colleague"></div>
+      <p class="hint" id="addContactError" role="alert" style="color:#c94b4b;margin-top:10px;display:none"></p>
+      <p class="invite-status" id="addContactStatus" role="status" aria-live="polite"></p>
+      <div class="invite-share-actions" id="inviteShareActions" hidden>
+        <label for="inviteUrl">Invitation link (expires in 7 days)</label>
+        <input type="url" id="inviteUrl" readonly>
+        <div class="invite-share-buttons">
+          <button type="button" class="ghost" id="copyInviteBtn">Copy link</button>
+          <button type="button" class="ghost" id="messageInviteBtn">Message link</button>
+          <button type="button" class="ghost" id="emailInviteBtn">Open email app</button>
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button type="button" class="ghost" data-close-modal>Cancel</button>
-      <button type="button" class="primary" id="sendInviteBtn">Send invite</button>
+      <button type="button" class="primary" id="sendInviteBtn">Create invitation link</button>
     </div>
   </div>
 </div>
@@ -164,8 +188,8 @@ $incoming = $incomingStmt->fetchAll();
   </div>
 </div>
 
-<script src="dashboard.js"></script>
-<script src="notifications-widget.js"></script>
-<script src="trusted-contacts.js"></script>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
+<script src="notifications-widget.js?v=<?= hash_file('sha256', __DIR__ . '/notifications-widget.js') ?>"></script>
+<script src="trusted-contacts.js?v=<?= hash_file('sha256', __DIR__ . '/trusted-contacts.js') ?>"></script>
 </body>
 </html>

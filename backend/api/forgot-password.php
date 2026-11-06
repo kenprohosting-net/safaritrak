@@ -2,20 +2,32 @@
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/response.php';
-require_once __DIR__ . '/../includes/mailer.php';
+require_once __DIR__ . '/../includes/session.php';
+require_once __DIR__ . '/../includes/rate-limit.php';
 
 st_require_method('POST');
 
 $input = st_input();
-$contact = trim($input['contact'] ?? '');
+$contact = trim(st_input_string($input, 'contact'));
 
 if ($contact === '') {
     st_json_error('Enter your email or phone number.', 422);
 }
 
 $db = safaritrak_db();
+$retryAfter = st_rate_limit_consume(
+    $db,
+    'password-reset-ip',
+    st_client_address(),
+    st_local_development_rate_limit_maximum(5),
+    3600
+);
+if ($retryAfter > 0) {
+    header('Retry-After: ' . $retryAfter);
+    st_json_error('Too many reset requests. Wait before trying again.', 429);
+}
 
-$stmt = $db->prepare('SELECT id, full_name, email FROM users WHERE email = ? OR phone = ?');
+$stmt = $db->prepare('SELECT id FROM users WHERE email = ? OR phone = ?');
 $stmt->execute([$contact, preg_replace('/\D/', '', $contact)]);
 $user = $stmt->fetch();
 
@@ -30,8 +42,6 @@ if ($user) {
         'INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?)'
     );
     $insertStmt->execute([$user['id'], $tokenHash, $expiresAt]);
-
-    st_send_reset_password_email($user, $token);
 
     if (getenv('SAFARITRAK_DEV_MODE') === '1') {
         $response['dev_reset_link'] = 'reset-password.php?token=' . $token;

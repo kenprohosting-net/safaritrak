@@ -1,12 +1,3 @@
-const categoryColors = {
-  hospital: '#c94b4b',
-  police: '#2f6fed',
-  fuel: '#d69b2d',
-  hotel: '#8b5cf6',
-  restaurant: '#10b981',
-  other: '#6b7280'
-};
-
 const categoryIcons = {
   hospital: 'fa-kit-medical',
   police: 'fa-building-shield',
@@ -25,19 +16,32 @@ const categoryLabels = {
   other: 'Place'
 };
 
-const NAIROBI_FALLBACK = { lat: -1.2833, lng: 36.8167 };
-
-const placesMap = L.map('placesMap').setView([NAIROBI_FALLBACK.lat, NAIROBI_FALLBACK.lng], 8);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(placesMap);
-
 let userLocation = null;
-let resultMarkers = [];
-let userMarker = null;
 let activeCategory = 'all';
-let activeController = null;
+let currentPlaces = [];
+
+const googlePlaceTypes = {
+  hospital: ['hospital'],
+  police: ['police'],
+  fuel: ['gas_station'],
+  hotel: ['lodging'],
+  restaurant: ['restaurant'],
+};
+
+function distanceKm(a, b) {
+  const radians = value => value * Math.PI / 180;
+  const dLat = radians(b.lat - a.lat);
+  const dLng = radians(b.lng - a.lng);
+  const value = Math.sin(dLat / 2) ** 2
+    + Math.cos(radians(a.lat)) * Math.cos(radians(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+}
+
+document.addEventListener('safaritrak-location-selected', event => {
+  if (event.target.id !== 'placeSearch') return;
+  userLocation = { lat: Number(event.detail.lat), lng: Number(event.detail.lng) };
+  performSearch(event.detail.label);
+});
 
 function setStatus(text) {
   const status = document.getElementById('placesStatus');
@@ -47,25 +51,26 @@ function setStatus(text) {
   }
 }
 
-function clearMarkers() {
-  resultMarkers.forEach(m => placesMap.removeLayer(m));
-  resultMarkers = [];
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML;
 }
 
-function markerIcon(category) {
-  const color = categoryColors[category] || categoryColors.other;
-  return L.divIcon({
-    className: 'st-marker',
-    html: '<div style="width:16px;height:16px;background:' + color + ';border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.25)"></div>',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
-  });
+function placeMapFeatures(places) {
+  return places.map(place => ({
+    lat: Number(place.lat),
+    lng: Number(place.lng),
+    kind: 'place',
+    label: place.name,
+    description: (categoryLabels[place.category] || 'Place') + ' · ' + place.distance_km + ' km away',
+  }));
 }
 
 function openPlaceModal(place) {
   document.getElementById('placeDetailTitle').textContent = place.name;
   document.getElementById('placeDetailSubtitle').textContent =
-    (categoryLabels[place.category] || 'Place') + ' \u00b7 ' + place.distance_km + ' km away';
+    (categoryLabels[place.category] || 'Place') + ' · ' + place.distance_km + ' km away';
   document.getElementById('placeDetailAddress').innerHTML = '<b>Address:</b> ' + escapeHtml(place.address);
   document.getElementById('placeDetailHours').innerHTML = '<b>Hours:</b> ' + escapeHtml(place.hours);
 
@@ -75,15 +80,8 @@ function openPlaceModal(place) {
   document.getElementById('placeDetailModal').classList.add('open');
 }
 
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text || '';
-  return div.innerHTML;
-}
-
 function renderPlaces(places) {
-  clearMarkers();
-
+  currentPlaces = places;
   const list = document.getElementById('placesList');
   const resultsCount = document.getElementById('resultsCount');
 
@@ -91,121 +89,105 @@ function renderPlaces(places) {
     list.innerHTML = '';
     resultsCount.textContent = '0 places found';
     setStatus('No places found. Try a different search or category.');
+    window.SafariTrakPageMap?.setFeatures([]);
     return;
   }
 
   setStatus('');
   resultsCount.textContent = places.length + (places.length === 1 ? ' place found' : ' places found');
-
-  list.innerHTML = places.map((place, i) => {
+  list.innerHTML = places.map((place, index) => {
     const icon = categoryIcons[place.category] || categoryIcons.other;
     const label = categoryLabels[place.category] || 'Place';
-    return '<div class="journey-row" data-index="' + i + '">' +
-      '<div class="jicon"><i class="fa-solid ' + icon + '"></i></div>' +
-      '<div class="jinfo"><b>' + escapeHtml(place.name) + '</b><small>' + label + ' \u00b7 ' + place.distance_km + ' km away</small></div>' +
-      '<div class="jmeta"><strong>' + escapeHtml(place.hours) + '</strong></div>' +
-      '</div>';
+    return '<button type="button" class="journey-row" data-index="' + index + '">' +
+      '<span class="jicon"><i class="fa-solid ' + icon + '"></i></span>' +
+      '<span class="jinfo"><b>' + escapeHtml(place.name) + '</b><small>' + label + ' · ' + place.distance_km + ' km away</small></span>' +
+      '<span class="jmeta"><strong>' + escapeHtml(place.hours) + '</strong></span>' +
+      '</button>';
   }).join('');
 
   list.querySelectorAll('.journey-row').forEach(row => {
     row.addEventListener('click', () => openPlaceModal(places[Number(row.dataset.index)]));
   });
-
-  places.forEach(place => {
-    const marker = L.marker([place.lat, place.lng], { icon: markerIcon(place.category) })
-      .addTo(placesMap)
-      .bindPopup('<b>' + escapeHtml(place.name) + '</b>');
-    marker.on('click', () => openPlaceModal(place));
-    resultMarkers.push(marker);
-  });
+  window.SafariTrakPageMap?.setFeatures(placeMapFeatures(places));
 }
 
 async function performSearch(searchText) {
-  if (!userLocation) return;
-
-  if (activeController) activeController.abort();
-  activeController = new AbortController();
+  if (!userLocation) {
+    setStatus('Allow location access to search around your current position.');
+    return;
+  }
 
   setStatus('Searching...');
   document.getElementById('resultsCount').textContent = 'Searching...';
 
-  const params = new URLSearchParams({
-    category: activeCategory,
-    q: searchText || '',
-    lat: userLocation.lat,
-    lng: userLocation.lng,
-    radius: searchText ? 50000 : 20000
-  });
-
   try {
-    const response = await fetch('backend/api/places/search.php?' + params.toString(), {
-      signal: activeController.signal
-    });
-    const data = await response.json();
-
-    if (!data.success) {
-      setStatus(data.message || 'Could not load places. Please try again.');
-      document.getElementById('resultsCount').textContent = 'Places nearby';
-      document.getElementById('placesList').innerHTML = '';
-      clearMarkers();
-      return;
+    const maps = await window.SafariTrakGoogleMaps?.ready;
+    const placesLibrary = await maps?.importLibrary('places');
+    if (!placesLibrary?.Place) {
+      throw new Error('Google Places is unavailable. Check that Places API (New) is enabled for this API key.');
     }
-
-    renderPlaces(data.places);
-  } catch (err) {
-    if (err.name === 'AbortError') return;
-    setStatus('Could not load places. Please try again.');
+    const request = {
+      locationRestriction: {
+        center: userLocation,
+        radius: searchText ? 50_000 : 20_000,
+      },
+      maxResultCount: 20,
+      fields: ['displayName', 'location', 'formattedAddress', 'primaryType', 'regularOpeningHours'],
+    };
+    if (activeCategory !== 'all') request.includedTypes = googlePlaceTypes[activeCategory];
+    const result = await placesLibrary.Place.searchNearby(request);
+    const places = (result.places || []).filter(place => place.location).map(place => {
+      const point = { lat: place.location.lat(), lng: place.location.lng() };
+      const primaryType = place.primaryType || '';
+      const category = Object.entries(googlePlaceTypes).find(([, types]) => types.includes(primaryType))?.[0] || 'other';
+      return {
+        name: place.displayName || 'Nearby place',
+        category,
+        address: place.formattedAddress || 'Address unavailable',
+        hours: place.regularOpeningHours?.openNow === true ? 'Open now'
+          : place.regularOpeningHours?.openNow === false ? 'Closed now' : 'Hours unavailable',
+        lat: point.lat,
+        lng: point.lng,
+        distance_km: distanceKm(userLocation, point).toFixed(1),
+      };
+    });
+    renderPlaces(places);
+  } catch (error) {
+    console.error('Google Places nearby search failed.', error);
+    setStatus('Nearby places are unavailable. Check the Places API, billing, and key restrictions, then try again.');
     document.getElementById('resultsCount').textContent = 'Places nearby';
+    document.getElementById('placesList').innerHTML = '';
+    currentPlaces = [];
+    window.SafariTrakPageMap?.setFeatures([]);
   }
 }
 
 function initLocation() {
-  const finish = (lat, lng) => {
-    userLocation = { lat, lng };
-    placesMap.setView([lat, lng], 12);
-
-    if (userMarker) placesMap.removeLayer(userMarker);
-    userMarker = L.marker([lat, lng], {
-      icon: L.divIcon({
-        className: 'st-marker',
-        html: '<div style="width:16px;height:16px;background:#2f6fed;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-      })
-    }).addTo(placesMap).bindPopup('You are here');
-
-    performSearch('');
-  };
-
-  let settled = false;
-  const settleOnce = (lat, lng) => {
-    if (settled) return;
-    settled = true;
-    finish(lat, lng);
-  };
-
   if (!navigator.geolocation) {
-    settleOnce(NAIROBI_FALLBACK.lat, NAIROBI_FALLBACK.lng);
+    document.getElementById('resultsCount').textContent = 'Location unavailable';
+    setStatus('This browser does not support location. Enable location in a supported browser to search nearby places.');
     return;
   }
 
-  // Hard fallback: some localhost/XAMPP setups never fire either
-  // geolocation callback. Force a result after 8s so the page never
-  // hangs on "Getting your location...".
-  const hardTimeout = setTimeout(() => {
-    settleOnce(NAIROBI_FALLBACK.lat, NAIROBI_FALLBACK.lng);
-  }, 8000);
-
   navigator.geolocation.getCurrentPosition(
-    pos => { clearTimeout(hardTimeout); settleOnce(pos.coords.latitude, pos.coords.longitude); },
-    () => { clearTimeout(hardTimeout); settleOnce(NAIROBI_FALLBACK.lat, NAIROBI_FALLBACK.lng); },
-    { timeout: 6000, maximumAge: 60000 }
+    position => {
+      userLocation = { lat: position.coords.latitude, lng: position.coords.longitude };
+      window.SafariTrakPageMap?.setUserLocation(userLocation.lat, userLocation.lng, 12);
+      performSearch('');
+    },
+    error => {
+      document.getElementById('resultsCount').textContent = 'Location unavailable';
+      setStatus(error.code === error.PERMISSION_DENIED
+        ? 'Location permission was denied. Enable it to search near your current position.'
+        : 'Your location is unavailable. Try again when GPS is ready.');
+    },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
   );
 }
 
 document.querySelectorAll('#placeTabs .tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('#placeTabs .tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#placeTabs .tab').forEach(item => item.classList.remove('active'));
     tab.classList.add('active');
     activeCategory = tab.getAttribute('data-category');
     performSearch(document.getElementById('placeSearch').value.trim());
@@ -216,9 +198,16 @@ document.getElementById('placeSearchBtn')?.addEventListener('click', () => {
   performSearch(document.getElementById('placeSearch').value.trim());
 });
 
-document.getElementById('placeSearch')?.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    performSearch(e.target.value.trim());
+document.getElementById('placeSearch')?.addEventListener('keydown', event => {
+  if (event.key === 'Enter') performSearch(event.target.value.trim());
+});
+
+document.addEventListener('safaritrak-map-ready', () => {
+  if (currentPlaces.length) {
+    window.SafariTrakPageMap?.setFeatures(placeMapFeatures(currentPlaces));
+  }
+  if (userLocation) {
+    window.SafariTrakPageMap?.setUserLocation(userLocation.lat, userLocation.lng, 12);
   }
 });
 

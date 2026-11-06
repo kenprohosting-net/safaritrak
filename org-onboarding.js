@@ -1,5 +1,6 @@
 document.getElementById('createOrgBtn')?.addEventListener('click', async () => {
   const nameInput = document.getElementById('orgName');
+  const typeInput = document.getElementById('orgAccountType');
   const errorEl = document.getElementById('createOrgError');
   const btn = document.getElementById('createOrgBtn');
   const name = nameInput.value.trim();
@@ -19,7 +20,7 @@ document.getElementById('createOrgBtn')?.addEventListener('click', async () => {
     const response = await fetch('backend/api/org/create.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, account_type: typeInput.value }),
     });
     const data = await response.json();
 

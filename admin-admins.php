@@ -23,26 +23,13 @@ $isOwner = $myPlatformRole['role'] === 'owner';
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafariTrak | Platform Admins</title>
-<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
-<div class="app">
-<aside class="sidebar platform-sidebar" id="sidebar">
-  <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small><span class="platform-badge">PLATFORM ADMIN</span></div></div>
-  <nav>
-    <a href="admin-dashboard.php"><i class="fa-solid fa-grid-2"></i>Overview</a>
-    <a href="admin-users.php"><i class="fa-solid fa-users"></i>Users</a>
-    <a href="admin-organizations.php"><i class="fa-solid fa-building"></i>Organizations</a>
-    <a href="admin-safety.php"><i class="fa-solid fa-triangle-exclamation"></i>Safety</a>
-    <a class="active" href="admin-admins.php"><i class="fa-solid fa-user-shield"></i>Admins</a>
-  </nav>
-  <div class="bottom">
-    <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
-    <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span>S</span><div><b><?= htmlspecialchars($userName) ?></b><small>SafariTrak <?= htmlspecialchars(ucfirst($myPlatformRole['role'])) ?></small></div></div>
-  </div>
-</aside>
+<?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
+<div class="app app--map-layout">
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
 <header>
@@ -111,7 +98,7 @@ $isOwner = $myPlatformRole['role'] === 'owner';
 </div>
 <?php endif; ?>
 
-<script src="dashboard.js"></script>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
 <?php if ($isOwner): ?>
 <script src="admin-admins.js"></script>
 <?php endif; ?>

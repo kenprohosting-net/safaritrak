@@ -1,1132 +1,297 @@
 <?php
-
-require_once __DIR__ . '/backend/config/database.php';
-require_once __DIR__ . '/backend/includes/session.php';
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-$userId = $_SESSION['user_id'] ?? $_SESSION['id'] ?? null;
-
-if (!$userId) {
-    header('Location: login.php');
+if (basename($_SERVER['SCRIPT_NAME'] ?? '') === 'group-travel.php') {
+    header('Location: groups.php?tab=trips');
     exit;
 }
+
+require __DIR__ . '/backend/includes/auth-guard.php';
 
 $db = safaritrak_db();
+$myId = $currentUser['id'];
 
-$groupJourneyId = 0;
+$groupsStmt = $db->prepare(
+    'SELECT gj.*, gm.id AS member_row_id, gm.status AS my_status,
+            (SELECT COUNT(*) FROM group_members x WHERE x.group_journey_id = gj.id AND x.status = "confirmed") AS confirmed_count
+     FROM group_journeys gj
+     JOIN group_members gm ON gm.group_journey_id = gj.id AND gm.user_id = ?
+     WHERE gm.status IN ("confirmed", "invited")
+     ORDER BY FIELD(gj.status, "active", "upcoming", "completed", "cancelled"), gj.departure_at DESC, gj.created_at DESC'
+);
+$groupsStmt->execute([$myId]);
+$myGroups = $groupsStmt->fetchAll();
 
-$possibleIds = [
-    $_GET['group_journey_id'] ?? null,
-    $_GET['groupJourneyId'] ?? null,
-    $_GET['journey_id'] ?? null,
-    $_GET['journeyId'] ?? null,
-    $_GET['id'] ?? null,
-    $_POST['group_journey_id'] ?? null,
-    $_POST['groupJourneyId'] ?? null,
-    $_POST['journey_id'] ?? null,
-    $_POST['journeyId'] ?? null
-];
+$pendingInvites = array_filter($myGroups, fn($g) => $g['my_status'] === 'invited');
 
-foreach ($possibleIds as $possibleId) {
-    if ($possibleId !== null && $possibleId !== '') {
-        $possibleId = filter_var(
-            $possibleId,
-            FILTER_VALIDATE_INT
-        );
-
-        if ($possibleId !== false && $possibleId > 0) {
-            $groupJourneyId = (int)$possibleId;
-            break;
-        }
+$activeTrip = null;
+foreach ($myGroups as $g) {
+    if ($g['status'] === 'active' && $g['my_status'] === 'confirmed') {
+        $activeTrip = $g;
+        break;
     }
 }
 
-if ($groupJourneyId <= 0 && isset($_SESSION['group_journey_id'])) {
-    $sessionJourneyId = filter_var(
-        $_SESSION['group_journey_id'],
-        FILTER_VALIDATE_INT
+$activeMembers = [];
+if ($activeTrip) {
+    $membersStmt = $db->prepare(
+        'SELECT gm.id, gm.user_id, gm.status, gm.last_lat, gm.last_lng, u.full_name, u.avatar_path
+         FROM group_members gm
+         JOIN users u ON u.id = gm.user_id
+         WHERE gm.group_journey_id = ?
+         ORDER BY FIELD(gm.status, "confirmed", "invited", "declined")'
     );
-
-    if ($sessionJourneyId !== false && $sessionJourneyId > 0) {
-        $groupJourneyId = (int)$sessionJourneyId;
-    }
+    $membersStmt->execute([$activeTrip['id']]);
+    $activeMembers = $membersStmt->fetchAll();
 }
 
-if ($groupJourneyId <= 0) {
-
-    $stmt = $db->prepare("
-        SELECT gj.id
-        FROM group_journeys gj
-        WHERE gj.organizer_id = ?
-        ORDER BY
-            CASE
-                WHEN gj.status = 'active' THEN 1
-                WHEN gj.status = 'planned' THEN 2
-                WHEN gj.status = 'pending' THEN 3
-                ELSE 4
-            END,
-            gj.id DESC
-        LIMIT 1
-    ");
-
-    $stmt->execute([$userId]);
-
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($row) {
-        $groupJourneyId = (int)$row['id'];
-    }
-}
-
-if ($groupJourneyId <= 0) {
-
-    $stmt = $db->prepare("
-        SELECT gj.id
-        FROM group_journeys gj
-        INNER JOIN group_members gm
-            ON gm.group_journey_id = gj.id
-        WHERE gm.user_id = ?
-        ORDER BY
-            CASE
-                WHEN gj.status = 'active' THEN 1
-                WHEN gj.status = 'planned' THEN 2
-                WHEN gj.status = 'pending' THEN 3
-                ELSE 4
-            END,
-            gj.id DESC
-        LIMIT 1
-    ");
-
-    $stmt->execute([$userId]);
-
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($row) {
-        $groupJourneyId = (int)$row['id'];
-    }
-}
-
-if ($groupJourneyId <= 0) {
-    ?>
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Group Travel - SafariTrak</title>
-
-        <style>
-            body {
-                margin: 0;
-                font-family: Arial, sans-serif;
-                background: #f5f7f9;
-            }
-
-            .error-page {
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 20px;
-            }
-
-            .error-box {
-                max-width: 450px;
-                background: white;
-                padding: 35px;
-                border-radius: 16px;
-                text-align: center;
-                box-shadow: 0 10px 35px rgba(0,0,0,.12);
-            }
-
-            .error-box h2 {
-                color: #c0392b;
-                margin-bottom: 10px;
-            }
-
-            .error-box p {
-                color: #667085;
-                line-height: 1.6;
-            }
-
-            .error-box a {
-                display: inline-block;
-                margin-top: 15px;
-                padding: 11px 22px;
-                border-radius: 8px;
-                background: #087f6b;
-                color: white;
-                text-decoration: none;
-            }
-        </style>
-    </head>
-
-    <body>
-
-        <div class="error-page">
-
-            <div class="error-box">
-
-                <h2>No Group Journey Available</h2>
-
-                <p>
-                    No group journey could be found for your account.
-                    Please create or join a group journey first.
-                </p>
-
-                <a href="group-travel.php">
-                    Back to Group Travel
-                </a>
-
-            </div>
-
-        </div>
-
-    </body>
-    </html>
-    <?php
-    exit;
-}
-
-$_SESSION['group_journey_id'] = $groupJourneyId;
-
-$journeyStmt = $db->prepare("
-    SELECT
-        id,
-        organizer_id,
-        title,
-        destination_label,
-        destination_lat,
-        destination_lng,
-        distance_km,
-        departure_at,
-        status,
-        route_distance_km,
-        route_duration_minutes,
-        distance_covered_km,
-        remaining_distance_km,
-        remaining_duration_minutes,
-        estimated_arrival_at,
-        meeting_point_label,
-        meeting_point_lat,
-        meeting_point_lng
-    FROM group_journeys
-    WHERE id = ?
-    LIMIT 1
-");
-
-$journeyStmt->execute([
-    $groupJourneyId
-]);
-
-$groupJourney = $journeyStmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$groupJourney) {
-    ?>
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Group Journey Not Found</title>
-
-        <style>
-            body {
-                margin: 0;
-                font-family: Arial, sans-serif;
-                background: #f5f7f9;
-            }
-
-            .error-page {
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 20px;
-            }
-
-            .error-box {
-                max-width: 450px;
-                background: white;
-                padding: 35px;
-                border-radius: 16px;
-                text-align: center;
-                box-shadow: 0 10px 35px rgba(0,0,0,.12);
-            }
-
-            .error-box h2 {
-                color: #c0392b;
-            }
-
-            .error-box p {
-                color: #667085;
-                line-height: 1.6;
-            }
-
-            .error-box a {
-                display: inline-block;
-                margin-top: 15px;
-                padding: 11px 22px;
-                border-radius: 8px;
-                background: #087f6b;
-                color: white;
-                text-decoration: none;
-            }
-        </style>
-    </head>
-
-    <body>
-
-        <div class="error-page">
-
-            <div class="error-box">
-
-                <h2>Group Journey Not Found</h2>
-
-                <p>
-                    The selected group journey does not exist.
-                </p>
-
-                <a href="group-travel.php">
-                    Back to Group Travel
-                </a>
-
-            </div>
-
-        </div>
-
-    </body>
-    </html>
-    <?php
-    exit;
-}
-
-$isOrganizer =
-    (int)$groupJourney['organizer_id'] === (int)$userId;
-
-$memberStmt = $db->prepare("
-    SELECT id, status
-    FROM group_members
-    WHERE group_journey_id = ?
-      AND user_id = ?
-    LIMIT 1
-");
-
-$memberStmt->execute([
-    $groupJourneyId,
-    $userId
-]);
-
-$member = $memberStmt->fetch(PDO::FETCH_ASSOC);
-
-$isMember = false;
-
-if ($member) {
-    $memberStatus = strtolower(
-        trim((string)$member['status'])
-    );
-
-    $allowedStatuses = [
-        'confirmed',
-        'accepted',
-        'active',
-        'joined'
-    ];
-
-    if (in_array($memberStatus, $allowedStatuses, true)) {
-        $isMember = true;
-    }
-}
-
-if (!$isOrganizer && !$isMember) {
-    ?>
-    <!DOCTYPE html>
-    <html lang="en">
-
-    <head>
-        <meta charset="UTF-8">
-
-        <meta
-            name="viewport"
-            content="width=device-width, initial-scale=1.0"
-        >
-
-        <title>Access Denied</title>
-
-        <style>
-            body {
-                margin: 0;
-                font-family: Arial, sans-serif;
-                background: #f5f7f9;
-            }
-
-            .error-page {
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 20px;
-            }
-
-            .error-box {
-                max-width: 450px;
-                background: white;
-                padding: 35px;
-                border-radius: 16px;
-                text-align: center;
-                box-shadow: 0 10px 35px rgba(0,0,0,.12);
-            }
-
-            .error-box h2 {
-                color: #c0392b;
-            }
-
-            .error-box p {
-                color: #667085;
-                line-height: 1.6;
-            }
-
-            .error-box a {
-                display: inline-block;
-                margin-top: 15px;
-                padding: 11px 22px;
-                border-radius: 8px;
-                background: #087f6b;
-                color: white;
-                text-decoration: none;
-            }
-        </style>
-    </head>
-
-    <body>
-
-        <div class="error-page">
-
-            <div class="error-box">
-
-                <h2>Access Denied</h2>
-
-                <p>
-                    You are not a member of this group journey.
-                </p>
-
-                <a href="group-travel.php">
-                    Back to Group Travel
-                </a>
-
-            </div>
-
-        </div>
-
-    </body>
-
-    </html>
-    <?php
-    exit;
-}
-
-if (file_exists(__DIR__ . '/sidebar.php')) {
-    require_once __DIR__ . '/sidebar.php';
-}
-
-$destinationLat =
-    $groupJourney['destination_lat'] !== null
-        ? (float)$groupJourney['destination_lat']
-        : null;
-
-$destinationLng =
-    $groupJourney['destination_lng'] !== null
-        ? (float)$groupJourney['destination_lng']
-        : null;
-
-$meetingLat =
-    $groupJourney['meeting_point_lat'] !== null
-        ? (float)$groupJourney['meeting_point_lat']
-        : null;
-
-$meetingLng =
-    $groupJourney['meeting_point_lng'] !== null
-        ? (float)$groupJourney['meeting_point_lng']
-        : null;
-
+$contactsStmt = $db->prepare(
+    'SELECT tc.id, u.full_name AS display_name
+     FROM trusted_contacts tc
+     JOIN users u ON u.id = tc.contact_user_id
+     WHERE tc.owner_id = ? AND tc.status = "confirmed"
+     ORDER BY u.full_name ASC'
+);
+$contactsStmt->execute([$myId]);
+$confirmedContacts = $contactsStmt->fetchAll();
+$persistentGroupsStmt = $db->prepare(
+    'SELECT g.id, g.name,
+            (SELECT COUNT(*) FROM persistent_group_members x WHERE x.group_id = g.id) AS member_count
+     FROM persistent_groups g
+     JOIN persistent_group_members gm ON gm.group_id = g.id AND gm.user_id = ?
+     WHERE g.status = "active"
+     ORDER BY g.name'
+);
+$persistentGroupsStmt->execute([$myId]);
+$persistentGroups = $persistentGroupsStmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
 <head>
-
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>
-        <?= htmlspecialchars(
-            $groupJourney['title'] ?: 'Group Travel',
-            ENT_QUOTES,
-            'UTF-8'
-        ) ?> - SafariTrak
-    </title>
-
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    >
-
-    <style>
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f5f7f9;
-            color: #1f2933;
-        }
-
-        .group-page {
-            width: 100%;
-            min-height: 100vh;
-            padding: 25px;
-        }
-
-        .group-container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .group-header {
-            background: white;
-            border-radius: 16px;
-            padding: 22px 25px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 18px rgba(0,0,0,.08);
-        }
-
-        .group-header h1 {
-            margin: 0 0 7px;
-            font-size: 26px;
-        }
-
-        .group-header p {
-            margin: 0;
-            color: #667085;
-        }
-
-        .group-layout {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) 360px;
-            gap: 20px;
-        }
-
-        .map-card {
-            background: white;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 4px 18px rgba(0,0,0,.08);
-        }
-
-        #groupMap {
-            width: 100%;
-            height: 650px;
-            min-height: 500px;
-        }
-
-        .map-status {
-            padding: 13px 18px;
-            border-top: 1px solid #eaecf0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-        }
-
-        .connection-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #98a2b3;
-        }
-
-        .connection-dot.connected {
-            background: #12b76a;
-        }
-
-        .connection-dot.error {
-            background: #d92d20;
-        }
-
-        .group-panel {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .info-card {
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 4px 18px rgba(0,0,0,.08);
-        }
-
-        .info-card h3 {
-            margin: 0 0 15px;
-            font-size: 17px;
-        }
-
-        .journey-detail {
-            margin-bottom: 14px;
-        }
-
-        .detail-label {
-            display: block;
-            color: #667085;
-            font-size: 12px;
-            margin-bottom: 4px;
-        }
-
-        .detail-value {
-            font-weight: 600;
-            color: #1f2933;
-        }
-
-        .meeting-point {
-            padding: 12px;
-            border-radius: 10px;
-            background: #fff7e6;
-            border: 1px solid #f5d48a;
-        }
-
-        .destination-point {
-            padding: 12px;
-            border-radius: 10px;
-            background: #fdecec;
-            border: 1px solid #f1b4b4;
-        }
-
-        .member-list {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .member-card {
-            border: 1px solid #eaecf0;
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 10px;
-        }
-
-        .member-top {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .member-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            border: 3px solid white;
-            box-shadow: 0 2px 6px rgba(0,0,0,.25);
-            flex-shrink: 0;
-        }
-
-        .member-name {
-            font-weight: 700;
-            flex: 1;
-        }
-
-        .member-status {
-            font-size: 11px;
-            color: #667085;
-        }
-
-        .member-details {
-            margin-top: 10px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 7px;
-        }
-
-        .member-stat {
-            background: #f8fafc;
-            padding: 8px;
-            border-radius: 8px;
-        }
-
-        .member-stat span {
-            display: block;
-            font-size: 10px;
-            color: #667085;
-            margin-bottom: 3px;
-        }
-
-        .member-stat strong {
-            font-size: 12px;
-        }
-
-        .legend {
-            display: grid;
-            gap: 9px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            font-size: 13px;
-        }
-
-        .legend-marker {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            border: 2px solid white;
-            box-shadow: 0 1px 4px rgba(0,0,0,.3);
-        }
-
-        .group-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .group-button {
-            border: 0;
-            border-radius: 9px;
-            padding: 11px 14px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .fit-button {
-            background: #087f6b;
-            color: white;
-            flex: 1;
-        }
-
-        .location-button {
-            background: #e8f7f2;
-            color: #087f6b;
-            flex: 1;
-        }
-
-        @media (max-width: 1000px) {
-
-            .group-layout {
-                grid-template-columns: 1fr;
-            }
-
-            #groupMap {
-                height: 550px;
-            }
-
-        }
-
-        @media (max-width: 600px) {
-
-            .group-page {
-                padding: 12px;
-            }
-
-            #groupMap {
-                height: 450px;
-                min-height: 400px;
-            }
-
-            .group-header h1 {
-                font-size: 21px;
-            }
-
-        }
-
-    </style>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SafariTrak | Group Travel</title>
+<link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<?php if ($activeTrip): ?>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<?php endif; ?>
 </head>
-
 <body>
+<?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
+<div class="app app--map-layout">
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
-<div class="group-page">
-
-    <div class="group-container">
-
-        <div class="group-header">
-
-            <h1 id="groupTitle">
-                <?= htmlspecialchars(
-                    $groupJourney['title'] ?: 'Group Travel',
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>
-            </h1>
-
-            <p id="groupStatusText">
-                <?= htmlspecialchars(
-                    ucfirst($groupJourney['status']),
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>
-                group journey
-            </p>
-
+<main>
+<header>
+  <button class="menu" id="menu"><i class="fa-solid fa-bars"></i></button>
+  <div><label>TRAVEL TOGETHER</label><h1>Group Travel</h1></div>
+  <div class="head-actions">
+    <div class="notif-wrap">
+      <button type="button" class="notif-bell" id="notifBell"><i class="fa-regular fa-bell"></i><span class="notif-dot" id="notifDot"></span></button>
+      <div class="notif-dropdown" id="notifDropdown">
+        <div class="notif-dropdown-head"><b>Notifications</b><a href="notifications.php">View all</a></div>
+        <div class="notif-list" id="notifDropdownList">
+          <p class="notif-empty">Loading...</p>
         </div>
-
-        <div class="group-layout">
-
-            <div class="map-card">
-
-                <div id="groupMap"></div>
-
-                <div class="map-status">
-
-                    <span
-                        id="connectionDot"
-                        class="connection-dot">
-                    </span>
-
-                    <span id="trackingStatus">
-                        Connecting to group tracking...
-                    </span>
-
-                </div>
-
-            </div>
-
-            <div class="group-panel">
-
-                <div class="info-card">
-
-                    <h3>Journey Information</h3>
-
-                    <div class="journey-detail">
-
-                        <span class="detail-label">
-                            Destination
-                        </span>
-
-                        <div
-                            id="destinationLabel"
-                            class="detail-value"
-                        >
-                            <?= htmlspecialchars(
-                                $groupJourney['destination_label']
-                                ?: 'Not specified',
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ) ?>
-                        </div>
-
-                    </div>
-
-                    <div
-                        id="destinationBox"
-                        class="destination-point"
-                    >
-
-                        <span class="detail-label">
-                            Group Destination Distance
-                        </span>
-
-                        <div
-                            id="groupDestinationDistance"
-                            class="detail-value"
-                        >
-                            --
-                        </div>
-
-                    </div>
-
-                    <br>
-
-                    <div
-                        id="meetingPointBox"
-                        class="meeting-point"
-                    >
-
-                        <span class="detail-label">
-                            Meeting Point
-                        </span>
-
-                        <div
-                            id="meetingPointLabel"
-                            class="detail-value"
-                        >
-                            <?= htmlspecialchars(
-                                $groupJourney['meeting_point_label']
-                                ?: 'Not specified',
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ) ?>
-                        </div>
-
-                        <div
-                            id="meetingPointCoordinates"
-                            style="font-size:11px;color:#667085;margin-top:5px;"
-                        >
-
-                            <?php if (
-                                $meetingLat !== null &&
-                                $meetingLng !== null
-                            ): ?>
-
-                                <?= number_format(
-                                    $meetingLat,
-                                    6
-                                ) ?>,
-
-                                <?= number_format(
-                                    $meetingLng,
-                                    6
-                                ) ?>
-
-                            <?php endif; ?>
-
-                        </div>
-
-                    </div>
-
-                    <br>
-
-                    <div
-                        id="routeInfoBox"
-                        class="destination-point"
-                    >
-
-                        <span class="detail-label">
-                            Planned Route
-                        </span>
-
-                        <div
-                            id="routeDistance"
-                            class="detail-value"
-                        >
-
-                            <?php if (
-                                $groupJourney['route_distance_km']
-                                !== null
-                            ): ?>
-
-                                <?= number_format(
-                                    (float)$groupJourney['route_distance_km'],
-                                    2
-                                ) ?> km
-
-                            <?php elseif (
-                                $groupJourney['distance_km']
-                                !== null
-                            ): ?>
-
-                                <?= number_format(
-                                    (float)$groupJourney['distance_km'],
-                                    2
-                                ) ?> km
-
-                            <?php else: ?>
-
-                                --
-
-                            <?php endif; ?>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <div class="info-card">
-
-                    <h3>Group Members</h3>
-
-                    <div
-                        id="memberList"
-                        class="member-list"
-                    >
-
-                        <div
-                            style="color:#667085;font-size:13px;"
-                        >
-                            Loading group members...
-                        </div>
-
-                    </div>
-
-                    <div class="group-actions">
-
-                        <button
-                            type="button"
-                            id="fitGroupBtn"
-                            class="group-button fit-button"
-                        >
-                            Show Group
-                        </button>
-
-                        <button
-                            type="button"
-                            id="myLocationBtn"
-                            class="group-button location-button"
-                        >
-                            My Location
-                        </button>
-
-                    </div>
-
-                </div>
-
-                <div class="info-card">
-
-                    <h3>Map Legend</h3>
-
-                    <div class="legend">
-
-                        <div class="legend-item">
-
-                            <span
-                                class="legend-marker"
-                                style="background:#087f6b;"
-                            ></span>
-
-                            Group Member
-
-                        </div>
-
-                        <div class="legend-item">
-
-                            <span
-                                class="legend-marker"
-                                style="background:#c0392b;"
-                            ></span>
-
-                            Destination
-
-                        </div>
-
-                        <div class="legend-item">
-
-                            <span
-                                class="legend-marker"
-                                style="background:#f59e0b;"
-                            ></span>
-
-                            Meeting Point
-
-                        </div>
-
-                        <div class="legend-item">
-
-                            <span
-                                style="
-                                    display:block;
-                                    width:28px;
-                                    height:5px;
-                                    background:#2563eb;
-                                    border-radius:4px;
-                                "
-                            ></span>
-
-                            Route
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
+      </div>
     </div>
+    <div class="avatar"><?= st_avatar_inner($currentUser) ?></div>
+  </div>
+</header>
 
+<div class="content">
+
+<nav class="group-hub-tabs" aria-label="Groups sections">
+  <a href="groups.php"><i class="fa-solid fa-people-group" aria-hidden="true"></i>Groups</a>
+  <a href="groups.php?tab=trips" class="is-active" aria-current="page"><i class="fa-solid fa-route" aria-hidden="true"></i>Group trips</a>
+</nav>
+<div class="page-head">
+  <div><h2>Travelling as a group</h2><p>Create a group journey, invite the people coming with you, and see everyone who is authorized to be tracked.</p></div>
+  <button type="button" class="btn-primary" data-open-modal="createGroupModal"><i class="fa-solid fa-plus"></i>Create group journey</button>
 </div>
 
-<input
-    type="hidden"
-    id="groupJourneyId"
-    value="<?= (int)$groupJourneyId ?>"
->
+<?php if (!empty($pendingInvites)): ?>
+<div class="card" style="margin-bottom:18px">
+  <div class="card-head"><div><label>INVITATIONS</label><h3>Group trips you have been invited to</h3></div></div>
+  <div class="journey-list">
+    <?php foreach ($pendingInvites as $inv): ?>
+    <div class="journey-row" style="cursor:default">
+      <div class="jicon"><i class="fa-solid fa-user-group"></i></div>
+      <div class="jinfo"><b><?= htmlspecialchars($inv['title']) ?></b><small>To <?= htmlspecialchars($inv['destination_label']) ?></small></div>
+      <div class="jmeta" style="display:flex;gap:8px">
+        <button type="button" class="btn-ghost respond-btn" data-id="<?= (int) $inv['member_row_id'] ?>" data-action="decline">Decline</button>
+        <button type="button" class="btn-primary respond-btn" data-id="<?= (int) $inv['member_row_id'] ?>" data-action="confirm">Accept</button>
+      </div>
+    </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
 
-<input
-    type="hidden"
-    id="group_journey_id"
-    value="<?= (int)$groupJourneyId ?>"
->
+<div class="card">
+  <div class="card-head"><div><label>YOUR GROUPS</label><h3>Group journeys</h3></div></div>
+  <div class="journey-list">
 
-<input
-    type="hidden"
-    id="currentUserId"
-    value="<?= (int)$userId ?>"
->
+    <?php if (empty($myGroups)): ?>
+    <p class="hint" style="padding:20px 21px;color:var(--muted);font-size:11px">You are not part of any group journeys yet.</p>
+    <?php endif; ?>
 
-<input
-    type="hidden"
-    id="destinationLat"
-    value="<?= $destinationLat !== null ? htmlspecialchars((string)$destinationLat, ENT_QUOTES, 'UTF-8') : '' ?>"
->
+    <?php foreach ($myGroups as $g): ?>
+    <?php
+      $badgeClass = ['active' => 'active', 'upcoming' => 'active', 'completed' => 'completed', 'cancelled' => 'cancelled'][$g['status']];
+      $statusLabel = ucfirst($g['status'] === 'invited' ? 'invited' : $g['status']);
+      $subline = $g['my_status'] === 'invited'
+        ? 'Awaiting your response'
+        : (int) $g['confirmed_count'] . ' confirmed member' . ($g['confirmed_count'] == 1 ? '' : 's');
+    ?>
+    <div class="journey-row" data-open-modal="groupModal<?= (int) $g['id'] ?>">
+      <div class="jicon"><i class="fa-solid fa-user-group"></i></div>
+      <div class="jinfo"><b><?= htmlspecialchars($g['title']) ?></b><small><?= htmlspecialchars($subline) ?></small></div>
+      <div class="jmeta"><strong><?= htmlspecialchars($g['destination_label']) ?></strong><span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($statusLabel) ?></span></div>
+    </div>
+    <?php endforeach; ?>
 
-<input
-    type="hidden"
-    id="destinationLng"
-    value="<?= $destinationLng !== null ? htmlspecialchars((string)$destinationLng, ENT_QUOTES, 'UTF-8') : '' ?>"
->
+  </div>
+</div>
 
-<input
-    type="hidden"
-    id="meetingPointLat"
-    value="<?= $meetingLat !== null ? htmlspecialchars((string)$meetingLat, ENT_QUOTES, 'UTF-8') : '' ?>"
->
+<section class="lower" style="margin-top:18px">
+  <div class="card">
+    <div class="card-head"><div><label>THIS TRIP</label><h3><?= $activeTrip ? htmlspecialchars($activeTrip['title']) : 'No active group trip' ?></h3></div><?php if ($activeTrip): ?><span class="status"><?= (int) $activeTrip['confirmed_count'] ?> members</span><?php endif; ?></div>
+    <?php if ($activeTrip): ?>
+    <div id="groupMap"></div>
+    <div class="legend"><span><i class="current"></i>Group members</span><?php if ($activeTrip['destination_lat']): ?><span><i class="destination"></i>Destination</span><?php endif; ?></div>
+    <?php else: ?>
+    <div class="empty" style="margin:21px"><i class="fa-solid fa-user-group"></i><div><b>No trip in progress</b><p>When one of your group journeys is started, the live map will show up here.</p></div></div>
+    <?php endif; ?>
+  </div>
 
-<input
-    type="hidden"
-    id="meetingPointLng"
-    value="<?= $meetingLng !== null ? htmlspecialchars((string)$meetingLng, ENT_QUOTES, 'UTF-8') : '' ?>"
->
+  <div class="card">
+    <div class="card-head"><div><label>MEMBERS</label><h3>Who is authorized</h3></div></div>
+    <div class="rows contacts">
+      <?php if (empty($activeMembers)): ?>
+      <p class="hint" style="padding:16px 21px;color:var(--muted);font-size:11px">No active trip right now.</p>
+      <?php endif; ?>
+      <?php foreach ($activeMembers as $m): ?>
+      <div><span class="person"><?= htmlspecialchars(st_initials($m['full_name'])) ?></span><div><b><?= htmlspecialchars($m['full_name']) ?><?= (int) $m['user_id'] === $myId ? ' (you)' : '' ?></b><small>&#9679; <?= ucfirst($m['status']) ?></small></div><?php if ((int) $m['user_id'] !== $myId): ?><a class="msg-link" href="messages.php?to=<?= (int) $m['user_id'] ?>"><i class="fa-regular fa-message"></i></a><?php endif; ?></div>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</section>
+
+</div>
+<footer>&copy; <?= date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
+</main>
+</div>
+
+<div class="modal-overlay" id="createGroupModal">
+  <div class="modal">
+    <div class="modal-head"><div><h3>Create a group journey</h3><p>Set up a trip and invite the people travelling with you.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="form-field" style="margin-bottom:12px"><label>Trip name</label><input type="text" id="groupTitle" placeholder="e.g. Family trip to Diani"></div>
+      <div class="form-field" style="margin-bottom:12px"><label>Destination</label><input type="text" id="groupDestination" placeholder="e.g. Diani Beach"></div>
+      <div class="form-field" style="margin-bottom:12px"><label>Departure</label><input type="datetime-local" id="groupDeparture"></div>
+      <div class="form-field">
+        <label>Invite from your trusted contacts</label>
+        <?php if (empty($confirmedContacts)): ?>
+        <p class="hint">You have no confirmed trusted contacts yet. <a href="trusted-contacts.php" style="color:var(--p);font-weight:700;text-decoration:none">Add one first</a>.</p>
+        <?php else: ?>
+        <div class="share-contacts">
+          <?php foreach ($confirmedContacts as $c): ?>
+          <div class="share-contact-row">
+            <span class="person"><?= htmlspecialchars(st_initials($c['display_name'])) ?></span>
+            <span><?= htmlspecialchars($c['display_name']) ?></span>
+            <label class="toggle"><input type="checkbox" class="invite-checkbox" value="<?= (int) $c['id'] ?>"><span></span></label>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+      </div>
+      <div class="form-field">
+        <label>Invite members of your persistent groups</label>
+        <?php if (empty($persistentGroups)): ?>
+        <p class="hint">You have no persistent groups yet. <a href="groups.php" style="color:var(--p);font-weight:700;text-decoration:none">Create a group</a>.</p>
+        <?php else: ?>
+        <div class="share-contacts">
+          <?php foreach ($persistentGroups as $group): ?>
+          <div class="share-contact-row">
+            <span class="person"><i class="fa-solid fa-people-group"></i></span>
+            <span><?= htmlspecialchars($group['name']) ?> · <?= (int) $group['member_count'] ?> members</span>
+            <label class="toggle"><input type="checkbox" class="invite-group-checkbox" value="<?= (int) $group['id'] ?>"><span></span></label>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+      </div>
+      <p class="hint" id="createGroupError" style="color:#c94b4b;margin-top:10px;display:none"></p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ghost" data-close-modal>Cancel</button>
+      <button type="button" class="primary" id="createGroupBtn">Create and invite</button>
+    </div>
+  </div>
+</div>
+
+<?php foreach ($myGroups as $g): ?>
+<?php
+  $isOrganizer = (int) $g['organizer_id'] === $myId;
+  $membersListStmt = $db->prepare(
+      'SELECT gm.id, gm.user_id, gm.status, u.full_name
+       FROM group_members gm JOIN users u ON u.id = gm.user_id
+       WHERE gm.group_journey_id = ? ORDER BY FIELD(gm.status,"confirmed","invited","declined")'
+  );
+  $membersListStmt->execute([$g['id']]);
+  $groupMembersList = $membersListStmt->fetchAll();
+?>
+<div class="modal-overlay" id="groupModal<?= (int) $g['id'] ?>">
+  <div class="modal">
+    <div class="modal-head"><div><h3><?= htmlspecialchars($g['title']) ?></h3><p>To <?= htmlspecialchars($g['destination_label']) ?> &middot; <?= ucfirst($g['status']) ?></p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="share-contacts">
+        <?php foreach ($groupMembersList as $gm): ?>
+        <div class="share-contact-row">
+          <span class="person"><?= htmlspecialchars(st_initials($gm['full_name'])) ?></span>
+          <span><?= htmlspecialchars($gm['full_name']) ?><?= (int) $gm['user_id'] === $myId ? ' (you)' : '' ?> &middot; <?= ucfirst($gm['status']) ?></span>
+          <?php if ($isOrganizer && (int) $gm['user_id'] !== $myId && $gm['status'] !== 'declined'): ?>
+          <button type="button" class="btn-ghost remove-member-btn" data-member-id="<?= (int) $gm['id'] ?>" style="color:#c94b4b;padding:5px 8px;font-size:9px">Remove</button>
+          <?php endif; ?>
+        </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ghost" data-close-modal>Close</button>
+      <?php if ($isOrganizer && $g['status'] === 'upcoming'): ?>
+      <button type="button" class="primary group-action-btn" data-action="start" data-group-id="<?= (int) $g['id'] ?>">Start trip</button>
+      <button type="button" class="danger group-action-btn" data-action="cancel" data-group-id="<?= (int) $g['id'] ?>">Cancel trip</button>
+      <?php elseif ($isOrganizer && $g['status'] === 'active'): ?>
+      <button type="button" class="primary group-action-btn" data-action="end" data-group-id="<?= (int) $g['id'] ?>">End trip</button>
+      <button type="button" class="danger group-action-btn" data-action="cancel" data-group-id="<?= (int) $g['id'] ?>">Cancel trip</button>
+      <?php elseif (!$isOrganizer && $g['my_status'] === 'confirmed' && in_array($g['status'], ['upcoming', 'active'], true)): ?>
+      <button type="button" class="danger respond-btn" data-id="<?= (int) $g['member_row_id'] ?>" data-action="leave">Leave group</button>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
+<?php endforeach; ?>
 
 <script>
-
-window.groupJourneyId = <?= json_encode((int)$groupJourneyId) ?>;
-
-window.currentUserId = <?= json_encode((int)$userId) ?>;
-
-window.groupJourneyData = <?= json_encode([
-    'id' => (int)$groupJourney['id'],
-    'organizer_id' => (int)$groupJourney['organizer_id'],
-    'title' => $groupJourney['title'],
-    'status' => $groupJourney['status'],
-    'destination_label' => $groupJourney['destination_label'],
-    'destination_lat' => $destinationLat,
-    'destination_lng' => $destinationLng,
-    'meeting_point_label' => $groupJourney['meeting_point_label'],
-    'meeting_point_lat' => $meetingLat,
-    'meeting_point_lng' => $meetingLng,
-    'route_distance_km' => $groupJourney['route_distance_km'] !== null
-        ? (float)$groupJourney['route_distance_km']
-        : null,
-    'route_duration_minutes' => $groupJourney['route_duration_minutes'] !== null
-        ? (int)$groupJourney['route_duration_minutes']
-        : null
-], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-
+window.ACTIVE_GROUP_ID = <?= $activeTrip ? (int) $activeTrip['id'] : 'null' ?>;
+window.ACTIVE_GROUP_DEST_LAT = <?= ($activeTrip && $activeTrip['destination_lat'] !== null) ? (float) $activeTrip['destination_lat'] : 'null' ?>;
+window.ACTIVE_GROUP_DEST_LNG = <?= ($activeTrip && $activeTrip['destination_lng'] !== null) ? (float) $activeTrip['destination_lng'] : 'null' ?>;
+window.ACTIVE_GROUP_MEMBERS = <?= json_encode(array_map(function ($m) {
+    return [
+        'user_id' => (int) $m['user_id'],
+        'name' => $m['full_name'],
+        'status' => $m['status'],
+        'lat' => $m['last_lat'] !== null ? (float) $m['last_lat'] : null,
+        'lng' => $m['last_lng'] !== null ? (float) $m['last_lng'] : null,
+    ];
+}, $activeMembers)) ?>;
+window.MY_USER_ID = <?= (int) $myId ?>;
 </script>
 
-<script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-></script>
-
-<script
-    src="group-travel.js"
-></script>
-
+<?php if ($activeTrip): ?><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><?php endif; ?>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
+<script src="notifications-widget.js?v=<?= hash_file('sha256', __DIR__ . '/notifications-widget.js') ?>"></script>
+<script src="group-travel.js"></script>
 </body>
 </html>

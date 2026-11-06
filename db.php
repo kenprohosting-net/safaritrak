@@ -1,14 +1,4 @@
 <?php
-$host = 'localhost';
-$dbname = 'safaritrak';
-$username = 'root';
-$password = '';
 
-// Create connection
-$conn = new mysqli($host, $username, $password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
-?>
+header('Location: welcome.php', true, 302);
+exit;

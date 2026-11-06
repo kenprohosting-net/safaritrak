@@ -20,6 +20,7 @@ $allowedFields = [
 ];
 
 $userId = (int) $_SESSION['user_id'];
+session_write_close();
 $input = st_input();
 
 $field = (string) ($input['field'] ?? '');

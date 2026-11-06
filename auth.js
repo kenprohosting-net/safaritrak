@@ -33,6 +33,42 @@ function setSubmitting(button, isSubmitting, defaultLabel) {
   button.textContent = isSubmitting ? 'Please wait...' : defaultLabel;
 }
 
+if (!window.__safaritrakCsrfFetch) {
+  const nativeFetch = window.fetch.bind(window);
+  let csrfTokenRequest;
+
+  window.fetch = async (input, init = {}) => {
+    const requestUrl = new URL(typeof input === 'string' ? input : input.url, window.location.href);
+    const requestMethod = (init.method || (typeof input === 'string' ? 'GET' : input.method) || 'GET').toUpperCase();
+
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(requestMethod) && requestUrl.origin === window.location.origin) {
+      if (!csrfTokenRequest) {
+        const tokenUrl = new URL('backend/api/csrf-token.php', window.location.href);
+        csrfTokenRequest = nativeFetch(tokenUrl, { credentials: 'same-origin' })
+          .then(async response => {
+            const payload = await response.json();
+            if (!response.ok || !payload.csrf_token) {
+              throw new Error('Could not obtain a request security token.');
+            }
+            return payload.csrf_token;
+          })
+          .catch(error => {
+            csrfTokenRequest = null;
+            throw error;
+          });
+      }
+
+      const headers = new Headers(init.headers || (typeof input === 'string' ? undefined : input.headers));
+      headers.set('X-CSRF-Token', await csrfTokenRequest);
+      init = { ...init, headers, credentials: init.credentials || 'same-origin' };
+    }
+
+    return nativeFetch(input, init);
+  };
+
+  window.__safaritrakCsrfFetch = true;
+}
+
 async function postJSON(url, payload) {
   const response = await fetch(url, {
     method: 'POST',
@@ -135,7 +171,16 @@ if (loginForm) {
     setSubmitting(submitBtn, false, 'Login');
 
     if (ok && data.success) {
-      window.location.href = data.redirect || 'index.php';
+      const query = new URLSearchParams(window.location.search);
+      const groupInvite = query.get('group_invite');
+      const orgInvite = query.get('org_invite');
+      if (groupInvite && /^[a-f0-9]{64}$/.test(groupInvite)) {
+        window.location.href = 'group-invite.php?token=' + encodeURIComponent(groupInvite);
+      } else if (orgInvite && /^[a-f0-9]{64}$/.test(orgInvite)) {
+        window.location.href = 'organization-invite.php?token=' + encodeURIComponent(orgInvite);
+      } else {
+        window.location.href = data.redirect || 'index.php';
+      }
       return;
     }
 
@@ -150,7 +195,7 @@ if (loginForm) {
 const signupForm = document.getElementById('signupForm');
 if (signupForm) {
   const submitBtn = signupForm.querySelector('.login-btn');
-  const fieldIds = ['fullNameError', 'signupUsernameError', 'emailError', 'signupPhoneError', 'signupPasswordError', 'termsError'];
+  const fieldIds = ['fullNameError', 'signupUsernameError', 'emailError', 'signupPhoneError', 'signupPasswordError', 'termsError', 'signupInviteError'];
 
   signupForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -187,7 +232,7 @@ if (signupForm) {
       valid = false;
     }
 
-    if (!password || password.value.trim().length < 6) {
+    if (!password || password.value.length < 12 || new TextEncoder().encode(password.value).length > 1024) {
       showError('signupPasswordError', true);
       valid = false;
     }
@@ -200,14 +245,25 @@ if (signupForm) {
     if (!valid) return;
 
     setSubmitting(submitBtn, true, 'Create Account');
-    const { ok, data } = await postJSON('backend/api/register.php', {
-      full_name: fullName.value.trim(),
-      username: username.value.trim(),
-      email: emailVal,
-      phone: phone ? phone.value.trim() : '',
-      password: password.value,
-      terms: terms.checked
-    });
+    let ok;
+    let data;
+    try {
+      ({ ok, data } = await postJSON('backend/api/register.php', {
+        full_name: fullName.value.trim(),
+        username: username.value.trim(),
+        email: emailVal,
+        phone: phone ? phone.value.trim() : '',
+        password: password.value,
+        contact_invite_token: document.getElementById('contactInviteToken')?.value || '',
+        group_invite_token: document.getElementById('groupInviteToken')?.value || '',
+        org_invite_token: document.getElementById('organizationInviteToken')?.value || '',
+        terms: terms.checked
+      }));
+    } catch (error) {
+      setSubmitting(submitBtn, false, 'Create Account');
+      showError('emailError', true, 'Could not reach the server. Please check your connection and try again.');
+      return;
+    }
     setSubmitting(submitBtn, false, 'Create Account');
 
     if (ok && data.success) {
@@ -224,8 +280,12 @@ if (signupForm) {
         full_name: 'fullNameError',
         username: 'signupUsernameError',
         email: 'emailError',
+        phone: 'signupPhoneError',
         password: 'signupPasswordError',
-        terms: 'termsError'
+        terms: 'termsError',
+        contact_invite_token: 'signupInviteError',
+        group_invite_token: 'signupInviteError',
+        org_invite_token: 'signupInviteError'
       };
       Object.keys(data.errors).forEach(key => {
         if (map[key]) showError(map[key], true, data.errors[key]);
@@ -251,32 +311,22 @@ if (forgotForm) {
     showError('resetContactError', false);
 
     setSubmitting(submitBtn, true, 'Send reset link');
+    const { data } = await postJSON('backend/api/forgot-password.php', {
+      contact: contact.value.trim()
+    });
+    setSubmitting(submitBtn, false, 'Send reset link');
+
     const subtitle = document.querySelector('.subtitle');
-    try {
-      const { ok, data } = await postJSON('backend/api/forgot-password.php', {
-        contact: contact.value.trim()
-      });
+    if (subtitle) {
+      subtitle.textContent = data.message || 'If that account exists, a reset link has been sent.';
+    }
+    forgotForm.style.display = 'none';
 
-      if (!ok || !data.success) {
-        if (subtitle) subtitle.textContent = data.message || 'Could not send the reset link. Please try again.';
-        return;
-      }
-
-      if (subtitle) {
-        subtitle.textContent = data.message || 'If that account exists, a reset link has been sent.';
-      }
-      forgotForm.style.display = 'none';
-
-      if (data.dev_reset_link) {
-        const devNote = document.createElement('p');
-        devNote.className = 'signup-text';
-        devNote.innerHTML = 'Dev mode: <a href="' + data.dev_reset_link + '">open your reset link</a>';
-        forgotForm.insertAdjacentElement('afterend', devNote);
-      }
-    } catch (error) {
-      if (subtitle) subtitle.textContent = 'Could not reach the server. Check your connection and try again.';
-    } finally {
-      setSubmitting(submitBtn, false, 'Send reset link');
+    if (data.dev_reset_link) {
+      const devNote = document.createElement('p');
+      devNote.className = 'signup-text';
+      devNote.innerHTML = 'Dev mode: <a href="' + data.dev_reset_link + '">open your reset link</a>';
+      forgotForm.insertAdjacentElement('afterend', devNote);
     }
   });
 }
@@ -291,14 +341,14 @@ if (resetForm) {
     const confirmPassword = document.getElementById('confirmPassword');
     let valid = true;
 
-    if (!newPassword || newPassword.value.trim().length < 6) {
+    if (!newPassword || newPassword.value.length < 12 || new TextEncoder().encode(newPassword.value).length > 1024) {
       showError('newPasswordError', true);
       valid = false;
     } else {
       showError('newPasswordError', false);
     }
 
-    if (!confirmPassword || confirmPassword.value.trim() !== newPassword.value.trim() || !confirmPassword.value.trim()) {
+    if (!confirmPassword || confirmPassword.value !== newPassword.value || !confirmPassword.value) {
       showError('confirmPasswordError', true);
       valid = false;
     } else {

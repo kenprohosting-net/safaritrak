@@ -85,6 +85,7 @@ $updateStmt->execute([
 ]);
 
 $_SESSION['username'] = $username;
+session_write_close();
 
 st_json_ok([
     'message' => 'Your profile has been updated.',

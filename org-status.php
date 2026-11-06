@@ -1,8 +1,8 @@
 <?php
 
-require_once __DIR__ . '/../../config/database.php';
-require_once __DIR__ . '/../../includes/response.php';
-require_once __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/backend/config/database.php';
+require_once __DIR__ . '/backend/includes/response.php';
+require_once __DIR__ . '/backend/includes/session.php';
 
 st_start_session();
 st_require_method('POST');

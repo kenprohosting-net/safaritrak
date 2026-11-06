@@ -28,9 +28,13 @@ document.querySelectorAll('.org-status-btn').forEach(btn => {
     const action = btn.getAttribute('data-action');
     const orgId = btn.getAttribute('data-org-id');
 
-    const confirmMsg = action === 'suspend'
-      ? 'Suspend this organization? Its admin will lose access to manage travelers until reactivated.'
-      : 'Reactivate this organization?';
+    const confirmMessages = {
+      approve: 'Approve this organization? Its administrators can then manage traveler data and services.',
+      reject: 'Reject this organization application?',
+      suspend: 'Suspend this organization? Its admin will lose access to manage travelers until reactivated.',
+      reactivate: 'Reactivate this organization?',
+    };
+    const confirmMsg = confirmMessages[action] || 'Continue with this organization action?';
 
     if (!confirm(confirmMsg)) return;
 

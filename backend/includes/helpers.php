@@ -61,9 +61,9 @@ function st_notif_link(string $type, ?int $relatedJourneyId, ?int $relatedUserId
         case 'contact_request':
             return 'trusted-contacts.php';
         case 'group_invite':
-            return 'group-travel.php';
+            return 'groups.php?tab=trips';
         case 'sos_alert':
-            return 'safety.php';
+            return 'notifications.php';
         default:
             return null;
     }
@@ -111,27 +111,4 @@ function st_display_phone(?string $digits): string {
         return substr($local, 0, 4) . ' ' . substr($local, 4, 3) . ' ' . substr($local, 7);
     }
     return $digits;
-}
-
-function st_logout(): void {
-    if (session_status() === PHP_SESSION_NONE) {
-        st_start_session();
-    }
-
-    $_SESSION = array();
-
-    if (ini_get("session.use_cookies")) {
-        $params = session_get_cookie_params();
-        setcookie(
-            session_name(),
-            '',
-            time() - 42000,
-            $params["path"],
-            $params["domain"],
-            $params["secure"],
-            $params["httponly"]
-        );
-    }
-
-    session_destroy();
 }

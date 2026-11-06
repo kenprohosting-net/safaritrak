@@ -1,6 +1,26 @@
 <?php
 require __DIR__ . '/backend/includes/auth-guard.php';
 require_once __DIR__ . '/backend/includes/helpers.php';
+require_once __DIR__ . '/backend/includes/consent.php';
+
+$consentVersions = st_current_consent_versions();
+$consentStmt = $db->prepare(
+    'SELECT consent_type, document_version, accepted_at
+     FROM privacy_consents WHERE user_id = ? ORDER BY accepted_at DESC'
+);
+$consentStmt->execute([$currentUser['id']]);
+$consentRecords = $consentStmt->fetchAll();
+$acceptedConsentVersions = [];
+foreach ($consentRecords as $consentRecord) {
+    $acceptedConsentVersions[$consentRecord['consent_type']] ??= $consentRecord['document_version'];
+}
+$currentConsentAccepted = true;
+foreach ($consentVersions as $consentType => $consentVersion) {
+    if (($acceptedConsentVersions[$consentType] ?? null) !== $consentVersion) {
+        $currentConsentAccepted = false;
+        break;
+    }
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -8,28 +28,13 @@ require_once __DIR__ . '/backend/includes/helpers.php';
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafariTrak | Settings</title>
-<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
-<div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small></div></div>
-  <nav>
-    <a href="index.php"><i class="fa-solid fa-grid-2"></i>Dashboard</a>
-    <a href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
-    <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
-    <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
-    <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
-    <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
-  </nav>
-  <div class="bottom">
-    <a class="active" href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
-    <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span id="sidebarAvatar"><?= st_avatar_inner($currentUser) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
-  </div>
-</aside>
+<?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
+<div class="app app--map-layout">
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
 <header>
@@ -73,6 +78,13 @@ require_once __DIR__ . '/backend/includes/helpers.php';
     </div>
 
     <p class="form-message" id="profileMessage" style="display:none"></p>
+    <section class="settings-account-shortcut" aria-label="Trusted people">
+      <div>
+        <strong>Trusted people &amp; trip sharing</strong>
+        <p>Manage friend requests, journey access, and temporary share links.</p>
+      </div>
+      <a class="btn-ghost" href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Manage trusted people</a>
+    </section>
 
     <div class="form-grid" style="padding:0">
       <div class="form-field">
@@ -118,26 +130,49 @@ require_once __DIR__ . '/backend/includes/helpers.php';
     <div class="toggle-row"><span><b>Show my journey history to trusted contacts</b><small>They can see your past trips, not just live journeys</small></span><label class="toggle"><input type="checkbox" data-setting="show_history_to_contacts" <?= $currentUser['show_history_to_contacts'] ? 'checked' : '' ?>><span></span></label></div>
     <div class="toggle-row"><span><b>Allow group journeys</b><small>Let organizers add you to group trips</small></span><label class="toggle"><input type="checkbox" data-setting="allow_group_journeys" <?= $currentUser['allow_group_journeys'] ? 'checked' : '' ?>><span></span></label></div>
     <div class="toggle-row"><span><b>Discoverable by phone number</b><small>Let people find and add you as a trusted contact using your number</small></span><label class="toggle"><input type="checkbox" data-setting="discoverable_by_phone" <?= $currentUser['discoverable_by_phone'] ? 'checked' : '' ?>><span></span></label></div>
+    <section class="settings-consent" aria-labelledby="consentHeading">
+      <h3 id="consentHeading">Terms and privacy consent</h3>
+      <p class="hint" id="consentStatus" role="status">
+        <?php if ($currentConsentAccepted): ?>
+          You accepted the current Terms (<?= htmlspecialchars($consentVersions['terms']) ?>) and Privacy Policy (<?= htmlspecialchars($consentVersions['privacy']) ?>).
+        <?php else: ?>
+          We do not have recorded acceptance of the current documents for this account. Review and accept both to record your current consent.
+        <?php endif; ?>
+      </p>
+      <?php if (!$currentConsentAccepted): ?>
+      <div class="consent-acceptance" id="consentAcceptance">
+        <label><input type="checkbox" id="acceptCurrentTerms"> I have read and agree to the <a href="terms.html" target="_blank" rel="noopener">Terms &amp; Conditions</a> (<?= htmlspecialchars($consentVersions['terms']) ?>).</label>
+        <label><input type="checkbox" id="acceptCurrentPrivacy"> I have read the <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> (<?= htmlspecialchars($consentVersions['privacy']) ?>).</label>
+        <p class="field-error" id="consentError"></p>
+        <button type="button" class="btn-ghost" id="saveConsentBtn">Record acceptance</button>
+      </div>
+      <?php endif; ?>
+    </section>
   </div>
 
   <div class="settings-panel" data-tab-panel-group="settings" data-tab-panel="account">
     <p class="form-message" id="passwordMessage" style="display:none"></p>
     <div class="form-field" style="max-width:360px;margin-bottom:14px">
       <label>Current password</label>
-      <input type="password" id="settingCurrentPassword" placeholder="Enter current password">
+      <input type="password" id="settingCurrentPassword" placeholder="Enter current password" autocomplete="current-password">
       <p class="field-error" id="settingCurrentPasswordError"></p>
     </div>
     <div class="form-field" style="max-width:360px;margin-bottom:14px">
       <label>New password</label>
-      <input type="password" id="settingNewPassword" placeholder="Enter new password">
+      <input type="password" id="settingNewPassword" placeholder="At least 12 characters" minlength="12" maxlength="1024" autocomplete="new-password">
       <p class="field-error" id="settingNewPasswordError"></p>
     </div>
     <div class="form-field" style="max-width:360px;margin-bottom:14px">
       <label>Confirm new password</label>
-      <input type="password" id="settingConfirmPassword" placeholder="Re-enter new password">
+      <input type="password" id="settingConfirmPassword" placeholder="Re-enter new password" maxlength="1024" autocomplete="new-password">
       <p class="field-error" id="settingConfirmPasswordError"></p>
     </div>
     <button type="button" class="btn-primary" id="updatePasswordBtn">Update password</button>
+    <div class="settings-export">
+      <h3>Download your data</h3>
+      <p class="hint">Download a private JSON copy of your profile, journeys and location history, contacts, messages, account roles, and recorded consent.</p>
+      <a class="btn-ghost" href="backend/api/export-data.php" download><i class="fa-solid fa-download"></i>Download my data</a>
+    </div>
     <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
     <button type="button" class="btn-ghost" style="color:#c94b4b;border-color:#f3d4d4" data-open-modal="deleteAccountModal">Delete my account</button>
     <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
@@ -153,9 +188,9 @@ require_once __DIR__ . '/backend/includes/helpers.php';
 
 <div class="modal-overlay" id="deleteAccountModal">
   <div class="modal">
-    <div class="modal-head"><div><h3>Delete your account?</h3><p>This removes all your journeys, contacts and messages.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-head"><div><h3>Delete your account?</h3><p>This permanently removes your journeys, contacts and messages. Group trips you organize may also be removed for participants.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
-      <p>This cannot be undone. Enter your password to confirm.</p>
+      <p>This cannot be undone. Platform and organization administrators must transfer or remove their duties first. Enter your password to confirm.</p>
       <div class="form-field" style="margin-top:10px">
         <input type="password" id="deleteAccountPassword" placeholder="Your password">
         <p class="field-error" id="deleteAccountPasswordError"></p>
@@ -168,8 +203,8 @@ require_once __DIR__ . '/backend/includes/helpers.php';
   </div>
 </div>
 
-<script src="dashboard.js"></script>
-<script src="notifications-widget.js"></script>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
+<script src="notifications-widget.js?v=<?= hash_file('sha256', __DIR__ . '/notifications-widget.js') ?>"></script>
 <script src="settings.js"></script>
 </body>
 </html>
