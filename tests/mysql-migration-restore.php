@@ -284,6 +284,8 @@ try {
         'organization_profiles' => "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'organization_profiles'",
         'persistent_groups' => "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'persistent_groups'",
         'persistent_group_messages' => "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'persistent_group_messages'",
+        'persistent_group_location_columns' => "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'persistent_group_members' AND COLUMN_NAME IN ('sharing_location', 'last_lat', 'last_lng', 'location_updated_at')",
+        'persistent_group_invitee' => "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'persistent_group_invites' AND COLUMN_NAME = 'invited_user_id'",
         'rental_vehicles' => "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rental_vehicles'",
         'rental_bookings' => "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rental_bookings'",
         'migration_ledger' => 'SELECT COUNT(*) FROM schema_migrations',
@@ -297,10 +299,12 @@ try {
         'organization_profiles' => 1,
         'persistent_groups' => 1,
         'persistent_group_messages' => 1,
+        'persistent_group_location_columns' => 4,
+        'persistent_group_invitee' => 1,
         'rental_vehicles' => 1,
         'rental_bookings' => 1,
         'privacy_consents' => 1,
-        'migration_ledger' => 10,
+        'migration_ledger' => 20,
     ];
     if ($sentinel !== 'migration_test') {
         throw new RuntimeException('Migration did not preserve the restored sentinel user.');

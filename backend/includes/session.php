@@ -8,7 +8,7 @@ function st_start_session(?PDO $database = null): void {
         ini_set('session.gc_maxlifetime', (string) (60 * 60 * 24 * 30));
 
         session_set_cookie_params([
-            'lifetime' => 0,
+            'lifetime' => 60 * 60 * 24 * 30,
             'path' => '/',
             'secure' => !empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off',
             'httponly' => true,
@@ -45,6 +45,11 @@ function st_validate_session(?PDO $database = null, bool $force = false): void {
         return;
     }
 
+    if (!empty($_SESSION['_remember_me'])) {
+        st_destroy_current_session($database);
+        return;
+    }
+
     if (empty($_SESSION['user_id'])) {
         $GLOBALS['st_validated_session_id'] = $sessionId;
         return;
@@ -74,7 +79,7 @@ function st_validate_session(?PDO $database = null, bool $force = false): void {
     $now = time();
     $lastActive = strtotime((string) $record['last_active_at']);
     $expiresAt = strtotime((string) $record['expires_at']);
-    $idleTimeout = !empty($_SESSION['_remember_me']) ? 7 * 24 * 60 * 60 : 30 * 60;
+    $idleTimeout = 7 * 24 * 60 * 60;
     $expectedValidatorHash = hash('sha256', $validator);
 
     if (
@@ -121,12 +126,12 @@ function st_upgrade_legacy_session(PDO $database, int $userId): void {
 
     unset($_SESSION['_csrf_token']);
     $_SESSION['_session_validator'] = bin2hex(random_bytes(32));
-    $_SESSION['_remember_me'] = false;
-    st_store_session($database, $oldSessionId, $userId, false);
+    unset($_SESSION['_remember_me']);
+    st_store_session($database, $oldSessionId, $userId);
     $GLOBALS['st_validated_session_id'] = session_id();
 }
 
-function st_store_session(PDO $database, string $oldSessionId, int $userId, bool $remember): void {
+function st_store_session(PDO $database, string $oldSessionId, int $userId): void {
     $sessionId = session_id();
     $validator = $_SESSION['_session_validator'] ?? null;
     if (!is_string($validator) || $sessionId === '') {
@@ -135,7 +140,7 @@ function st_store_session(PDO $database, string $oldSessionId, int $userId, bool
 
     $now = time();
     $currentTime = date('Y-m-d H:i:s', $now);
-    $lifetime = $remember ? 30 * 24 * 60 * 60 : 12 * 60 * 60;
+    $lifetime = 30 * 24 * 60 * 60;
     $expiresAt = date('Y-m-d H:i:s', $now + $lifetime);
 
     $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
@@ -175,7 +180,6 @@ function st_store_session(PDO $database, string $oldSessionId, int $userId, bool
         throw $exception;
     }
 
-    $_SESSION['_remember_me'] = $remember;
     $GLOBALS['st_validated_session_id'] = $sessionId;
 }
 
@@ -315,7 +319,7 @@ function st_require_login(): int {
     return $userId;
 }
 
-function st_login_user(array $user, bool $remember = false, ?PDO $database = null): void {
+function st_login_user(array $user, ?PDO $database = null): void {
     $db = st_session_database($database);
     st_start_session($db);
 
@@ -328,17 +332,5 @@ function st_login_user(array $user, bool $remember = false, ?PDO $database = nul
     $_SESSION['user_id'] = (int) $user['id'];
     $_SESSION['username'] = $user['username'] ?? null;
     $_SESSION['_session_validator'] = bin2hex(random_bytes(32));
-    $_SESSION['_remember_me'] = $remember;
-    st_store_session($db, $oldSessionId, (int) $user['id'], $remember);
-
-    if ($remember) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), session_id(), [
-            'expires' => time() + 60 * 60 * 24 * 30,
-            'path' => $params['path'],
-            'secure' => $params['secure'],
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
-    }
+    st_store_session($db, $oldSessionId, (int) $user['id']);
 }

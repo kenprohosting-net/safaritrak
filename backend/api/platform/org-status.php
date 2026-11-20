@@ -40,6 +40,36 @@ if (in_array($action, ['approve', 'reject'], true)) {
     if ($reviewStmt->rowCount() === 0) {
         st_json_error('This organization has no reviewable account profile.', 409);
     }
+    if ($action === 'approve') {
+        $db->prepare(
+            'INSERT IGNORE INTO school_verifications
+                (user_id, school_id, role, verification_status, verified_at)
+             SELECT oa.user_id, oa.organization_id, "school_admin", "verified", UTC_TIMESTAMP()
+             FROM organization_admins oa
+             JOIN organization_profiles p ON p.organization_id = oa.organization_id
+             WHERE oa.organization_id = ? AND p.account_type = "school"
+               AND p.review_status = "approved"'
+        )->execute([$orgId]);
+        $db->prepare(
+            'INSERT IGNORE INTO school_verifications
+                (user_id, school_id, role, verification_status, verified_at)
+             SELECT ot.user_id, ot.organization_id, "school_admin", "verified", UTC_TIMESTAMP()
+             FROM organization_travelers ot
+             JOIN organization_profiles p ON p.organization_id = ot.organization_id
+             WHERE ot.organization_id = ? AND p.account_type = "school"
+               AND p.review_status = "approved" AND ot.status = "active"
+               AND ot.member_type = "staff"
+               AND NOT EXISTS (
+                 SELECT 1 FROM organization_admins oa
+                 WHERE oa.organization_id = ot.organization_id AND oa.user_id = ot.user_id
+               )'
+        )->execute([$orgId]);
+    } elseif ($reviewStatus === 'rejected') {
+        $db->prepare(
+            'UPDATE school_verifications SET verification_status = "revoked"
+             WHERE school_id = ?'
+        )->execute([$orgId]);
+    }
     st_json_ok(['status' => $reviewStatus]);
 }
 

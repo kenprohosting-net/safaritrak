@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../backend/includes/journey-locations.php';
+require_once __DIR__ . '/../backend/includes/geo.php';
 
 $db = new PDO('sqlite::memory:');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -72,7 +73,25 @@ if (st_active_shared_journey_locations($db, 3) !== []) {
     throw new RuntimeException('Unrelated viewers must not receive shared journey locations.');
 }
 
+$coordinateCases = [
+    'valid decimal coordinates are accepted' => st_parse_coordinate('-1.286389', -90, 90) === -1.286389
+        && st_parse_coordinate('36.817223', -180, 180) === 36.817223,
+    'latitude and longitude boundaries are accepted' => st_parse_coordinate('-90', -90, 90) === -90.0
+        && st_parse_coordinate('180', -180, 180) === 180.0,
+    'malformed coordinates are rejected' => st_parse_coordinate('not-a-coordinate', -90, 90) === null,
+    'non-finite coordinates are rejected' => st_parse_coordinate('INF', -90, 90) === null,
+    'out-of-range coordinates are rejected' => st_parse_coordinate('90.01', -90, 90) === null
+        && st_parse_coordinate('-180.01', -180, 180) === null,
+    'non-scalar coordinates are rejected' => st_parse_coordinate(['1'], -90, 90) === null,
+];
+foreach ($coordinateCases as $message => $passed) {
+    if (!$passed) {
+        throw new RuntimeException($message);
+    }
+    echo "PASS {$message}\n";
+}
+
 echo "PASS active shared journey privacy boundaries\n";
 echo "PASS latest location selection\n";
 echo "PASS unrelated viewer isolation\n";
-echo "Completed 3 map privacy checks.\n";
+echo "Completed 9 map privacy and coordinate checks.\n";

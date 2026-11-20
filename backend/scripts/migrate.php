@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/migration-checksum.php';
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
@@ -67,7 +68,7 @@ try {
 
         st_verify_legacy_baseline($db);
         $schemaFile = dirname(__DIR__) . '/sql/schema.sql';
-        $checksum = hash_file('sha256', $schemaFile);
+        $checksum = st_migration_file_checksum($schemaFile);
         $insert = $db->prepare(
             'INSERT INTO schema_migrations (version, checksum) VALUES (?, ?)'
         );
@@ -101,9 +102,9 @@ try {
 
     foreach (st_migration_files() as $file) {
         $version = preg_replace('/\.(sql|php)$/', '', basename($file));
-        $checksum = hash_file('sha256', $file);
+        $checksum = st_migration_file_checksum($file);
         if (isset($appliedByVersion[$version])) {
-            if (!hash_equals($appliedByVersion[$version]['checksum'], $checksum)) {
+            if (!st_migration_file_checksum_matches($appliedByVersion[$version]['checksum'], $file)) {
                 fwrite(STDERR, "Checksum mismatch for applied migration {$version}; refusing to continue.\n");
                 exit(1);
             }

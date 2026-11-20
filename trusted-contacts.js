@@ -20,12 +20,6 @@ document.getElementById('sendInviteBtn')?.addEventListener('click', async () => 
   inviteStatus.textContent = '';
   actions.hidden = true;
 
-  if (!name) {
-    errorEl.textContent = 'Please enter their name.';
-    errorEl.style.display = 'block';
-    return;
-  }
-
   btn.disabled = true;
   btn.textContent = 'Creating link...';
 
@@ -154,7 +148,7 @@ contactSearchInput?.addEventListener('input', () => {
   contactSearchResults.replaceChildren();
   const query = contactSearchInput.value.trim();
   if (query.length < 2) {
-    contactSearchStatus.textContent = query ? 'Enter at least two characters.' : '';
+    contactSearchStatus.textContent = query ? 'Enter at least two characters of a username.' : '';
     return;
   }
   contactSearchStatus.textContent = 'Searching…';
@@ -174,7 +168,7 @@ contactSearchInput?.addEventListener('input', () => {
       renderContactSearchResults(payload.users);
       contactSearchStatus.textContent = payload.users.length
         ? 'Select Add friend to send a request.'
-        : 'No people found. Check the spelling or invite them by email.';
+        : 'No username found. Check the spelling or create a sign-up invitation link.';
     } catch (error) {
       if (error.name === 'AbortError') return;
       contactSearchStatus.textContent = error.message || 'People could not be searched right now.';
@@ -221,6 +215,29 @@ document.getElementById('revokeLiveShareBtn')?.addEventListener('click', async e
 
 document.getElementById('copyLiveShareBtn')?.addEventListener('click', () => {
   copyText(liveShareUrl.value, liveShareStatus);
+});
+
+const signupInviteUrl = document.getElementById('signupInviteUrl');
+document.getElementById('createSignupInviteBtn')?.addEventListener('click', async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  liveShareStatus.textContent = 'Creating a sign-up invitation…';
+  try {
+    const data = await postJson('backend/api/contacts/invite.php', {});
+    if (!data.success) throw new Error(data.message || 'Could not create a sign-up invitation.');
+    signupInviteUrl.value = data.invite_url;
+    signupInviteUrl.hidden = false;
+    document.getElementById('copySignupInviteBtn').disabled = false;
+    liveShareStatus.textContent = 'Sign-up invitation created. The recipient can create an account and accept to become your trusted contact.';
+  } catch (error) {
+    liveShareStatus.textContent = error.message || 'Could not create a sign-up invitation.';
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById('copySignupInviteBtn')?.addEventListener('click', () => {
+  copyText(signupInviteUrl.value, liveShareStatus);
 });
 
 document.getElementById('shareLiveShareBtn')?.addEventListener('click', async () => {

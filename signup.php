@@ -67,30 +67,35 @@ if ($contactInviteToken !== '') {
       <input type="hidden" id="groupInviteToken" value="<?= htmlspecialchars($groupInviteToken, ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" id="organizationInviteToken" value="<?= htmlspecialchars($organizationInviteToken, ENT_QUOTES, 'UTF-8') ?>">
       <div class="input-group">
+        <label class="auth-visually-hidden" for="fullName">Full name</label>
         <input type="text" id="fullName" placeholder="Full Name" required>
         <i class="fa-regular fa-id-card input-icon"></i>
       </div>
       <p class="field-error" id="fullNameError">Enter your full name</p>
 
       <div class="input-group">
+        <label class="auth-visually-hidden" for="signupUsername">Username</label>
         <input type="text" id="signupUsername" placeholder="Username" required>
         <i class="fa-regular fa-user input-icon"></i>
       </div>
       <p class="field-error" id="signupUsernameError">Enter a username</p>
 
       <div class="input-group">
+        <label class="auth-visually-hidden" for="email">Email address</label>
         <input type="email" id="email" placeholder="Email Address" required>
         <i class="fa-regular fa-envelope input-icon"></i>
       </div>
       <p class="field-error" id="emailError">Enter a valid email address</p>
 
       <div class="input-group">
+        <label class="auth-visually-hidden" for="signupPhone">Phone number</label>
         <input type="tel" id="signupPhone" placeholder="Phone Number, e.g. 0712 345 678" required>
         <i class="fa-solid fa-phone input-icon"></i>
       </div>
       <p class="field-error" id="signupPhoneError">Enter a valid phone number</p>
 
       <div class="input-group">
+        <label class="auth-visually-hidden" for="signupPassword">Password (at least 12 characters)</label>
         <input type="password" id="signupPassword" placeholder="At least 12 characters" minlength="12" maxlength="1024" autocomplete="new-password" required>
         <button type="button" class="input-icon no-border" id="toggleSignupPassword" aria-label="Show password">
           <i class="fa-regular fa-eye-slash"></i>

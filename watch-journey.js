@@ -11,10 +11,7 @@ const map = L.map('map', {
   keyboard: false,
 }).setView(initialCenter, 11);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '© OpenStreetMap contributors'
-}).addTo(map);
+window.SafariTrakMapStyle.attachLeafletBase(map);
 
 const currentIcon = L.divIcon({
   className: 'st-marker',
@@ -71,7 +68,7 @@ async function refresh() {
       if (routeLine) {
         routeLine.setLatLngs(latlngs);
       } else {
-        routeLine = L.polyline(latlngs, { color: '#10b981', weight: 3 }).addTo(map);
+        routeLine = L.polyline(latlngs, { color: window.SafariTrakMapStyle.getRouteColors().stroke, weight: 4 }).addTo(map);
       }
 
       const last = positions[positions.length - 1];

@@ -12,17 +12,18 @@ function st_rate_limit_key(string $bucket, string $value): string {
     return hash_hmac('sha256', $bucket . "\0" . $value, $secret);
 }
 
+function st_is_local_development_request(): bool {
+    $environment = strtolower(trim(getenv('SAFARITRAK_ENV') ?: 'development'));
+
+    return getenv('SAFARITRAK_DEV_MODE') === '1'
+        && in_array($environment, ['development', 'testing'], true)
+        && in_array(st_client_address(), ['127.0.0.1', '::1'], true);
+}
+
 function st_local_development_rate_limit_maximum(int $maximumAttempts): int {
-    if (getenv('SAFARITRAK_DEV_MODE') !== '1') {
-        return $maximumAttempts;
-    }
-
-    $address = st_client_address();
-    if (in_array($address, ['127.0.0.1', '::1'], true)) {
-        return max($maximumAttempts, 100);
-    }
-
-    return $maximumAttempts;
+    return st_is_local_development_request()
+        ? max($maximumAttempts, 100)
+        : $maximumAttempts;
 }
 
 function st_rate_limit_consume(

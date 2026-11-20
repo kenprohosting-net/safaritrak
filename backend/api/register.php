@@ -97,6 +97,34 @@ $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
 $db->beginTransaction();
 try {
+    if ($groupInviteToken !== '') {
+        $groupInviteStmt = $db->prepare(
+            'SELECT i.invited_email, i.invited_user_id
+             FROM persistent_group_invites i
+             JOIN persistent_groups g ON g.id = i.group_id
+             WHERE i.token_hash = ? AND i.expires_at > UTC_TIMESTAMP()
+               AND (i.invited_user_id IS NULL OR i.accepted_at IS NULL)
+               AND i.revoked_at IS NULL AND g.status = "active"
+             FOR UPDATE'
+        );
+        $groupInviteStmt->execute([hash('sha256', $groupInviteToken)]);
+        $groupInvite = $groupInviteStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$groupInvite) {
+            $db->rollBack();
+            st_json_error('This group invitation link is invalid or expired.', 422, [
+                'errors' => ['group_invite_token' => 'This group invitation link is invalid or expired.'],
+            ]);
+        }
+        if ($groupInvite['invited_user_id'] !== null) {
+            $db->rollBack();
+            st_json_error('Sign in with the username this invitation was sent to.', 403);
+        }
+        if ($groupInvite['invited_email'] !== null && strcasecmp((string) $groupInvite['invited_email'], $email) !== 0) {
+            $db->rollBack();
+            st_json_error('Create your account with the email address this invitation was sent to.', 403);
+        }
+    }
+
     $insertStmt = $db->prepare(
         'INSERT INTO users (full_name, username, email, phone, password_hash) VALUES (?, ?, ?, ?, ?)'
     );
@@ -166,7 +194,7 @@ $continuation = $groupInviteToken !== ''
     ? ['group_invite' => $groupInviteToken]
     : ($organizationInviteToken !== '' ? ['org_invite' => $organizationInviteToken] : []);
 $mailSent = st_send_verification_email($user, $token, $continuation);
-$devMode = getenv('SAFARITRAK_DEV_MODE') === '1';
+$devMode = st_is_local_development_request();
 
 $response = [
     'need_verification' => true,

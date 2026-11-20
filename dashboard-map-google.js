@@ -26,12 +26,36 @@
     locationError: null,
     userCentered: false,
     refreshTimer: null,
-    savedView: window.SafariTrakMapView?.read() || null,
+    savedView: null,
   };
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const validPoint = point => Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lng))
     && Number(point.lat) >= -90 && Number(point.lat) <= 90
     && Number(point.lng) >= -180 && Number(point.lng) <= 180;
+  try {
+    const mapUserId = mapElement.closest('[data-map-user-id]')?.dataset.mapUserId;
+    const savedJourneyFeatures = JSON.parse(
+      mapUserId ? sessionStorage.getItem(`safaritrak-selected-journey-${mapUserId}`) || '[]' : '[]'
+    );
+    if (Array.isArray(savedJourneyFeatures)) {
+      const start = savedJourneyFeatures.find(feature => feature.kind === 'start');
+      const destination = savedJourneyFeatures.find(feature => feature.kind === 'finish');
+      const routeFeature = savedJourneyFeatures.find(feature => Array.isArray(feature.route) && feature.route.length > 1);
+      const path = routeFeature?.route
+        .filter(point => Array.isArray(point) && point.length === 2
+          && Number.isFinite(Number(point[0])) && Number.isFinite(Number(point[1])))
+        .map(([lng, lat]) => ({ lat: Number(lat), lng: Number(lng) })) || [];
+      if (validPoint(start) && validPoint(destination) && path.length > 1) {
+        state.pendingPlannedRoute = {
+          start: { lat: Number(start.lat), lng: Number(start.lng) },
+          destination: { lat: Number(destination.lat), lng: Number(destination.lng) },
+          path,
+        };
+      }
+    }
+  } catch (error) {
+    console.warn('SafariTrak could not restore the selected journey route on Explore.', error);
+  }
 
   function setStatus(message, isError = false) {
     if (!statusElement) return;
@@ -95,7 +119,7 @@
       { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: light ? '#E2E8F0' : '#1E293B' }] },
       { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: light ? '#F8FAFC' : '#0F172A' }] },
       { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: light ? '#D1FAE5' : '#064E3B' }] },
-      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: light ? '#C026D3' : '#D946EF' }] },
+      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: light ? '#EA580C' : '#F97316' }] },
       { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: light ? '#EA580C' : '#F97316' }] },
       { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: light ? '#E2E8F0' : '#334155' }] },
       { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: light ? '#0F172A' : '#F8FAFC' }] },
@@ -223,11 +247,12 @@
   function setRoute(points) {
     state.routeLine?.setMap(null);
     state.routeGlowLine?.setMap(null);
+    const routeColors = window.SafariTrakMapStyle.getRouteColors();
     const path = points.filter(validPoint).map(point => ({ lat: Number(point.lat), lng: Number(point.lng) }));
     state.routeGlowLine = path.length > 1 ? new google.maps.Polyline({
       map: state.map,
       path,
-      strokeColor: '#D946EF',
+      strokeColor: routeColors.stroke,
       strokeOpacity: 0.42,
       strokeWeight: 12,
       zIndex: 9,
@@ -235,7 +260,7 @@
     state.routeLine = path.length > 1 ? new google.maps.Polyline({
       map: state.map,
       path,
-      strokeColor: '#C026D3',
+      strokeColor: routeColors.stroke,
       strokeOpacity: 0.96,
       strokeWeight: 5,
       zIndex: 10,
@@ -257,11 +282,12 @@
     state.plannedStartMarker?.setMap(null);
     state.plannedDestinationMarker?.setMap(null);
     state.plannedStartMarker = setMarker('planned-start', start, 'Trip start', '#47f5cf', 'start', 8);
-    state.plannedDestinationMarker = setMarker('planned-destination', destination, 'Trip destination', '#ff4db8', 'finish', 8);
+    state.plannedDestinationMarker = setMarker('planned-destination', destination, 'Trip destination', '#FF2D2D', 'finish', 8);
+    const routeColors = window.SafariTrakMapStyle.getRouteColors();
     state.plannedRouteGlowLine = path.length > 1 ? new google.maps.Polyline({
       map: state.map,
       path,
-      strokeColor: '#D946EF',
+      strokeColor: routeColors.stroke,
       strokeOpacity: 0.42,
       strokeWeight: 13,
       zIndex: 29,
@@ -269,7 +295,7 @@
     state.plannedRouteLine = path.length > 1 ? new google.maps.Polyline({
       map: state.map,
       path,
-      strokeColor: '#C026D3',
+      strokeColor: routeColors.stroke,
       strokeOpacity: 0.96,
       strokeWeight: 5,
       zIndex: 30,
@@ -302,7 +328,7 @@
     const finish = { lat: Number(journey.end_lat), lng: Number(journey.end_lng) };
     if (!validPoint(start) || !validPoint(finish)) return;
     setMarker('public-shared-start', start, `Start · ${journey.start_label}`, '#47f5cf', 'start', 8);
-    setMarker('public-shared-finish', finish, `Finish · ${journey.end_label}`, '#ff4db8', 'finish', 8);
+    setMarker('public-shared-finish', finish, `Finish · ${journey.end_label}`, '#FF2D2D', 'finish', 8);
     const current = validPoint(journey.location) ? journey.location : null;
     if (current) {
       setMarker('public-shared-current', current, 'Current shared location', '#ffcf5c', 'user', 8);
@@ -313,12 +339,13 @@
       lat: Number(point.lat),
       lng: Number(point.lng),
     })) : [];
+    const routeColors = window.SafariTrakMapStyle.getRouteColors();
     state.publicJourneyLines.forEach(line => line.setMap(null));
     state.publicJourneyLines = path.length > 1 ? [
       new google.maps.Polyline({
         map: state.map,
         path,
-        strokeColor: '#D946EF',
+        strokeColor: routeColors.stroke,
         strokeOpacity: 0.42,
         strokeWeight: 13,
         zIndex: 34,
@@ -326,7 +353,7 @@
       new google.maps.Polyline({
         map: state.map,
         path,
-        strokeColor: '#C026D3',
+        strokeColor: routeColors.stroke,
         strokeOpacity: 0.96,
         strokeWeight: 5,
         zIndex: 35,
@@ -351,7 +378,7 @@
   function updateTrip(trip) {
     setRoute(trip.route || []);
     setMarker('trip-start', trip.start, `Start · ${trip.start_label}`, '#47f5cf', 'start', 8);
-    setMarker('trip-destination', trip.destination, `Destination · ${trip.destination_label}`, '#ff4db8', 'finish', 8);
+    setMarker('trip-destination', trip.destination, `Destination · ${trip.destination_label}`, '#FF2D2D', 'finish', 8);
     if (trip.current && !state.deviceLocation) setUserMarker(trip.current, 'Your last reported journey location');
     const speed = document.getElementById('dashboardSpeed');
     const remaining = document.getElementById('dashboardRemaining');
@@ -387,7 +414,7 @@
       const live = Number.isFinite(timestamp) && Date.now() - timestamp <= 90_000;
       const freshness = live ? 'Live' : 'Last known';
       const title = `${location.name}, ${freshness.toLowerCase()} location shared with you`;
-      const marker = setMarker(id, location, title, '#b258ff', 'shared', 9);
+      const marker = setMarker(id, location, title, '#22D3EE', 'shared', 9);
       if (marker && !state.sharedMarkerListeners.has(id)) {
         state.sharedMarkerListeners.set(id, marker.addListener('click', () => setStatus(marker.getTitle())));
       }
@@ -475,15 +502,12 @@
 
   function initializeMap() {
     if (!window.google?.maps) throw new Error('Google Maps JavaScript API did not load.');
-    const saved = window.SafariTrakMapView?.read() || null;
-    const cachedLocation = window.SafariTrakMapView?.readLocation() || null;
-    const initialPoint = cachedLocation || saved || { lat: -1.286389, lng: 36.817223 };
     const mapId = document.querySelector('meta[name="google-map-id"]')?.content.trim();
     usesCloudMapStyle = Boolean(mapId);
     state.map = new google.maps.Map(mapElement, {
-      center: { lat: initialPoint.lat, lng: initialPoint.lng },
-      zoom: cachedLocation ? 16 : saved?.zoom ?? 4.8,
-      mapTypeId: saved?.projection === 'satellite' ? 'hybrid' : 'roadmap',
+      center: { lat: -1.286389, lng: 36.817223 },
+      zoom: 15,
+      mapTypeId: 'roadmap',
       tilt: 0,
       ...(mapId ? { mapId } : { styles: mapStyles() }),
       disableDefaultUI: true,
@@ -499,12 +523,6 @@
       window.SafariTrakMapView?.save(state.map, mapType === 'satellite' || mapType === 'hybrid' ? 'satellite' : 'flat');
       keepUserLocationVisible();
     });
-    if (cachedLocation) {
-      state.deviceLocation = cachedLocation;
-      setUserMarker(cachedLocation);
-      state.userCentered = true;
-    }
-    if (!state.pendingSearchLocation) locateOnMap(true, 16);
     if (state.pendingSearchLocation) showDashboardSearchLocation(state.pendingSearchLocation);
     if (state.pendingPlannedRoute) {
       const { start, destination, path } = state.pendingPlannedRoute;

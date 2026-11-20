@@ -24,6 +24,8 @@ $incomingStmt = $db->prepare(
 );
 $incomingStmt->execute([$currentUser['id']]);
 $incoming = $incomingStmt->fetchAll();
+$showAppMapControls = false;
+$showAppMapPanelsToggle = false;
 ?>
 <!doctype html>
 <html lang="en">
@@ -32,11 +34,12 @@ $incoming = $incomingStmt->fetchAll();
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafariTrak | Trusted Contacts</title>
 <link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
+<link rel="stylesheet" href="trusted-contacts.css?v=<?= hash_file('sha256', __DIR__ . '/trusted-contacts.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
 <?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
-<div class="app app--map-layout">
+<div class="app app--map-layout app--trusted-contacts">
 <?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
@@ -59,31 +62,15 @@ $incoming = $incomingStmt->fetchAll();
 
 <div class="content">
 
-<div class="page-head">
-  <div><h2>Who can keep an eye on you</h2><p>Manage who can see your journeys and get notified if something goes wrong.</p></div>
-  <button type="button" class="btn-primary" data-open-modal="addContactModal"><i class="fa-solid fa-user-plus"></i>Add trusted contact</button>
-</div>
-
-<section class="card live-share-card" aria-labelledby="liveShareTitle">
-  <div>
-    <label>OPTIONAL LIVE LINK</label>
-    <h3 id="liveShareTitle">Share your location without adding a contact</h3>
-    <p>Only available during an active journey. Anyone with the link can see that journey’s latest location; the link expires after one hour and can be revoked sooner.</p>
+<div class="trusted-contacts-workspace">
+<section class="trusted-people-panel" aria-label="Trusted people">
+  <div class="page-head">
+    <div><h2>Who can keep an eye on you</h2><p>Manage who can see your journeys and get notified if something goes wrong.</p></div>
+    <button type="button" class="btn-primary" data-open-modal="addContactModal"><i class="fa-solid fa-user-plus"></i>Add trusted contact</button>
   </div>
-  <div class="live-share-actions">
-    <button type="button" class="btn-primary" id="createLiveShareBtn">Create live link</button>
-    <button type="button" class="btn-ghost" id="revokeLiveShareBtn" disabled>Revoke link</button>
-  </div>
-  <input type="url" id="liveShareUrl" aria-label="Live-location sharing link" readonly hidden>
-  <div class="live-share-actions" id="liveShareLinkActions" hidden>
-    <button type="button" class="btn-ghost" id="copyLiveShareBtn">Copy link</button>
-    <button type="button" class="btn-ghost" id="shareLiveShareBtn">Share link</button>
-  </div>
-  <p id="liveShareStatus" role="status" aria-live="polite"></p>
-</section>
 
 <?php if (!empty($incoming)): ?>
-<div class="card" style="margin-bottom:18px">
+<div class="card trusted-requests-panel">
   <div class="card-head"><div><label>REQUESTS</label><h3>People who want to trust you</h3></div></div>
   <div class="journey-list">
     <?php foreach ($incoming as $req): ?>
@@ -133,9 +120,44 @@ $incoming = $incomingStmt->fetchAll();
 </div>
 
 <?php if (empty($contacts)): ?>
-<p class="hint" style="color:var(--muted);font-size:11px;margin-top:12px">You have not added any trusted contacts yet. Add someone so they can watch your journeys and step in if you need help.</p>
+<p class="hint contacts-empty-note">You have not added any trusted contacts yet. Add someone so they can watch your journeys and step in if you need help.</p>
 <?php endif; ?>
 
+</section>
+
+<section class="card live-share-card trusted-sharing-panel" aria-labelledby="liveShareTitle">
+  <div>
+    <label>SHARE A JOURNEY OR CONNECT</label>
+    <h3 id="liveShareTitle">Give someone a simple way to follow you</h3>
+    <p>Share a temporary journey link with anyone, or send a sign-up link so they can join SafariTrak and become a trusted contact. You can create and copy either link below.</p>
+  </div>
+  <div class="live-share-options">
+    <div class="live-share-option">
+      <h4>View a temporary journey</h4>
+      <p>Anyone with the link can view your active or scheduled journey. It expires automatically and can be revoked.</p>
+      <div class="live-share-actions">
+        <button type="button" class="btn-primary" id="createLiveShareBtn">Create journey link</button>
+        <button type="button" class="btn-ghost" id="revokeLiveShareBtn" disabled>Revoke link</button>
+      </div>
+      <input type="url" id="liveShareUrl" aria-label="Temporary journey link" readonly hidden>
+      <div class="live-share-actions" id="liveShareLinkActions" hidden>
+        <button type="button" class="btn-ghost" id="copyLiveShareBtn">Copy journey link</button>
+        <button type="button" class="btn-ghost" id="shareLiveShareBtn">Share link</button>
+      </div>
+    </div>
+    <div class="live-share-option">
+      <h4>Join as a trusted contact</h4>
+      <p>No name, phone number, or email is needed to create this sign-up invitation.</p>
+      <div class="live-share-actions">
+        <button type="button" class="btn-ghost" id="createSignupInviteBtn">Create sign-up link</button>
+        <button type="button" class="btn-ghost" id="copySignupInviteBtn" disabled>Copy sign-up link</button>
+      </div>
+      <input type="url" id="signupInviteUrl" aria-label="Trusted-contact sign-up link" readonly hidden>
+    </div>
+  </div>
+  <p id="liveShareStatus" role="status" aria-live="polite"></p>
+</section>
+</div>
 </div>
 <footer>&copy; <?= date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
 </main>
@@ -147,16 +169,17 @@ $incoming = $incomingStmt->fetchAll();
     <div class="modal-body">
       <section class="contact-finder" aria-labelledby="contactFinderHeading">
         <h4 id="contactFinderHeading">Find a SafariTrak friend</h4>
-        <p>Search by name or username, then send a request. You’ll be connected when they accept.</p>
+        <p>Enter a SafariTrak username to send a request. You’ll be connected when they accept.</p>
         <label class="form-field" for="contactSearchInput">
           <span>Search people</span>
-          <input type="search" id="contactSearchInput" autocomplete="off" minlength="2" maxlength="60" placeholder="Name or username">
+          <input type="search" id="contactSearchInput" autocomplete="off" minlength="2" maxlength="60" placeholder="SafariTrak username">
         </label>
         <p class="contact-search-status" id="contactSearchStatus" role="status" aria-live="polite"></p>
         <div class="contact-search-results" id="contactSearchResults"></div>
       </section>
-      <div class="contact-invite-divider"><span>or invite someone by email</span></div>
-      <div class="form-field" style="margin-bottom:12px"><label for="addContactName">Full name</label><input type="text" id="addContactName" maxlength="120" placeholder="e.g. Grace Njeri"></div>
+      <div class="contact-invite-divider"><span>or create a link for someone new</span></div>
+      <p class="hint">A name and email are optional. The invitation link lets them sign up and accept your trusted-contact request.</p>
+      <div class="form-field" style="margin-bottom:12px"><label for="addContactName">Name (optional)</label><input type="text" id="addContactName" maxlength="120" placeholder="SafariTrak friend"></div>
       <div class="form-field" style="margin-bottom:12px"><label for="addContactEmail">Email (optional)</label><input type="email" id="addContactEmail" maxlength="160" placeholder="name@example.com"></div>
       <div class="form-field"><label for="addContactRelationship">Relationship (optional)</label><input type="text" id="addContactRelationship" maxlength="60" placeholder="e.g. Sister, Friend, Colleague"></div>
       <p class="hint" id="addContactError" role="alert" style="color:#c94b4b;margin-top:10px;display:none"></p>

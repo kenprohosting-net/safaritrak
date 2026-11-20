@@ -74,14 +74,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             );
 
-        L.tileLayer(
-            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            {
-                maxZoom: 19,
-                attribution:
-                    '&copy; OpenStreetMap contributors'
-            }
-        ).addTo(map);
+        window.SafariTrakMapStyle.attachLeafletBase(map);
 
         if (
             validCoordinates(
@@ -499,7 +492,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     travelledCoordinates,
                     {
                         color:
-                            '#064f43',
+                            window.SafariTrakMapStyle.getRouteColors().stroke,
 
                         weight:
                             6,
@@ -555,7 +548,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     points,
                     {
                         color:
-                            '#e5a82c',
+                            window.SafariTrakMapStyle.getRouteColors().stroke,
 
                         weight:
                             4,

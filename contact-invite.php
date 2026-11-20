@@ -94,5 +94,6 @@ if ($validToken) {
       }
     });
   </script>
+  <script src="auth-theme.js"></script>
 </body>
 </html>

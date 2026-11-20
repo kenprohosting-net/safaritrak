@@ -45,15 +45,43 @@ if (!$traveler) {
 }
 
 $newStatus = $action === 'deactivate' ? 'deactivated' : 'active';
-$db->prepare('UPDATE organization_travelers SET status = ? WHERE id = ?')->execute([$newStatus, $travelerRowId]);
+$db->beginTransaction();
+try {
+    $db->prepare('UPDATE organization_travelers SET status = ? WHERE id = ?')->execute([$newStatus, $travelerRowId]);
+    if ($action === 'deactivate') {
+        $db->prepare(
+            'UPDATE organization_child_access
+             SET status = "revoked", responded_at = NOW()
+             WHERE organization_id = ? AND status IN ("pending", "active")
+               AND (child_user_id = ? OR guardian_user_id = ?)'
+        )->execute([(int) $admin['organization_id'], (int) $traveler['user_id'], (int) $traveler['user_id']]);
+        $db->prepare(
+            'UPDATE school_verifications
+             SET verification_status = "revoked"
+             WHERE school_id = ? AND (
+               user_id = ? OR student_user_id = ?
+             )'
+        )->execute([
+            (int) $admin['organization_id'],
+            (int) $traveler['user_id'],
+            (int) $traveler['user_id'],
+        ]);
+    }
 
-st_notify(
-    (int) $traveler['user_id'],
-    'group_invite',
-    $action === 'deactivate' ? 'Your access to ' . $admin['org_name'] . ' was removed' : 'You were re-added to ' . $admin['org_name'],
-    null,
-    null,
-    $userId
-);
+    st_notify(
+        (int) $traveler['user_id'],
+        'group_invite',
+        $action === 'deactivate' ? 'Your access to ' . $admin['org_name'] . ' was removed' : 'You were re-added to ' . $admin['org_name'],
+        null,
+        null,
+        $userId
+    );
+    $db->commit();
+} catch (Throwable $exception) {
+    if ($db->inTransaction()) {
+        $db->rollBack();
+    }
+    throw $exception;
+}
 
 st_json_ok(['status' => $newStatus]);

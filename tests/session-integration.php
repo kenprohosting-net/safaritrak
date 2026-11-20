@@ -48,7 +48,7 @@ $user = ['id' => 1, 'username' => 'test-user'];
 st_start_session($db);
 $anonymousSessionId = session_id();
 $_SESSION['_csrf_token'] = 'pre-login-token';
-st_login_user($user, false, $db);
+st_login_user($user, $db);
 $sessionId = session_id();
 $expect($sessionId !== $anonymousSessionId, 'sign-in rotates the PHP session identifier');
 $expect(!isset($_SESSION['_csrf_token']), 'sign-in invalidates the pre-authentication CSRF token');
@@ -61,34 +61,34 @@ $expectedValidatorHash = hash('sha256', $_SESSION['_session_validator']);
 $expect(is_array($record), 'sign-in persists a session record in the database');
 $expect(hash_equals($record['validator_hash'], $expectedValidatorHash), 'database stores only a hash of the session validator');
 $normalLifetime = strtotime($record['expires_at']) - time();
-$expect($normalLifetime > 11 * 60 * 60 && $normalLifetime <= 12 * 60 * 60, 'ordinary sessions have a twelve-hour absolute expiry');
+$expect($normalLifetime > 29 * 24 * 60 * 60 && $normalLifetime <= 30 * 24 * 60 * 60, 'ordinary sessions have a thirty-day absolute expiry');
+$expect(session_get_cookie_params()['lifetime'] === 30 * 24 * 60 * 60, 'session cookies persist for thirty days');
+$expect((int) ini_get('session.gc_maxlifetime') >= 30 * 24 * 60 * 60, 'PHP retains session data for at least thirty days');
 
 st_validate_session($db, true);
 $expect($_SESSION['user_id'] === 1, 'a valid database-backed session remains authenticated');
 
-$oldLastActive = date('Y-m-d H:i:s', time() - (31 * 60));
+$oldLastActive = date('Y-m-d H:i:s', time() - (8 * 24 * 60 * 60));
 $updateActivity = $db->prepare('UPDATE sessions SET last_active_at = ? WHERE id = ?');
 $updateActivity->execute([$oldLastActive, $sessionId]);
 st_validate_session($db, true);
-$expect(empty($_SESSION['user_id']), 'an idle session expires after thirty minutes');
+$expect(empty($_SESSION['user_id']), 'an idle session expires after seven days');
 $expect((int) $db->query('SELECT COUNT(*) FROM sessions')->fetchColumn() === 0, 'expired session records are revoked');
 
 st_start_session($db);
-st_login_user($user, true, $db);
+st_login_user($user, $db);
 $rememberSessionId = session_id();
 $readSession->execute([$rememberSessionId]);
 $rememberRecord = $readSession->fetch();
 $rememberLifetime = strtotime($rememberRecord['expires_at']) - time();
-$expect($_SESSION['_remember_me'] === true, 'remember-me state is stored server-side');
-$expect($rememberLifetime > 29 * 24 * 60 * 60 && $rememberLifetime <= 30 * 24 * 60 * 60, 'remembered sessions have a thirty-day absolute expiry');
-
-$oldRememberActivity = date('Y-m-d H:i:s', time() - (8 * 24 * 60 * 60));
-$updateActivity->execute([$oldRememberActivity, $rememberSessionId]);
+$expect(!array_key_exists('_remember_me', $_SESSION), 'new sessions do not persist a remember-me flag');
+$expect($rememberLifetime > 29 * 24 * 60 * 60 && $rememberLifetime <= 30 * 24 * 60 * 60, 'all sessions have a thirty-day absolute expiry');
+$_SESSION['_remember_me'] = true;
 st_validate_session($db, true);
-$expect(empty($_SESSION['user_id']), 'remembered sessions expire after seven inactive days');
+$expect(empty($_SESSION['user_id']), 'legacy remembered sessions are revoked and require a fresh login');
 
 st_start_session($db);
-st_login_user($user, false, $db);
+st_login_user($user, $db);
 $revokedSessionId = session_id();
 $db->prepare('DELETE FROM sessions WHERE id = ?')->execute([$revokedSessionId]);
 st_validate_session($db, true);
@@ -107,12 +107,12 @@ $expect(session_status() === PHP_SESSION_NONE, 'logout destroys the PHP session'
 $expect((int) $db->query('SELECT COUNT(*) FROM sessions')->fetchColumn() === 0, 'logout removes the persistent session record');
 
 st_start_session($db);
-st_login_user($user, false, $db);
+st_login_user($user, $db);
 $expect(st_require_login() === 1, 'authenticated API requests resolve the signed-in user');
 $expect(session_status() === PHP_SESSION_NONE, 'authenticated API requests release the PHP session lock after reading the user');
 
 st_start_session($db);
-st_login_user($user, false, $db);
+st_login_user($user, $db);
 $expiredSessionId = session_id();
 $expireRecord = $db->prepare('UPDATE sessions SET expires_at = ? WHERE id = ?');
 $expireRecord->execute(['2000-01-01 00:00:00', $expiredSessionId]);

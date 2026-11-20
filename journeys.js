@@ -1,85 +1,143 @@
 const journeyTabs = document.querySelectorAll('[data-tab-group="journeys"] .tab');
-const journeyRows = document.querySelectorAll('#journeyList .journey-row');
+const journeyData = document.getElementById('journeyCarouselData');
+const journeyRows = journeyData ? JSON.parse(journeyData.textContent || '[]') : [];
 const emptyState = document.getElementById('emptyState');
 const mapFeatureData = document.getElementById('safariTrakMapFeatures');
 const journeyMapFeatures = mapFeatureData ? JSON.parse(mapFeatureData.textContent || '[]') : [];
-const journeyPickerPanel = document.getElementById('journeyPickerPanel');
-const journeyPickerToggle = document.getElementById('journeyPickerToggle');
-const journeyPage = document.querySelector('.app--journeys');
+const previousJourneyButton = document.getElementById('previousJourney');
+const nextJourneyButton = document.getElementById('nextJourney');
+const journeyCarouselPosition = document.getElementById('journeyCarouselPosition');
+const journeysApp = document.querySelector('.app--journeys');
+const journeyPanelsToggle = document.getElementById('journeyPanelsToggle');
+const journeyPanelsToggleLabel = document.getElementById('journeyPanelsToggleLabel');
+let visibleJourneyRows = [];
+let carouselIndex = 0;
 let selectedJourneyId = null;
+let selectedMapFeatures = [];
+let journeyRouteFocusable = false;
 let selectedRouteRequest = null;
 let selectedRouteSequence = 0;
 
-function selectJourney(row) {
-  if (!row?.dataset.journeyId) return;
-  selectedRouteRequest?.abort();
-  selectedRouteRequest = null;
-  const routeSequence = ++selectedRouteSequence;
-  const journeyId = Number(row.dataset.journeyId);
-  selectedJourneyId = journeyId;
-  document.getElementById('shareSelectedJourney').disabled = false;
+function setJourneyRouteFocus(focused, refit = true) {
+  journeysApp?.classList.toggle('journey-route-focus', focused);
+  if (!journeyPanelsToggle) return;
+  journeyPanelsToggle.hidden = !journeyRouteFocusable;
+  journeyPanelsToggle.setAttribute('aria-pressed', String(focused));
+  journeyPanelsToggle.setAttribute(
+    'aria-label',
+    focused ? 'Show trip panels' : 'Focus on selected trip route'
+  );
+  if (journeyPanelsToggleLabel) {
+    journeyPanelsToggleLabel.textContent = focused ? 'Show trip panels' : 'Focus route';
+  }
+  if (refit && journeyRouteFocusable && selectedMapFeatures.length) {
+    requestAnimationFrame(() => {
+      window.SafariTrakPageMap?.setJourneyFeatures(selectedMapFeatures, { focus: true });
+    });
+  }
+}
+
+function setJourneyStatus(label, status) {
+  const badge = document.getElementById('tripCarouselStatus');
+  badge.textContent = label;
+  badge.className = `badge ${['planned', 'active', 'completed', 'cancelled'].includes(status) ? status : ''}`;
+}
+
+function setJourneyDate(value) {
+  const dateElement = document.getElementById('tripCarouselDate');
+  const normalizedValue = value ? value.replace(' ', 'T') : '';
+  const date = normalizedValue ? new Date(normalizedValue) : null;
+  if (date && !Number.isNaN(date.getTime())) {
+    dateElement.dateTime = date.toISOString();
+  } else {
+    dateElement.removeAttribute('datetime');
+  }
+  dateElement.textContent = date && !Number.isNaN(date.getTime())
+    ? date.toLocaleString()
+    : value || 'Not scheduled';
+}
+
+function resetJourneySharing() {
+  document.getElementById('shareSelectedJourney').disabled = true;
   document.getElementById('selectedJourneyShareUrl').hidden = true;
   document.getElementById('copySelectedJourneyLink').hidden = true;
   document.getElementById('selectedJourneyShareStatus').textContent = '';
+  document.getElementById('openCarouselGroup').hidden = true;
+  const startButton = document.getElementById('startSelectedJourney');
+  startButton.hidden = true;
+  delete startButton.dataset.startPlanned;
+  document.getElementById('endSelectedJourney').hidden = true;
+}
+
+function selectJourney(journey) {
+  selectedRouteRequest?.abort();
+  selectedRouteRequest = null;
+  const routeSequence = ++selectedRouteSequence;
+  const journeyId = Number(journey.id);
+  selectedJourneyId = journeyId;
+  resetJourneySharing();
+  document.getElementById('shareSelectedJourney').disabled = false;
+
+  const startButton = document.getElementById('startSelectedJourney');
+  if (journey.status === 'planned') {
+    startButton.hidden = false;
+    startButton.dataset.startPlanned = String(journeyId);
+  }
+  if (journey.status === 'active') {
+    const endButton = document.getElementById('endSelectedJourney');
+    endButton.href = `end-journey.php?journey_id=${encodeURIComponent(String(journeyId))}`;
+    endButton.hidden = false;
+  }
+
   const features = journeyMapFeatures.filter(feature => Number(feature.journey_id) === journeyId);
   const rawCoordinates = [
-    row.dataset.startLat,
-    row.dataset.startLng,
-    row.dataset.endLat,
-    row.dataset.endLng,
+    journey.startLat,
+    journey.startLng,
+    journey.endLat,
+    journey.endLng,
   ];
   const [startLat, startLng, endLat, endLng] = rawCoordinates.map(Number);
-  const hasCoordinates = rawCoordinates.every(value => value !== '')
+  const hasCoordinates = rawCoordinates.every(value => value !== null && value !== undefined)
     && [startLat, startLng, endLat, endLng].every(Number.isFinite)
     && Math.abs(startLat) <= 90 && Math.abs(endLat) <= 90
     && Math.abs(startLng) <= 180 && Math.abs(endLng) <= 180;
   const startPoint = { lat: startLat, lng: startLng };
   const endPoint = { lat: endLat, lng: endLng };
-  const routeStatus = document.getElementById('journeyMapDetailRouteStatus');
+  const routeStatus = document.getElementById('tripCarouselRouteStatus');
+
   if (hasCoordinates && !features.some(feature => feature.kind === 'start')) {
-    features.push({ journey_id: journeyId, lat: startLat, lng: startLng, kind: 'start', label: row.dataset.journeyStart });
+    features.push({ journey_id: journeyId, lat: startLat, lng: startLng, kind: 'start', label: journey.start });
   }
   if (hasCoordinates && !features.some(feature => feature.kind === 'finish')) {
-    features.push({ journey_id: journeyId, lat: endLat, lng: endLng, kind: 'finish', label: row.dataset.journeyEnd });
+    features.push({ journey_id: journeyId, lat: endLat, lng: endLng, kind: 'finish', label: journey.end });
   }
+
   const routeFeature = features.find(feature => feature.kind === 'start');
   const hasRecordedRoute = Array.isArray(routeFeature?.route) && routeFeature.route.length > 1;
-  if (hasCoordinates && !hasRecordedRoute && routeFeature) {
-    routeFeature.route = [[startLng, startLat], [endLng, endLat]];
-    routeFeature.routeColor = 'planned';
-    routeFeature.routeApproximate = true;
-  }
-  journeyPickerPanel.hidden = true;
-  journeyPage?.classList.remove('journey-picker-open');
-  journeyPickerToggle?.setAttribute('aria-expanded', 'false');
-  window.SafariTrakPageMap?.focusFeatures(features);
+  selectedMapFeatures = features;
+  journeyRouteFocusable = hasCoordinates;
+  setJourneyRouteFocus(hasCoordinates, false);
+  window.SafariTrakPageMap?.setJourneyFeatures(features, { focus: true });
 
-  document.getElementById('journeyMapDetailTitle').textContent =
-    `${row.dataset.journeyStart} → ${row.dataset.journeyEnd}`;
-  document.getElementById('journeyMapDetailStatus').textContent = row.dataset.journeyStatus;
-  document.getElementById('journeyMapDetailDistance').textContent = row.dataset.journeyDistance;
-  document.getElementById('journeyMapDetailDate').textContent =
-    new Date(row.dataset.journeyDate.replace(' ', 'T')).toLocaleString();
-  document.getElementById('journeyMapDetailShared').textContent = row.dataset.journeyShared;
-  document.getElementById('journeyMapDetailNote').textContent = row.dataset.journeyNote;
-  journeyRows.forEach(item => item.classList.toggle('is-map-selected', item === row));
+  document.getElementById('tripCarouselTitle').textContent =
+    `${journey.start} → ${journey.end}`;
+  document.getElementById('tripCarouselDistance').textContent = journey.distance;
+  setJourneyStatus(journey.statusLabel, journey.status);
+  setJourneyDate(journey.date);
+  document.getElementById('tripCarouselShared').textContent = journey.shared;
 
-  if (hasRecordedRoute) {
-    routeFeature.routeColor = 'planned';
-    routeFeature.routeApproximate = false;
-    routeStatus.textContent = 'Recorded trip path shown on the map.';
-    routeStatus.classList.remove('is-error');
-    window.SafariTrakPageMap?.focusFeatures(features);
-    return;
-  }
   if (!hasCoordinates) {
-    routeStatus.textContent = 'This trip has no saved coordinates for a road-route preview.';
-    routeStatus.classList.add('is-error');
+    routeStatus.textContent = hasRecordedRoute
+      ? 'Recorded trip path shown; saved start and destination coordinates are needed for a road-route preview.'
+      : 'This trip has no saved coordinates for a road-route preview.';
+    routeStatus.classList.toggle('is-error', !hasRecordedRoute);
     return;
   }
 
   selectedRouteRequest = new AbortController();
-  routeStatus.textContent = 'Loading this trip’s road route…';
+  routeStatus.textContent = hasRecordedRoute
+    ? 'Loading the road route; the recorded path remains visible in the meantime…'
+    : 'Loading this trip’s road route…';
   routeStatus.classList.remove('is-error');
   window.SafariTrakRouteDirections.getDrivingRoute(startPoint, endPoint, {
     signal: selectedRouteRequest.signal,
@@ -91,50 +149,145 @@ function selectJourney(row) {
     routeFeature.route = route.coordinates;
     routeFeature.routeColor = 'planned';
     routeFeature.routeApproximate = false;
-    window.SafariTrakPageMap?.focusFeatures(features);
+    window.SafariTrakPageMap?.setJourneyFeatures(features, { focus: true });
     routeStatus.textContent = `Road route · ${(route.distance_meters / 1000).toFixed(1)} km · about ${Math.max(1, Math.round(route.duration_seconds / 60))} min.`;
-    const savedDistance = Number.parseFloat(row.dataset.journeyDistance);
+    const savedDistance = Number.parseFloat(journey.distance);
     if (!Number.isFinite(savedDistance)) {
-      document.getElementById('journeyMapDetailDistance').textContent =
+      document.getElementById('tripCarouselDistance').textContent =
         `${(route.distance_meters / 1000).toFixed(1)} km (route estimate)`;
     }
   }).catch(error => {
     if (error.name === 'AbortError' || routeSequence !== selectedRouteSequence) return;
     console.error('Selected journey road route failed.', error);
-    routeStatus.textContent = `Road route unavailable. Showing a direct start-to-finish estimate. ${error.message || ''}`.trim();
+    routeStatus.textContent = hasRecordedRoute
+      ? `Road route unavailable. Showing the recorded trip path. ${error.message || ''}`.trim()
+      : `A road route could not be loaded, so no straight-line route is shown. ${error.message || ''}`.trim();
     routeStatus.classList.add('is-error');
   });
 }
 
-const requestedJourneyId = Number(new URLSearchParams(window.location.search).get('selected'));
-const requestedJourneyRow = requestedJourneyId
-  ? document.querySelector(`#journeyList .journey-row[data-journey-id="${requestedJourneyId}"]`)
-  : null;
-if (requestedJourneyRow) selectJourney(requestedJourneyRow);
+function selectGroupJourney(journey) {
+  selectedRouteRequest?.abort();
+  selectedRouteRequest = null;
+  selectedRouteSequence += 1;
+  selectedJourneyId = null;
+  selectedMapFeatures = [];
+  journeyRouteFocusable = false;
+  setJourneyRouteFocus(false, false);
+  resetJourneySharing();
+  window.SafariTrakPageMap?.setJourneyFeatures([], { focus: false });
 
-journeyPickerToggle?.addEventListener('click', () => {
-  const isOpen = journeyPickerPanel.hidden;
-  journeyPickerPanel.hidden = !isOpen;
-  journeyPage?.classList.toggle('journey-picker-open', isOpen);
-  journeyPickerToggle.setAttribute('aria-expanded', String(isOpen));
-  if (isOpen) journeyPickerPanel.querySelector('.journey-row:not([hidden])')?.focus();
+  document.getElementById('tripCarouselTitle').textContent =
+    `${journey.groupTitle} → ${journey.groupDestination}`;
+  document.getElementById('tripCarouselDistance').textContent = journey.distance;
+  setJourneyStatus(`Group · ${journey.statusLabel}`, journey.statusLabel.toLowerCase());
+  setJourneyDate(journey.date);
+  document.getElementById('tripCarouselShared').textContent = journey.shared;
+  document.getElementById('tripCarouselRouteStatus').textContent =
+    'Group member routes are available in Group trips.';
+  document.getElementById('tripCarouselRouteStatus').classList.remove('is-error');
+  document.getElementById('openCarouselGroup').hidden = false;
+}
+
+function selectCarouselRow(journey) {
+  if (journey.type === 'group') {
+    selectGroupJourney(journey);
+    return;
+  }
+  selectJourney(journey);
+}
+
+function renderCarousel() {
+  const rowCount = visibleJourneyRows.length;
+  const carouselEmpty = rowCount === 0;
+  emptyState.hidden = !carouselEmpty;
+  previousJourneyButton.disabled = rowCount < 2;
+  nextJourneyButton.disabled = rowCount < 2;
+  journeyCarouselPosition.textContent = rowCount
+    ? `${carouselIndex + 1} / ${rowCount}`
+    : '0 trips';
+
+  if (carouselEmpty) {
+    selectedRouteRequest?.abort();
+    selectedRouteRequest = null;
+    selectedRouteSequence += 1;
+    selectedJourneyId = null;
+    selectedMapFeatures = [];
+    journeyRouteFocusable = false;
+    setJourneyRouteFocus(false, false);
+    resetJourneySharing();
+    window.SafariTrakPageMap?.setJourneyFeatures([], { focus: false });
+    document.getElementById('tripCarouselTitle').textContent = 'No trips in this category';
+    document.getElementById('tripCarouselDistance').textContent = '—';
+    setJourneyStatus('No trips', '');
+    setJourneyDate('');
+    document.getElementById('tripCarouselShared').textContent = '—';
+    const routeStatus = document.getElementById('tripCarouselRouteStatus');
+    routeStatus.textContent = 'Choose another filter to see trips.';
+    routeStatus.classList.remove('is-error');
+    return;
+  }
+
+  carouselIndex = (carouselIndex + rowCount) % rowCount;
+  selectCarouselRow(visibleJourneyRows[carouselIndex]);
+}
+
+function applyJourneyFilter(filter, preferredRow = null) {
+  visibleJourneyRows = journeyRows.filter(journey => filter === 'all' || journey.status === filter);
+  const preferredIndex = preferredRow ? visibleJourneyRows.indexOf(preferredRow) : -1;
+  carouselIndex = preferredIndex >= 0 ? preferredIndex : 0;
+  renderCarousel();
+}
+
+function moveCarousel(offset) {
+  if (visibleJourneyRows.length < 2) return;
+  carouselIndex = (carouselIndex + offset + visibleJourneyRows.length) % visibleJourneyRows.length;
+  renderCarousel();
+}
+
+journeyPanelsToggle?.addEventListener('click', () => {
+  if (!journeyRouteFocusable || !journeysApp) return;
+  setJourneyRouteFocus(!journeysApp.classList.contains('journey-route-focus'));
+});
+
+const requestedJourneyId = Number(new URLSearchParams(window.location.search).get('selected'));
+const requestedJourneyRow = (requestedJourneyId
+  ? journeyRows.find(journey => Number(journey.id) === requestedJourneyId)
+  : null) || journeyRows[0] || null;
+applyJourneyFilter('all', requestedJourneyRow);
+
+previousJourneyButton.addEventListener('click', () => moveCarousel(-1));
+nextJourneyButton.addEventListener('click', () => moveCarousel(1));
+
+journeyTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    journeyTabs.forEach(item => {
+      item.classList.remove('active');
+      item.setAttribute('aria-pressed', 'false');
+    });
+    tab.classList.add('active');
+    tab.setAttribute('aria-pressed', 'true');
+    applyJourneyFilter(tab.dataset.tab);
+  });
 });
 
 document.getElementById('shareSelectedJourney')?.addEventListener('click', async event => {
   const button = event.currentTarget;
   if (!selectedJourneyId) return;
+  const journeyId = selectedJourneyId;
   button.disabled = true;
   try {
     const response = await fetch('backend/api/journeys/share-link.php', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'create', journey_id: selectedJourneyId }),
+      body: JSON.stringify({ action: 'create', journey_id: journeyId }),
     });
     const payload = await response.json();
     if (!response.ok || !payload.success || !payload.share_url) {
       throw new Error(payload.message || 'The trip link could not be created.');
     }
+    if (selectedJourneyId !== journeyId) return;
     const shareUrl = document.getElementById('selectedJourneyShareUrl');
     shareUrl.value = payload.share_url;
     shareUrl.hidden = false;
@@ -143,10 +296,11 @@ document.getElementById('shareSelectedJourney')?.addEventListener('click', async
       ? 'Temporary route link created. It will not show live location before the trip starts.'
       : 'Temporary live-trip link created. Anyone with the link can view this active journey.';
   } catch (error) {
+    if (selectedJourneyId !== journeyId) return;
     document.getElementById('selectedJourneyShareStatus').textContent =
       error.message || 'The trip link could not be created.';
   } finally {
-    button.disabled = false;
+    if (selectedJourneyId === journeyId) button.disabled = false;
   }
 });
 
@@ -161,13 +315,9 @@ document.getElementById('copySelectedJourneyLink')?.addEventListener('click', as
 });
 
 document.addEventListener('click', event => {
-  const row = event.target.closest('#journeyList .journey-row[data-journey-id]');
-  if (row) selectJourney(row);
-
   const startButton = event.target.closest('[data-start-planned]');
   if (!startButton) return;
   event.preventDefault();
-  event.stopPropagation();
   startButton.disabled = true;
   startButton.textContent = 'Starting…';
   fetch('backend/api/journeys/activate.php', {
@@ -185,59 +335,7 @@ document.addEventListener('click', event => {
     })
     .catch(error => {
       startButton.disabled = false;
-      startButton.textContent = 'Start now';
+      startButton.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i>Start now';
       alert(error.message || 'This scheduled trip could not be started.');
     });
-});
-
-document.addEventListener('keydown', event => {
-    if (!['Enter', ' '].includes(event.key)) return;
-    const row = event.target.closest('#journeyList .journey-row[role="button"][data-journey-id]');
-    if (!row) return;
-    event.preventDefault();
-    selectJourney(row);
-});
-
-journeyTabs.forEach(tab => {
-  tab.addEventListener('click', () => {
-    journeyTabs.forEach(t => {
-      t.classList.remove('active');
-      t.setAttribute('aria-pressed', 'false');
-    });
-    tab.classList.add('active');
-    tab.setAttribute('aria-pressed', 'true');
-    
-    const filter = tab.getAttribute('data-tab');
-    let visibleCount = 0;
-
-    journeyRows.forEach(row => {
-      const show = filter === 'all' || row.getAttribute('data-status') === filter;
-      row.style.display = show ? '' : 'none';
-      if (show) visibleCount++;
-    });
-
-    if (emptyState) {
-      emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
-    }
-  });
-});
-
-document.addEventListener('click', (e) => {
-  const row = e.target.closest('[data-open-modal]');
-  if (!row) return;
-
-  const modalId = row.getAttribute('data-open-modal');
-  const targetModal = document.getElementById(modalId);
-  if (targetModal) {
-    targetModal.classList.add('active');
-  }
-});
-
-document.addEventListener('click', (e) => {
-  if (e.target.closest('[data-close-modal]') || e.target.classList.contains('modal-overlay')) {
-    const activeModal = e.target.closest('.modal-overlay');
-    if (activeModal) {
-      activeModal.classList.remove('active');
-    }
-  }
 });

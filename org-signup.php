@@ -20,6 +20,7 @@
 
     <form class="login-form" id="orgSignupForm" novalidate>
       <div class="input-group">
+        <label class="auth-visually-hidden" for="orgName">Organization name</label>
         <input type="text" id="orgName" placeholder="Organization name" required>
         <i class="fa-solid fa-building input-icon"></i>
       </div>
@@ -35,30 +36,35 @@
       <p class="account-type-hint">New organizations are reviewed before traveler data or fleet tools become available.</p>
 
       <div class="input-group">
+        <label class="auth-visually-hidden" for="fullName">Your full name</label>
         <input type="text" id="fullName" placeholder="Your full name" required>
         <i class="fa-regular fa-id-card input-icon"></i>
       </div>
       <p class="field-error" id="fullNameError">Enter your full name</p>
 
       <div class="input-group">
+        <label class="auth-visually-hidden" for="orgUsername">Username</label>
         <input type="text" id="orgUsername" placeholder="Username" required>
         <i class="fa-regular fa-user input-icon"></i>
       </div>
       <p class="field-error" id="orgUsernameError">Enter a username</p>
 
       <div class="input-group">
+        <label class="auth-visually-hidden" for="orgEmail">Work email address</label>
         <input type="email" id="orgEmail" placeholder="Work email address" required>
         <i class="fa-regular fa-envelope input-icon"></i>
       </div>
       <p class="field-error" id="orgEmailError">Enter a valid email address</p>
 
       <div class="input-group">
+        <label class="auth-visually-hidden" for="orgPhone">Phone number</label>
         <input type="tel" id="orgPhone" placeholder="Phone Number, e.g. 0712 345 678" required>
         <i class="fa-solid fa-phone input-icon"></i>
       </div>
       <p class="field-error" id="orgPhoneError">Enter a valid phone number</p>
 
       <div class="input-group">
+        <label class="auth-visually-hidden" for="orgPassword">Password (at least 12 characters)</label>
         <input type="password" id="orgPassword" placeholder="At least 12 characters" minlength="12" maxlength="1024" autocomplete="new-password" required>
         <button type="button" class="input-icon" id="toggleOrgPassword" aria-label="Show password">
           <i class="fa-regular fa-eye-slash"></i>

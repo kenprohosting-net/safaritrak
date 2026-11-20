@@ -6,12 +6,16 @@ $token = isset($_GET['token']) && is_string($_GET['token']) ? $_GET['token'] : '
 $group = null;
 if (preg_match('/^[a-f0-9]{64}$/', $token)) {
     $stmt = safaritrak_db()->prepare(
-        'SELECT g.id, g.name, g.description, i.invited_email, o.name AS organization_name
+        'SELECT g.id, g.name, g.description, i.invited_email, i.invited_user_id,
+                GREATEST(1, TIMESTAMPDIFF(HOUR, UTC_TIMESTAMP(), i.expires_at)) AS hours_remaining,
+                invited.username AS invited_username, o.name AS organization_name
          FROM persistent_group_invites i
          JOIN persistent_groups g ON g.id = i.group_id
+         LEFT JOIN users invited ON invited.id = i.invited_user_id
          LEFT JOIN organizations o ON o.id = g.organization_id
          WHERE i.token_hash = ? AND i.expires_at > UTC_TIMESTAMP()
-           AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND g.status = "active"
+           AND (i.invited_user_id IS NULL OR i.accepted_at IS NULL)
+           AND i.revoked_at IS NULL AND g.status = "active"
          LIMIT 1'
     );
     $stmt->execute([hash('sha256', $token)]);
@@ -36,11 +40,14 @@ $loggedIn = !empty($_SESSION['user_id']);
     <?php else: ?>
       <h1 class="title">Join <?= htmlspecialchars($group['name'], ENT_QUOTES, 'UTF-8') ?></h1>
       <p class="subtitle"><?= htmlspecialchars($group['description'] ?: 'Join the group to share trip plans and chat with its members.', ENT_QUOTES, 'UTF-8') ?></p>
+      <p class="auth-invite-notice">This invitation expires in <?= max(0, (int) $group['hours_remaining']) ?> hours and may be reused until then.</p>
       <?php if ($group['organization_name']): ?><p class="auth-invite-notice">This is a <?= htmlspecialchars($group['organization_name'], ENT_QUOTES, 'UTF-8') ?> group. Organization membership must already be approved.</p><?php endif; ?>
-      <?php if (!$loggedIn): ?>
+      <?php if ($loggedIn && $group['invited_user_id'] !== null && (int) $group['invited_user_id'] !== (int) ($_SESSION['user_id'] ?? 0)): ?>
+        <p class="auth-invite-notice">This invitation was sent to @<?= htmlspecialchars((string) $group['invited_username'], ENT_QUOTES, 'UTF-8') ?>. Sign in with that account to join.</p>
+      <?php elseif (!$loggedIn): ?>
         <p class="auth-invite-notice">Sign in or create an account to continue. New accounts return here after email verification.</p>
         <a class="login-btn auth-action-link" href="login.php?group_invite=<?= rawurlencode($token) ?>">Sign in</a>
-        <p class="signup-text">New to SafariTrak? <a href="signup.php?group_invite=<?= rawurlencode($token) ?>">Create an individual account</a>.</p>
+        <?php if ($group['invited_user_id'] === null): ?><p class="signup-text">New to SafariTrak? <a href="signup.php?group_invite=<?= rawurlencode($token) ?>">Create an individual account</a>.</p><?php endif; ?>
       <?php else: ?>
         <button class="login-btn" type="button" id="acceptGroupInvite" data-token="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">Join group</button>
         <p id="groupInviteStatus" class="signup-text" role="status" aria-live="polite"></p>

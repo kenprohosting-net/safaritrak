@@ -38,44 +38,13 @@ function setLocationStatus(message, stateName = 'neutral') {
   locationStatus.dataset.state = stateName;
 }
 
-function mapStyle(theme) {
-  const cartoStyle = theme === 'light' ? 'positron-gl-style' : 'dark-matter-gl-style';
-  return `https://basemaps.cartocdn.com/gl/${cartoStyle}/style.json`;
+function mapStyle() {
+  return window.SafariTrakMapStyle.styleUrl;
 }
 
 function applyNeonStyle() {
   if (!state.map || !state.styleReady) return;
-  const light = document.documentElement.dataset.theme === 'light';
-  const style = state.map.getStyle();
-  for (const layer of style.layers || []) {
-    if (!layer.paint) continue;
-    const id = layer.id.toLowerCase();
-    if (layer.type === 'background' && state.map.getLayer(layer.id)) {
-      state.map.setPaintProperty(layer.id, 'background-color', light ? '#F7F5FF' : '#080812');
-    } else if (layer.type === 'fill' && id.includes('water')) {
-      state.map.setPaintProperty(layer.id, 'fill-color', light ? '#E8E5F4' : '#0C0F18');
-    } else if (layer.type === 'fill' && id.includes('landcover')) {
-      state.map.setPaintProperty(layer.id, 'fill-color', light ? '#F3F0FA' : '#0D1019');
-    } else if (layer.type === 'line' && id.startsWith('road_') && id.includes('case')) {
-      state.map.setPaintProperty(layer.id, 'line-color', light ? '#DDD4E9' : '#100D1D');
-    } else if (layer.type === 'line' && id.startsWith('road_')) {
-      const highway = /mot|trunk|pri/.test(id);
-      state.map.setPaintProperty(
-        layer.id,
-        'line-color',
-        light
-          ? (highway ? '#A78BC6' : '#C7BED4')
-          : (highway ? '#49336A' : '#292535')
-      );
-    } else if (layer.type === 'line' && id === 'waterway') {
-      state.map.setPaintProperty(layer.id, 'line-color', light ? '#C5C1D9' : '#211A36');
-    } else if (layer.type === 'symbol' && layer.layout?.['text-field']) {
-      state.map.setPaintProperty(layer.id, 'text-color', light ? '#443650' : '#C8C0D8');
-      if (layer.paint['text-halo-color'] !== undefined) {
-        state.map.setPaintProperty(layer.id, 'text-halo-color', light ? '#F7F5FF' : '#101019');
-      }
-    }
-  }
+  window.SafariTrakMapStyle.apply(state.map);
 }
 
 function setProjection(projection) {
@@ -99,7 +68,7 @@ function setProjection(projection) {
   }
   updateProjectionButtons();
   try {
-    localStorage.setItem('safaritrak-map-projection', state.selectedProjection);
+    localStorage.setItem('safaritrak-map-projection-v2', state.selectedProjection);
   } catch (error) {
     // Keep the selected projection for this page if storage is unavailable.
   }
@@ -111,24 +80,6 @@ function updateProjectionButtons() {
   document.querySelectorAll('[data-map-projection]').forEach(button => {
     const selected = button.dataset.mapProjection === state.selectedProjection;
     button.setAttribute('aria-pressed', selected ? 'true' : 'false');
-  });
-}
-
-function applyTheme(theme) {
-  if (!state.map || state.tornDown) return;
-  const center = state.map.getCenter();
-  const zoom = state.map.getZoom();
-  const pitch = state.map.getPitch();
-  const bearing = state.map.getBearing();
-  state.styleReady = false;
-  state.map.setStyle(mapStyle(theme === 'light' ? 'light' : 'dark'), { diff: false });
-  state.map.once('style.load', () => {
-    if (state.tornDown) return;
-    state.styleReady = true;
-    applyNeonStyle();
-    state.map.setProjection({ type: state.selectedProjection === 'globe' ? 'globe' : 'mercator' });
-    state.map.jumpTo({ center, zoom, pitch, bearing });
-    redrawJourney();
   });
 }
 
@@ -239,6 +190,7 @@ function renderAnimatedRoute(coords) {
   state.routeCoordinates = coordinates;
   if (!state.styleReady) return;
   const source = state.map.getSource('safaritrak-route');
+  const routeColors = window.SafariTrakMapStyle.getRouteColors();
   const data = {
     type: 'Feature',
     properties: {},
@@ -253,7 +205,7 @@ function renderAnimatedRoute(coords) {
       type: 'line',
       source: 'safaritrak-route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#fff0f3', 'line-width': 11, 'line-opacity': 0.96 },
+      paint: { 'line-color': '#450A0A', 'line-width': 11, 'line-opacity': 0.96 },
     });
   }
   if (!state.map.getLayer('safaritrak-route-glow')) {
@@ -262,7 +214,7 @@ function renderAnimatedRoute(coords) {
       type: 'line',
       source: 'safaritrak-route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#D946EF', 'line-width': 13, 'line-blur': 4, 'line-opacity': 0.62 },
+      paint: { 'line-color': routeColors.glow, 'line-width': 13, 'line-blur': 4, 'line-opacity': 0.78 },
     });
   }
   if (!state.map.getLayer('safaritrak-route-core')) {
@@ -271,7 +223,7 @@ function renderAnimatedRoute(coords) {
       type: 'line',
       source: 'safaritrak-route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#C026D3', 'line-width': 6, 'line-opacity': 1 },
+      paint: { 'line-color': routeColors.stroke, 'line-width': 6, 'line-opacity': 1 },
     });
   }
 }
@@ -624,12 +576,11 @@ async function initSafariTrakMap() {
     state.maplibre = window.maplibregl;
     if (!state.maplibre) throw new Error('MapLibre GL JS did not load.');
     const savedView = window.SafariTrakMapView?.read() || null;
-    const cachedLocation = window.SafariTrakMapView?.readLocation() || null;
-    const initialPoint = savedView || cachedLocation || { lat: -1.286389, lng: 36.817223 };
+    const initialPoint = savedView || { lat: -1.286389, lng: 36.817223 };
     state.hasFittedJourney = false;
     if (savedView) state.selectedProjection = savedView.projection;
     try {
-      const storedProjection = localStorage.getItem('safaritrak-map-projection');
+      const storedProjection = localStorage.getItem('safaritrak-map-projection-v2');
       if (!savedView && (storedProjection === 'flat' || storedProjection === 'globe')) state.selectedProjection = storedProjection;
     } catch (error) {
       if (!savedView) state.selectedProjection = 'globe';
@@ -638,7 +589,7 @@ async function initSafariTrakMap() {
       container: mapElement,
       style: mapStyle(document.documentElement.dataset.theme),
       center: [initialPoint.lng, initialPoint.lat],
-      zoom: savedView?.zoom ?? (cachedLocation ? 16 : state.selectedProjection === 'globe' ? 1.8 : 11),
+      zoom: savedView?.zoom ?? (state.selectedProjection === 'globe' ? 1.8 : 15),
       bearing: savedView?.bearing ?? 0,
       pitch: savedView?.pitch ?? 0,
       projection: { type: state.selectedProjection === 'globe' ? 'globe' : 'mercator' },
@@ -678,8 +629,6 @@ async function initSafariTrakMap() {
       button.addEventListener('click', () => setProjection(button.dataset.mapProjection));
     });
     document.getElementById('myLocation')?.addEventListener('click', () => startLocationWatch(true));
-    state.themeObserver = new MutationObserver(() => applyTheme(document.documentElement.dataset.theme));
-    state.themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     window.addEventListener('pagehide', event => {
       if (!event.persisted) teardown();
     }, { once: true });

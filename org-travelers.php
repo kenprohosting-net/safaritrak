@@ -27,8 +27,17 @@ $travelerQuery = $isSchool
 $travelersStmt = $db->prepare($travelerQuery);
 $travelersStmt->execute([$orgId]);
 $travelers = $travelersStmt->fetchAll();
+$guardianOptions = [];
 $membershipRequests = [];
 if (($myOrg['account_type'] ?? '') === 'school') {
+    $guardianStmt = $db->prepare(
+        'SELECT u.id, u.full_name FROM organization_travelers ot
+         JOIN users u ON u.id = ot.user_id
+         WHERE ot.organization_id = ? AND ot.status = "active" AND ot.member_type = "guardian"
+         ORDER BY u.full_name'
+    );
+    $guardianStmt->execute([$orgId]);
+    $guardianOptions = $guardianStmt->fetchAll(PDO::FETCH_ASSOC);
     $requestsStmt = $db->prepare(
         'SELECT r.id, r.member_type, r.created_at, u.full_name, u.email
          FROM organization_membership_requests r
@@ -152,6 +161,10 @@ function admin_last_active(?string $dt): string {
           <?php endif; ?>
           <td>
             <a class="table-action" href="#" data-open-modal="travelerModal<?= (int) $t['row_id'] ?>">View</a>
+            <?php if ($isSchool && $t['membership_status'] === 'active' && $t['member_type'] === 'student' && $guardianOptions): ?>
+            <button type="button" class="table-action child-viewer-invite-open" data-open-modal="childViewerInviteModal"
+              data-child-id="<?= (int) $t['user_id'] ?>" data-child-name="<?= htmlspecialchars($t['full_name'], ENT_QUOTES, 'UTF-8') ?>">Invite guardian</button>
+            <?php endif; ?>
             <?php if ($t['membership_status'] === 'active'): ?>
             <button type="button" class="table-action danger status-btn" data-row-id="<?= (int) $t['row_id'] ?>" data-action="deactivate" style="background:none;border:0;cursor:pointer;font-family:inherit">Deactivate</button>
             <?php else: ?>
@@ -196,6 +209,25 @@ function admin_last_active(?string $dt): string {
       <div id="schoolInviteLinkWrap" hidden><div class="form-field"><label>Invitation link · expires in 7 days</label><input type="url" id="schoolInviteUrl" readonly></div><button type="button" class="btn-primary" id="copySchoolInvite">Copy link</button><a id="emailSchoolInvite" class="table-action" href="#">Open email</a></div>
     </div>
     <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button><button type="button" class="primary" id="createSchoolInvite">Create link</button></div>
+  </div>
+</div>
+<div class="modal-overlay" id="childViewerInviteModal">
+  <div class="modal">
+    <div class="modal-head"><div><h3>Invite a guardian to view trips</h3><p id="childViewerInviteDescription">The guardian must accept before any trip details are visible.</p></div><button class="modal-close" type="button" data-close-modal aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <?php if ($guardianOptions): ?>
+      <input type="hidden" id="childViewerInviteStudent">
+      <div class="form-field"><label for="childViewerInviteGuardian">Guardian account</label><select id="childViewerInviteGuardian">
+        <?php foreach ($guardianOptions as $guardian): ?>
+        <option value="<?= (int) $guardian['id'] ?>"><?= htmlspecialchars($guardian['full_name'], ENT_QUOTES, 'UTF-8') ?></option>
+        <?php endforeach; ?>
+      </select></div>
+      <?php else: ?>
+      <p class="hint">Enroll and approve a guardian account before creating a trip-view invitation.</p>
+      <?php endif; ?>
+      <p class="hint" id="childViewerInviteStatus" role="status" aria-live="polite"></p>
+    </div>
+    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Cancel</button><?php if ($guardianOptions): ?><button type="button" class="primary" id="sendChildViewerInvite">Send invitation</button><?php endif; ?></div>
   </div>
 </div>
 <?php endif; ?>

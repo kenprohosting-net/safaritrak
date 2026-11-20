@@ -129,7 +129,7 @@ function admin_relative_time(string $dt): string {
 </head>
 <body>
 <?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
-<div class="app app--map-layout">
+<div class="app app--map-layout<?= $isSchool ? ' app--school-dashboard' : '' ?>">
 <?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>

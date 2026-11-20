@@ -1,25 +1,77 @@
 # Implementation roadmap
 
-## Phase 1 — foundation (this checkpoint)
+This roadmap is based on the [Phase A application audit](./application-audit.md) and the supplied product brief. It preserves the existing PHP/MySQL application and its URLs. Each phase is a reviewed vertical slice; do not start a later phase until the current checkpoint is reviewed.
 
-- Keep the native PHP/MySQL app and preserve existing page/API URLs.
-- Add a reusable authenticated shell, responsive violet dark/light token foundation, public welcome route, theme control, roadmap placeholders, screen catalog, environment example, architecture/migration/setup/test documentation, and database-independent checks.
-- No destructive schema changes, data migration, new paid service, or claim of a new integration.
-- Stop after this checkpoint for review.
+## Cross-cutting foundation — transactional email
 
-## Next phases (dependency order)
+- Implemented Gmail API OAuth 2.0 transport, a loopback-only CLI authorization flow, branded HTML/plain-text templates, database-backed outbound rate limits, and verification/reset/security/trusted-contact/persistent-group invitation wiring.
+- Local Google OAuth configuration is in place, and Gmail API accepted one synthetic test message on 2026-11-12. Inbox receipt and end-to-end testing of the remaining transactional flows are not yet confirmed; see the [Gmail API guide](./gmail-api-setup.md).
 
-2. **Authentication and data foundation:** Implemented an explicit baseline/migration ledger, additive migrations, session-bound CSRF/origin checks, hardened cookies, database-backed sessions with validator hashes and idle/absolute expiry, auth rate limits, input guards, safe API error references, and isolated SQLite session-lifecycle tests. Password changes and logout revoke persistent sessions; newly set passwords require 12 characters and password-reset tokens are atomically consumed once. Account deletion requires reauthentication, blocks platform/organization administrators until duties are removed, preserves organizations, and scrubs linked contact/group-member location data. Migration `0003` additively reconciles `journey_locations` and `journeys.covered_km` schema drift; migration `0004` records versioned Terms/Privacy consent. Settings provides a user-scoped JSON data export. Synthetic migration/restore tests pass. The configured local XAMPP database passed backup/restore verification before migration `0004` was applied, and status now reports all local migrations applied. These checks do not establish production backup retention, disaster recovery, or deployment readiness.
-3. **Design system and route coverage (in progress):** Common Explore navigation and map-backed glass panels cover signed-in routes; the outline animates only on the panel being hovered, focused, or engaged, and motion preferences are honored. The shared Google map can enter a panel-free interaction mode from map gestures and can restore the panels with an accessible control; current-location markers are shifted away from visible overlays when possible. Explore and shared signed-in map backgrounds use Google Maps JavaScript API; Places and debounced autocomplete use Places API (New), and selected locations appear on the map. The trip planner previews a red OSRM driving route when both points are selected. OSRM's public demo is an optional best-effort route preview only, not live traffic or an availability commitment; traffic is not enabled. Active journey tracking and public shared-location pages still use the legacy MapLibre/CARTO map and need provider migration and verification. Trusted-contact invitations use hashed, expiring links and do not add contacts based on phone matches; an invitee must sign up and accept. The optional public live-location link is restricted to an active trip, expires in one hour, stores only a token hash, and can be revoked. Original landscape and portrait map illustrations now theme the authentication routes. The shared status renderer still covers Notifications and Messages; continue the route-by-route responsive/keyboard audit and apply status treatment to other data-driven views before marking this phase complete.
-4. **Persistent groups (in progress):** additive data model and member-only group chat are implemented separately from `group_journeys`; expiring invitation links, school-group membership, and selecting persistent groups for temporary trip invites are available. Group archive, detailed role management, and trip-scoped chat/events remain.
-5. **Trips and events:** connect trips to groups; add participants, stops, lifecycle, ETA, trip chat and auditable events. Keep sharing trip-scoped and consented.
-6. **Maps and live sources:** accessible flat 2D first, map provider adapter, freshness/accuracy/connectivity indicators, optional source comparison, later optional globe.
-7. **Safety and reliability:** SOS interfaces were removed from the current UI at user request; backend SOS routes/schema are retained but do not have a supported UI flow. Reconcile this product decision before implementing further safety workflows.
-8. **Saved places:** custom places and trusted provider-source verification/coverage labels.
-9. **Organisations (in progress):** school/car-hire account types, platform review gates, school enrollment requests with administrator approval, and a car-hire vehicle catalog/booking-request flow are implemented. Guardian-to-student permissions, school bus routing, payments, driver operations, and broader sensitive-data audit tools remain.
-10. **Android:** decide only after API stability; document native GPS/background/push/wearable capabilities and limits; test on real supported devices.
-11. **Release readiness:** end-to-end security/privacy review, performance, accessibility, retention, backup/restore, deployment and incident procedures.
+## Phase A — Audit and stability baseline (complete; awaiting review)
 
-### Exit criteria for every phase
+- Inventory the current architecture and feature state; separate implemented, partial, missing, and unverified behavior.
+- Record the verified runtime, test baseline, configuration limits, and highest-priority defects in the application audit.
+- Reconcile the roadmap and screen catalog with live routes and implemented functionality.
+- No schema, runtime feature, or dependency changes in this audit checkpoint.
 
-Implement one vertical slice at a time (schema/migration, API/business rule, UI, privacy rules, tests, docs). Run relevant tests and locally exercise actual flows. Report implemented behavior separately from placeholders. Never proceed to the next major phase without review unless explicitly requested.
+## Phase B — Responsive UI and route coverage (in progress; reviewed routes have remaining external-service and state coverage)
+
+- Keep the existing shared shell, dark/light themes, public entry routes, and accessible navigation; finish route-by-route responsive, keyboard, and loading/empty/error/offline-state review. The shared mobile navigation now has explicit close, hidden/inert closed state, focus containment, Escape close, and focus restoration. Public account forms now label all fields independently of placeholders. The signed-in route review covered the principal trip, group, messaging, contact, settings, notification, and Places views at narrow and desktop sizes; further flows and external-provider success states remain unverified. A duplicate auth-guard include found in Group trips was fixed and regression-tested.
+- Treat the screen catalog as a target and coverage checklist, not evidence that a feature is implemented.
+- Verify map-provider fallback and map-dependent flows with and without optional Google Maps credentials. Keep a usable, accessible 2D experience as the default; a 3D globe remains optional.
+- Exit when every existing data-driven route has documented owners, verified behavior, privacy boundaries, and reviewed narrow-screen and keyboard states.
+
+## Phase C — Identity, privacy, and data foundation (in progress)
+
+- Build on the existing session, CSRF/origin, rate-limit, migration, consent, account export/deletion, and backup/restore foundations; do not replace them wholesale.
+- Local verification and password-reset links are now guarded by both a loopback client address and a non-production environment, and production does not receive development rate-limit overrides. Tests cover production and non-loopback requests.
+- Reconcile deployment documentation with actual configuration and ensure local-only development conveniences cannot be mistaken for production email delivery.
+- Close any discovered authorization, validation, retention, or migration gaps with additive migrations and isolated regression tests.
+- Production backup retention, disaster recovery, HTTPS, and secret management still require deployment-specific verification.
+
+## Phase D — Groups and memberships
+
+- Preserve the existing persistent groups, member-only group chat, invitation links, organization groups, and distinct temporary group trips.
+- Add role editing, safe archive/leave flows, membership lifecycle visibility, and relevant audit events where product policy is agreed.
+- Keep group membership separate from trip participation and location sharing; each remains explicitly scoped and revocable.
+
+## Phase E — Journeys, maps, and live tracking
+
+- Fix the confirmed tracking-page endpoint-path defect and validate latitude/longitude as finite numeric values within geographic bounds in both personal and group update APIs.
+- Reconcile the legacy journey-position reader with the migrated schema and establish whether any client still depends on it before removing or replacing it.
+- Test trip planning, participant authorization, activation/end/revocation, position freshness, and public-link expiry end to end. Preserve the existing best-effort route preview without describing it as live traffic.
+- Show accurate location freshness/quality; do not claim continuous background tracking. A native Android client and background GPS require a separate, explicitly scoped phase.
+
+## Phase F — Trip communications and events
+
+- Keep existing persistent group chat distinct from trip-scoped communication.
+- Add trip chat, participant/system events, delivery/error states, and moderation controls only after membership, retention, and authorization rules are defined.
+- SOS must remain independent of chat.
+
+## Phase G — Safety workflow and saved places
+
+- Implement a clear SOS user workflow over the retained backend only after confirming activation, cancellation/resolution, notification recipients, history, and operational expectations.
+- Do not claim SMS, push, emergency-service dispatch, or response monitoring unless a real integration is configured, tested, and documented.
+- Add private saved-place persistence and management; distinguish user-created places from provider search results and label provider coverage as unverified unless independently sourced.
+
+## Phase H — Organization, school, and fleet workflows
+
+- Preserve existing organization review, school enrollment, traveler, vehicle-catalog, and booking-request foundations.
+- Define and verify guardian-child relationships, school routes/bus tracking, assignment-scoped access, driver operations, and retention before adding child or fleet location views.
+- Payments, telematics, and rental fulfillment require separately selected and tested service integrations; do not imply they are present.
+
+## Phase I — Native mobile and device management
+
+- Decide on Android only after the browser API and privacy rules are stable.
+- Specify per-device authentication/revocation, location permissions, foreground/background behavior, push, offline states, and supported-device testing before implementation.
+- Do not describe browser geolocation as native background tracking or as a connected-device manager.
+
+## Phase J — Release readiness
+
+- Complete end-to-end authorization/privacy review, accessibility and performance testing, deployment configuration, provider terms/limits, backup/restore and disaster-recovery rehearsals, and incident procedures.
+- Verify production email and any later safety notification integrations with explicitly configured credentials and test recipients.
+- Publish current Terms/Privacy versions and verify the retention, export, and deletion behavior against them.
+
+## Phase exit criteria
+
+Implement one vertical slice at a time (schema/migration, API/business rule, UI, privacy rules, tests, and directly related documentation). Run targeted tests and exercise the real flow locally. Report implemented behavior separately from placeholders and external-service dependencies. Stop for review at each phase boundary unless the user explicitly authorizes proceeding.

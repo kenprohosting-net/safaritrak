@@ -13,7 +13,7 @@ $pageTitle = 'Explore';
 $pageHeading = st_greeting() . ', ' . $userName;
 $pageEyebrow = 'EXPLORE';
 $activeNav = 'dashboard';
-$loadMapLibre = false;
+$loadMapLibre = true;
 $loadNotifications = true;
 $loadDashboardMap = true;
 $isExploreDashboard = true;
@@ -75,7 +75,7 @@ if ($dashboardGroup) {
 require __DIR__ . '/backend/views/app-shell-start.php';
 ?>
 <section class="explore-dashboard" aria-label="Explore SafariTrak">
-  <div class="explore-map" id="dashboardMap" data-map-user-id="<?= (int) $currentUser['id'] ?>" role="application" aria-label="Interactive Google map">
+  <div class="explore-map" id="dashboardMap" data-map-user-id="<?= (int) $currentUser['id'] ?>" role="application" aria-label="Interactive map">
     <div class="explore-map-canvas" id="dashboardMapCanvas" aria-hidden="true"></div>
     <div class="explore-map-heading">
       <span class="explore-live-indicator"></span>
@@ -85,8 +85,8 @@ require __DIR__ . '/backend/views/app-shell-start.php';
       <button type="button" role="tab" data-dashboard-projection="flat" aria-selected="true" aria-controls="dashboardMap" tabindex="0">
         <i class="fa-solid fa-map" aria-hidden="true"></i> Map
       </button>
-      <button type="button" role="tab" data-dashboard-projection="satellite" aria-selected="false" aria-controls="dashboardMap" tabindex="-1">
-        <i class="fa-solid fa-satellite" aria-hidden="true"></i> Satellite
+      <button type="button" role="tab" data-dashboard-projection="globe" aria-selected="false" aria-controls="dashboardMap" tabindex="-1">
+        <i class="fa-solid fa-globe" aria-hidden="true"></i> Globe
       </button>
     </div>
     <div class="explore-map-controls" role="group" aria-label="Map controls">
@@ -121,6 +121,7 @@ require __DIR__ . '/backend/views/app-shell-start.php';
           <span><small>ETA</small><strong id="dashboardEta">—</strong></span>
         </div>
         <a class="explore-panel-action" href="my-journeys.php?selected=<?= (int) $activeJourney['id'] ?>"><i class="fa-solid fa-arrow-up-right-from-square"></i> View full route</a>
+        <a class="explore-panel-action" href="end-journey.php?journey_id=<?= (int) $activeJourney['id'] ?>"><i class="fa-solid fa-stop" aria-hidden="true"></i> End trip</a>
       <?php else: ?>
         <p class="explore-trip-destination">Plan a route, then share your live location only with the people you choose.</p>
         <a class="explore-panel-action" href="start-journey.php"><i class="fa-solid fa-plus"></i> Plan a journey</a>

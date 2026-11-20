@@ -7,10 +7,9 @@ $activeNav = $activeNav ?? 'dashboard';
 $loadLeaflet = $loadLeaflet ?? false;
 $loadMapLibre = $loadMapLibre ?? false;
 $isExploreDashboard = $isExploreDashboard ?? false;
-$showAppMapBackground = $showAppMapBackground ?? false;
+$isRentalWorkspace = $isRentalWorkspace ?? false;
+$showAppMapBackground = $showAppMapBackground ?? !$isExploreDashboard;
 require_once __DIR__ . '/../config/env.php';
-$googleMapsApiKey = getenv('SAFARITRAK_GOOGLE_MAPS_API_KEY') ?: '';
-$googleMapsMapId = getenv('SAFARITRAK_GOOGLE_MAP_ID') ?: '';
 ?>
 <!doctype html>
 <html lang="en" data-theme="dark">
@@ -20,18 +19,17 @@ $googleMapsMapId = getenv('SAFARITRAK_GOOGLE_MAP_ID') ?: '';
   <meta name="theme-color" content="#060b16">
   <title><?= htmlspecialchars($pageTitle) ?> | SafariTrak</title>
   <link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/../../dashboard.css') ?>">
+  <?php if ($isRentalWorkspace): ?>
+    <link rel="stylesheet" href="rental-workspace.css?v=<?= hash_file('sha256', __DIR__ . '/../../rental-workspace.css') ?>">
+  <?php endif; ?>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <?php if ($isExploreDashboard && $googleMapsApiKey !== ''): ?>
-    <meta name="google-maps-api-key" content="<?= htmlspecialchars($googleMapsApiKey, ENT_QUOTES, 'UTF-8') ?>">
-  <?php endif; ?>
-  <?php if ($isExploreDashboard && $googleMapsMapId !== ''): ?>
-    <meta name="google-map-id" content="<?= htmlspecialchars($googleMapsMapId, ENT_QUOTES, 'UTF-8') ?>">
-  <?php endif; ?>
-  <?php if ($isExploreDashboard): ?>
-    <script src="google-maps-loader.js?v=<?= hash_file('sha256', __DIR__ . '/../../google-maps-loader.js') ?>"></script>
-    <script src="google-location-marker.js?v=<?= hash_file('sha256', __DIR__ . '/../../google-location-marker.js') ?>"></script>
+  <?php if ($loadMapLibre): ?>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css">
+    <script src="map-style.js?v=<?= hash_file('sha256', __DIR__ . '/../../map-style.js') ?>"></script>
     <script src="route-directions.js?v=<?= hash_file('sha256', __DIR__ . '/../../route-directions.js') ?>"></script>
-    <script src="google-maps-fallback.js?v=<?= hash_file('sha256', __DIR__ . '/../../google-maps-fallback.js') ?>"></script>
+    <?php if ($isExploreDashboard): ?>
+      <script src="google-maps-loader.js?v=<?= hash_file('sha256', __DIR__ . '/../../google-maps-loader.js') ?>"></script>
+    <?php endif; ?>
   <?php endif; ?>
   <?php if ($loadLeaflet): ?>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -52,7 +50,7 @@ $googleMapsMapId = getenv('SAFARITRAK_GOOGLE_MAP_ID') ?: '';
 <?php if (!$isExploreDashboard): ?>
   <?php require __DIR__ . '/app-map-background.php'; ?>
 <?php endif; ?>
-<div class="app app--map-layout<?= $isExploreDashboard ? ' app--explore' : '' ?>">
+<div class="app app--map-layout<?= $isExploreDashboard ? ' app--explore' : '' ?><?= !empty($isGroupsDashboard) ? ' app--groups app--workspace' : '' ?><?= $isRentalWorkspace ? ' app--workspace app--rental-workspace' : '' ?><?= !empty($isCarHireMarketplace) ? ' app--car-hire' : '' ?><?= !empty($isFleetDashboard) ? ' app--fleet-dashboard' : '' ?>">
   <?php require __DIR__ . '/app-navigation.php'; ?>
 
   <main>
@@ -103,12 +101,15 @@ $googleMapsMapId = getenv('SAFARITRAK_GOOGLE_MAP_ID') ?: '';
             <div class="dashboard-planner-field">
               <label for="endPoint">To</label>
               <input id="endPoint" type="search" data-location-autocomplete autocomplete="off" placeholder="Choose destination" aria-label="Destination">
+              <label class="visually-hidden" for="savedPlannerLocation">Choose a saved destination</label>
+              <select id="savedPlannerLocation" class="dashboard-saved-location"><option value="">Use a saved location…</option></select>
+              <small id="savedPlannerLocationStatus" role="status" aria-live="polite"></small>
               <input type="hidden" id="endLat">
               <input type="hidden" id="endLng">
             </div>
           </div>
           <button type="button" id="exitDashboardRouteFocus" class="dashboard-planner-focus-exit" hidden>
-            <i class="fa-solid fa-arrow-left"></i>Show other panels
+            <i class="fa-solid fa-arrow-left"></i>Back
           </button>
           <p class="dashboard-planner-status" id="dashboardPlannerStatus" role="status" aria-live="polite">Type and select both locations from the suggestions to preview a route.</p>
           <div class="dashboard-planner-actions">

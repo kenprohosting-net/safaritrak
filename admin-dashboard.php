@@ -1,22 +1,14 @@
 <?php
 
-require_once __DIR__ . '/backend/includes/auth-guard.php';
+require_once __DIR__ . '/backend/includes/platform-guard.php';
 
-st_require_platform_admin($currentUser);
-
-$myPlatformRole = null;
-$platformAdminExists = true;
-
-$paStmt = $db->prepare('SELECT role FROM platform_admins WHERE user_id = ? LIMIT 1');
-$paStmt->execute([$currentUser['id']]);
-$paData = $paStmt->fetch();
-
-if ($paData) {
-    $myPlatformRole = $paData;
-} else {
-    $countStmt = $db->query('SELECT COUNT(*) FROM platform_admins');
-    $platformAdminExists = ((int) $countStmt->fetchColumn()) > 0;
+if (!$myPlatformRole && $platformAdminExists) {
+    header('Location: index.php');
+    exit;
 }
+
+$bootstrapToken = getenv('SAFARITRAK_PLATFORM_ADMIN_BOOTSTRAP_TOKEN');
+$platformBootstrapEnabled = is_string($bootstrapToken) && strlen($bootstrapToken) >= 32;
 
 if ($myPlatformRole) {
     $totalUsersStmt = $db->query('SELECT COUNT(*) FROM users');
@@ -70,23 +62,19 @@ if ($myPlatformRole) {
 
 <div class="content">
 
-<?php if (!$myPlatformRole && $platformAdminExists): ?>
-
-<div class="card" style="max-width:480px;margin:30px auto">
-  <div class="card-head"><div><label>ACCESS RESTRICTED</label><h3>You are not a platform admin</h3></div></div>
-  <div style="padding:0 21px 21px">
-    <p style="font-size:12px;color:var(--muted);line-height:1.7">This area is for SafariTrak's own team. If you believe you should have access, ask an existing platform admin to add you from the Admins page.</p>
-  </div>
-</div>
-
-<?php elseif (!$myPlatformRole && !$platformAdminExists): ?>
+<?php if (!$myPlatformRole && !$platformAdminExists): ?>
 
 <div class="card" style="max-width:480px;margin:30px auto">
   <div class="card-head"><div><label>ONE-TIME SETUP</label><h3>Claim SafariTrak ownership</h3></div></div>
   <div style="padding:0 21px 21px">
-    <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:16px">No one manages SafariTrak at the platform level yet. Since this is the first time this has happened, you can claim ownership now. This gives you oversight of every user, organization and safety alert on the platform.</p>
+    <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:16px">No platform owner exists yet. The initial owner must provide the one-time setup key configured by the site operator. Remove the key from the server configuration after setup.</p>
+    <?php if ($platformBootstrapEnabled): ?>
+    <div class="form-field"><label for="claimBootstrapToken">One-time setup key</label><input type="password" id="claimBootstrapToken" autocomplete="off" placeholder="Enter the platform setup key"></div>
     <p class="hint" id="claimError" style="color:#c94b4b;margin-bottom:10px;display:none"></p>
-    <button type="button" class="btn-primary" id="claimOwnershipBtn" style="width:100%;justify-content:center">Claim ownership</button>
+    <button type="button" class="btn-primary" id="claimOwnershipBtn" style="width:100%;justify-content:center;margin-top:12px">Claim ownership</button>
+    <?php else: ?>
+    <p class="hint" style="color:var(--muted);line-height:1.7">Owner setup is disabled. Configure <code>SAFARITRAK_PLATFORM_ADMIN_BOOTSTRAP_TOKEN</code> with a random value of at least 32 characters in the server environment, then reload this page.</p>
+    <?php endif; ?>
   </div>
 </div>
 
@@ -135,7 +123,7 @@ if ($myPlatformRole) {
 </main>
 </div>
 <script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
-<?php if (!$myPlatformRole && !$platformAdminExists): ?>
+<?php if (!$myPlatformRole && !$platformAdminExists && $platformBootstrapEnabled): ?>
 <script src="platform-onboarding.js"></script>
 <?php endif; ?>
 </body>

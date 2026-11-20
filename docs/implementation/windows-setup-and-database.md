@@ -5,12 +5,16 @@
 1. Install XAMPP with PHP 8.1 or newer and MySQL/MariaDB. Start Apache and MySQL.
 2. Place the project at `C:\xampp\htdocs\safaritrak`.
 3. Create a fresh local database named `safaritrak`, then import `backend\sql\schema.sql`.
-4. Create `backend\config\env.local.php` returning an array of `SAFARITRAK_*` values; an example is in the repository README. This file is ignored by Git.
+4. Create `backend\config\env.local.php` returning an array of `SAFARITRAK_*` values and, when configuring Gmail, the allow-listed Google mail settings; examples are in the repository README and [Gmail API setup guide](./gmail-api-setup.md). This file is ignored by Git.
 5. In PowerShell from the project folder, run `composer install` and `composer test`.
 6. Back up any existing database, compare it against the schema snapshot, then explicitly initialise and baseline it: `php backend\scripts\migrate.php init`, followed by `php backend\scripts\migrate.php baseline`. Review `php backend\scripts\migrate.php status`, then apply only the listed additive migrations with `php backend\scripts\migrate.php up`.
 7. Visit `http://localhost/safaritrak/` or `http://localhost/safaritrak/welcome.php`. The public welcome, login, and registration views can be inspected without MySQL, but authentication and protected pages require the configured database and migrations. If local email is not configured, use the development verification link only with `SAFARITRAK_DEV_MODE=1`.
 
+Migration `0018_saved_location_notes` adds an optional note to saved places. Migration `0019_persistent_group_sharing` adds reusable/username-targeted group invitations and opt-in live group locations. Existing databases must apply pending migrations with the normal migration command before using those flows.
+
 To create synthetic school enrollment test data in a development database, run `php backend\scripts\seed-demo-school.php --apply`. The script creates an approved local test school and separate admin, student, and guardian accounts; it prints randomly generated passwords once and does not reset them on repeat runs. Do not run this against production or share its generated credentials.
+
+For the first platform owner, generate a one-time setup key with `php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"`, set it as `SAFARITRAK_PLATFORM_ADMIN_BOOTSTRAP_TOKEN` in `backend\config\env.local.php` or the server environment, sign in as the intended owner, then open `admin-dashboard.php` and claim ownership. Remove the key from the server configuration once the owner account is created. The owner can then add other registered users as platform staff from `admin-admins.php`.
 
 PowerShell does not run a local `composer.phar` or script from the current directory unless invoked explicitly (for example `.\composer.phar install`). If PowerShell blocks a trusted local script due to execution policy, prefer the equivalent `php`/`composer` command; do not weaken machine-wide policy to run the app.
 
@@ -28,16 +32,25 @@ Alternative PHP-only smoke server from the repository root: `php -S 127.0.0.1:80
 | `SAFARITRAK_DB_USER` | Database account | `root` for local XAMPP only; least-privilege user in production |
 | `SAFARITRAK_DB_PASS` | Database password | Empty for default XAMPP only; set a secret in production |
 | `SAFARITRAK_RATE_LIMIT_SECRET` | HMAC secret for pseudonymous authentication rate-limit keys | Use at least 32 random characters in production; local fallback is for development only |
+| `SAFARITRAK_PLATFORM_ADMIN_BOOTSTRAP_TOKEN` | One-time key for creating the first platform owner | Set a random value of at least 32 characters, claim ownership at `admin-dashboard.php`, then remove the key from the server environment |
 | `SAFARITRAK_MAIL_HOST` | SMTP host | Provider-specific |
 | `SAFARITRAK_MAIL_PORT` | SMTP port | `587` |
 | `SAFARITRAK_MAIL_USERNAME` / `SAFARITRAK_MAIL_PASSWORD` | SMTP credentials | Optional locally; secrets in production |
 | `SAFARITRAK_MAIL_FROM` / `SAFARITRAK_MAIL_FROM_NAME` | Sender identity | Use a verified sender in production |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth 2.0 client for server-side Gmail API sending | Keep both in protected backend environment; do not use a service account |
+| `GOOGLE_REDIRECT_URI` | Loopback callback used by the local OAuth authorization CLI | `http://127.0.0.1:53682/` locally; must exactly match the OAuth client setup |
+| `GOOGLE_REFRESH_TOKEN` | Offline authorization for the dedicated sender mailbox | Store only in protected backend environment; never expose or commit |
+| `GMAIL_SENDER_EMAIL` | Gmail mailbox authorized to send transactional mail | Must match the OAuth mailbox or one of its verified Gmail aliases |
 | `SAFARITRAK_APP_URL` | Absolute public base URL for email links | Local URL in development; HTTPS production URL |
-| `SAFARITRAK_DEV_MODE` | Enables development-only token links | `0` in production; never enable on a public deployment |
+| `SAFARITRAK_DEV_MODE` | Enables local-only verification/reset links and a higher loopback development rate limit | Links and overrides are active only for loopback requests in `development` or `testing`; production never receives them, even if this flag is accidentally set |
+
+For OAuth setup in the existing Maps project, Gmail API enablement, local refresh-token authorization, transactional email coverage, and sending limits, follow the [Gmail API setup guide](./gmail-api-setup.md). The older SMTP settings work only as a compatibility fallback when no Google mail settings are configured.
 
 ## Existing database and migrations
 
 The current project has a schema snapshot at `backend/sql/schema.sql` and two historical SQL patches. The schema snapshot already includes `platform_admins` and the `is_suspended` columns which are also added by `migration_platform_admin.sql`; blindly applying every historical patch to a fresh schema can fail on duplicates. The snapshot originally lacked `sos_alert_notifications` and `product_update_emails`, although the settings page expects them and `migration_notification_settings.sql` adds them. Journey APIs also reference `journey_locations` and `journeys.covered_km`, which were absent from the earlier snapshot. The new additive migrations reconcile these known differences without dropping data; they do not prove that every live database matches the snapshot.
+
+Migration `0020_message_photos` adds attachment metadata and trip labels for direct and persistent-group messages. It is additive and is applied through the same explicit migration runner; uploaded files are stored under `uploads/message-photos/`, denied direct Apache access, and served through participant-authorized API routes.
 
 Migration and restore behavior has been validated against an isolated MySQL/MariaDB fixture with synthetic data. The local XAMPP `safaritrak` database was also backed up, restored into a temporary database, and verified against table definitions and row counts before applying the additive privacy-consent migration `0004`. Migration status now reports all migrations applied locally. This does not certify a production database or deployment. Before applying future migrations to an existing app database:
 
@@ -55,7 +68,7 @@ The new runner refuses to run `up` without an explicitly verified baseline, seri
 ## Phase 2 authentication foundation
 
 - `st_require_method('POST')` verifies a session-bound token and, when supplied, same-origin `Origin`/`Referer` before processing mutations. The shared browser fetch wrapper requests a token for JSON and multipart posts; native clients need a separately designed authentication and anti-CSRF strategy.
-- PHP sessions use strict mode, cookie-only IDs, HttpOnly/SameSite=Lax cookies, and Secure on HTTPS. Authenticated sessions are persisted in the existing `sessions` table with a random validator whose hash is stored server-side. Ordinary sessions expire after 30 minutes idle or 12 hours absolute; Remember Me sessions expire after 7 days idle or 30 days absolute. Logout and password changes revoke persistent sessions. The integration test uses an isolated SQLite database and never alters the XAMPP database.
+- PHP sessions use strict mode, cookie-only IDs, HttpOnly/SameSite=Lax cookies, and Secure on HTTPS. Authenticated sessions are persisted in the existing `sessions` table with a random validator whose hash is stored server-side. Sessions expire after 7 days idle or 30 days absolute, and the browser cookie persists for up to 30 days. Logout and password changes revoke persistent sessions. The integration test uses an isolated SQLite database and never alters the XAMPP database.
 - Login is rate-limited per pseudonymous client address and identifier; personal and organization registration, reset, and verification-resend requests have per-address limits. Newly set passwords require at least 12 characters and are bounded to 1024 bytes; password-reset tokens are locked and atomically consumed once. Production requires an independent rate-limit HMAC secret of at least 32 characters. Expired keys are removed after 24 hours; the table stores HMAC keys rather than raw addresses or account identifiers.
 - Account deletion requires a CSRF-protected authenticated request and the current password. Platform and organization administrators must transfer or remove their duties first; organizations are preserved. The deletion flow removes the account's cascaded private records and scrubs linked contact and group-member location details.
 - Settings provides an authenticated account-data JSON download, including the user's own journeys/location records, contacts, messages, notifications, memberships, roles, consent events, and validated avatar file. It excludes credentials, session records, and other users' private records. Current Terms/Privacy versions are recorded when a user explicitly accepts them; account deletion anonymizes retained consent events by clearing their user link.

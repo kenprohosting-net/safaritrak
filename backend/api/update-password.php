@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/password-policy.php';
+require_once __DIR__ . '/../includes/mailer.php';
 
 st_start_session();
 st_require_method('POST');
@@ -42,7 +43,7 @@ if (!empty($errors)) {
 
 $db = safaritrak_db();
 
-$stmt = $db->prepare('SELECT password_hash FROM users WHERE id = ?');
+$stmt = $db->prepare('SELECT full_name, email, password_hash FROM users WHERE id = ?');
 $stmt->execute([$userId]);
 $user = $stmt->fetch();
 
@@ -66,5 +67,10 @@ $invalidateOtherSessionsStmt = $db->prepare(
     'DELETE FROM sessions WHERE user_id = ? AND id <> ?'
 );
 $invalidateOtherSessionsStmt->execute([$userId, $currentSessionId]);
+
+st_send_password_changed_email([
+    'full_name' => (string) $user['full_name'],
+    'email' => (string) $user['email'],
+]);
 
 st_json_ok(['message' => 'Your password has been updated.']);

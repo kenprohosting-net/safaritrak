@@ -29,16 +29,9 @@ if ($journeyId > 0) {
         SELECT
             id,
             user_id,
-            start_location,
-            destination,
-            start_lat,
-            start_lng,
-            destination_lat,
-            destination_lng,
-            current_lat,
-            current_lng,
-            distance_remaining_km,
-            distance_travelled_km,
+            start_label AS start_location,
+            end_label AS destination,
+            distance_km,
             status,
             started_at,
             ended_at
@@ -68,7 +61,7 @@ if (!$journey) {
 
 <title>SafariTrak | End Journey</title>
 
-<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 
 <link rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -76,6 +69,14 @@ if (!$journey) {
 <style>
 .end-page {
     padding: 30px;
+}
+
+.app--end-journey > main {
+    margin-left: 0 !important;
+}
+
+.app--end-journey > main > header :is(.menu, .head-actions) {
+    display: none !important;
 }
 
 .end-container {
@@ -344,86 +345,9 @@ if (!$journey) {
 
 <body>
 
-<div class="app">
+<div class="app app--end-journey">
 
-<aside class="sidebar" id="sidebar">
-
-    <div class="brand">
-        <div class="logo">
-            <i class="fa-solid fa-route"></i>
-        </div>
-
-        <div>
-            <b>SafariTrak</b>
-            <small>Travel smarter</small>
-        </div>
-    </div>
-
-    <nav>
-
-        <a href="index.php">
-            <i class="fa-solid fa-grid-2"></i>
-            Dashboard
-        </a>
-
-        <a href="my-journeys.php">
-            <i class="fa-solid fa-map-location-dot"></i>
-            My Journeys
-        </a>
-
-        <a href="live-tracking.php">
-            <i class="fa-solid fa-location-crosshairs"></i>
-            Live Tracking
-        </a>
-
-        <a href="places.php">
-            <i class="fa-solid fa-map-pin"></i>
-            Places
-        </a>
-
-        <a href="messages.php">
-            <i class="fa-regular fa-message"></i>
-            Messages
-        </a>
-
-        <a href="trusted-contacts.php">
-            <i class="fa-solid fa-user-group"></i>
-            Trusted Contacts
-        </a>
-
-        <a href="safety.php">
-            <i class="fa-solid fa-shield-halved"></i>
-            Safety
-        </a>
-
-    </nav>
-
-    <div class="bottom">
-
-        <a href="settings.php">
-            <i class="fa-solid fa-gear"></i>
-            Settings
-        </a>
-
-        <a href="logout.php">
-            <i class="fa-solid fa-arrow-right-from-bracket"></i>
-            Logout
-        </a>
-
-        <div class="account">
-            <span>
-                <?= st_avatar_inner($currentUser) ?>
-            </span>
-
-            <div>
-                <b><?= htmlspecialchars($userName) ?></b>
-                <small>Traveler</small>
-            </div>
-        </div>
-
-    </div>
-
-</aside>
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
 
@@ -487,8 +411,12 @@ if (!$journey) {
             <h2>End Your Journey?</h2>
 
             <p>
-                You are about to end your current journey.
-                Your shared contacts will be notified.
+                <?php if ($journey['status'] === 'active'): ?>
+                    You are about to end your current journey.
+                    Your shared contacts will be notified.
+                <?php else: ?>
+                    This journey is already <?= htmlspecialchars((string) $journey['status']) ?> and cannot be ended again.
+                <?php endif; ?>
             </p>
 
         </div>
@@ -517,13 +445,13 @@ if (!$journey) {
 
             <div class="info-box">
 
-                <small>Distance Remaining</small>
+                <small>Route Distance</small>
 
                 <strong>
                     <?php
-                    if ($journey['distance_remaining_km'] !== null) {
+                    if ($journey['distance_km'] !== null) {
                         echo number_format(
-                            (float)$journey['distance_remaining_km'],
+                            (float)$journey['distance_km'],
                             2
                         ) . ' km';
                     } else {
@@ -600,13 +528,17 @@ if (!$journey) {
                 Cancel
             </button>
 
-            <button
-                type="button"
-                class="btn-end"
-                id="endJourneyBtn">
-                <i class="fa-solid fa-stop"></i>
-                End Journey
-            </button>
+            <?php if ($journey['status'] === 'active'): ?>
+                <button
+                    type="button"
+                    class="btn-end"
+                    id="endJourneyBtn">
+                    <i class="fa-solid fa-stop"></i>
+                    End Journey
+                </button>
+            <?php else: ?>
+                <p role="status">This journey is already <?= htmlspecialchars((string) $journey['status']) ?>.</p>
+            <?php endif; ?>
 
         </div>
 
@@ -792,7 +724,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const response =
                 await fetch(
-                    'backend/api/journey/end.php',
+                    'backend/api/journeys/end.php',
                     {
                         method: 'POST',
 

@@ -11,8 +11,6 @@ $input = st_input();
 
 $identifier = trim(st_input_string($input, 'username'));
 $password = st_input_string($input, 'password');
-$remember = !empty($input['remember']);
-
 if ($identifier === '' || $password === '') {
     st_json_error('Enter your username and password.', 422);
 }
@@ -52,7 +50,7 @@ if (!$user['email_verified_at']) {
     );
 }
 
-st_login_user($user, $remember, $db);
+st_login_user($user, $db);
 
 // Role priority matches login.php's fallback path and auth-guard.php:
 // platform_admin > org_admin > traveler.

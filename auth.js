@@ -133,7 +133,6 @@ if (loginForm) {
     e.preventDefault();
     const username = document.getElementById('loginUsername');
     const password = document.getElementById('loginPassword');
-    const remember = document.getElementById('remember');
     let valid = true;
 
     if (!username || !username.value.trim()) {
@@ -159,8 +158,7 @@ if (loginForm) {
     try {
       ({ ok, data } = await postJSON('backend/api/login.php', {
         username: username.value.trim(),
-        password: password.value,
-        remember: remember ? remember.checked : false
+        password: password.value
       }));
     } catch (err) {
       setSubmitting(submitBtn, false, 'Login');

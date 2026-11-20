@@ -1,0 +1,1303 @@
+.app--messages {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    background: var(--bg-app);
+}
+
+.app--map-layout.app--messages > main {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.app--map-layout.app--messages:not(.app--explore):not(.app--journeys) > main > .content {
+    position: fixed;
+    inset: 88px 14px 14px !important;
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    pointer-events: auto !important;
+}
+
+.app--messages > main > header,
+.app--messages > main > footer {
+    display: none !important;
+}
+
+.app--messages .messages-shell {
+    display: grid;
+    width: 100%;
+    height: 100% !important;
+    min-height: 0;
+    max-height: none !important;
+    grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+    border: 1px solid var(--border-glass) !important;
+    border-radius: 16px !important;
+    color: var(--text-primary) !important;
+    background: var(--bg-panel) !important;
+    box-shadow: var(--glass-shadow) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+}
+
+.app--messages .messages-conversations {
+    display: grid;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-height: none !important;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    overflow: hidden;
+    border-right: 1px solid var(--border-glass);
+    background: var(--bg-panel);
+}
+
+.app--messages .messages-list-header {
+    display: flex;
+    min-height: 68px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 18px 8px;
+}
+
+.app--messages .messages-list-title {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+}
+
+.app--messages .messages-list-title h1 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -.03em;
+}
+
+.app--messages .messages-list-title .menu {
+    display: none;
+}
+
+.app--messages .messages-new-chat {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    place-items: center;
+    border: 1px solid var(--border-glass);
+    border-radius: 50%;
+    color: var(--accent-text);
+    background: var(--accent-primary);
+    font-size: 17px;
+}
+
+.app--messages .messages-new-chat:hover,
+.app--messages .messages-new-chat:focus-visible {
+    background: var(--accent-primary-hover);
+}
+
+.app--messages .chat-search {
+    position: relative;
+    padding: 5px 14px 12px;
+}
+
+.app--messages .chat-search > i {
+    position: absolute;
+    top: 50%;
+    left: 28px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    pointer-events: none;
+    transform: translateY(-50%);
+}
+
+.app--messages .chat-search input {
+    width: 100%;
+    height: 42px;
+    padding: 0 14px 0 40px;
+    border: 1px solid var(--border-glass) !important;
+    border-radius: 999px !important;
+    color: var(--text-primary) !important;
+    background: var(--bg-input) !important;
+    font-size: 12px;
+    outline: none;
+}
+
+.app--messages .chat-search input::placeholder,
+.app--messages .chat-input input::placeholder {
+    color: var(--text-secondary);
+    opacity: .9;
+}
+
+.app--messages .messages-filter-row {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 7px;
+    overflow-x: auto;
+    padding: 0 14px 12px;
+    scrollbar-width: none;
+}
+
+.app--messages .messages-filter-row::-webkit-scrollbar {
+    display: none;
+}
+
+.app--messages .messages-filter {
+    display: inline-flex;
+    min-height: 34px;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 5px;
+    padding: 0 13px;
+    border: 1px solid var(--border-glass);
+    border-radius: 999px;
+    color: var(--text-primary);
+    background: var(--bg-pill);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.app--messages .messages-filter.active {
+    border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
+    color: var(--accent-primary);
+    background: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-panel));
+}
+
+.app--messages .messages-filter span {
+    font-size: 10px;
+}
+
+.app--messages .messages-contact-link {
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.app--messages .messages-contact-link:hover {
+    color: var(--accent-primary);
+}
+
+.app--messages .chat-list-items {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+
+.app--messages .chat-list-items > li {
+    border-top: 1px solid color-mix(in srgb, var(--border-glass) 70%, transparent);
+}
+
+.app--messages .chat-list-items > .chat-list-empty {
+    padding: 20px 16px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-align: center;
+}
+
+.app--messages .chat-item {
+    display: grid;
+    min-height: 76px;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 15px;
+    border: 0;
+    border-radius: 0;
+    color: var(--text-primary);
+    background: transparent;
+}
+
+.app--messages .chat-item:hover {
+    background: color-mix(in srgb, var(--bg-pill) 68%, transparent);
+}
+
+.app--messages .chat-item.active {
+    border: 0;
+    color: var(--text-primary);
+    background: var(--bg-pill);
+}
+
+.app--messages .chat-item .person,
+.app--messages .chat-head .person {
+    display: grid;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid var(--border-glass);
+    border-radius: 50%;
+    color: var(--accent-primary);
+    background: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-panel-inner));
+    font-size: 13px;
+    font-weight: 750;
+}
+
+.app--messages .chat-item .avatar-img,
+.app--messages .chat-head .avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+}
+
+.app--messages .chat-item .meta {
+    min-width: 0;
+}
+
+.app--messages .chat-item .meta b {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app--messages .chat-item .meta small {
+    overflow: hidden;
+    margin-top: 5px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+}
+
+.app--messages .chat-item-info {
+    display: grid;
+    min-width: 42px;
+    justify-items: end;
+    align-content: center;
+    gap: 7px;
+}
+
+.app--messages .chat-item-time {
+    color: var(--text-secondary);
+    font-size: 9px;
+    white-space: nowrap;
+}
+
+.app--messages .chat-item em {
+    display: grid;
+    min-width: 19px;
+    height: 19px;
+    place-items: center;
+    margin: 0;
+    padding: 0 5px;
+    border-radius: 999px;
+    color: var(--accent-text);
+    background: var(--accent-primary);
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 750;
+}
+
+.app--messages .messages-thread {
+    display: flex;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-height: none !important;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-panel);
+}
+
+.app--messages .chat-head {
+    min-height: 72px;
+    flex: 0 0 auto;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border-glass);
+    background: var(--bg-panel);
+}
+
+.app--messages .chat-head-identity {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+
+.app--messages .chat-head-identity b {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app--messages .chat-head-identity small {
+    color: var(--text-secondary);
+    font-size: 10px;
+}
+
+.app--messages .chat-messages {
+    display: flex;
+    min-height: 0;
+    max-height: none;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    padding: 24px clamp(18px, 4vw, 58px);
+    overscroll-behavior: contain;
+    background:
+        radial-gradient(circle at 20px 20px, color-mix(in srgb, var(--text-secondary) 5%, transparent) 1px, transparent 1.5px) 0 0 / 42px 42px,
+        radial-gradient(circle at 0 0, color-mix(in srgb, var(--text-secondary) 4%, transparent) 1px, transparent 1.5px) 21px 21px / 42px 42px,
+        var(--bg-app);
+}
+
+.app--messages .bubble {
+    position: relative;
+    display: flex;
+    max-width: min(76%, 720px);
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px 12px 7px;
+    border: 1px solid var(--border-glass);
+    border-radius: 13px;
+    color: var(--text-primary);
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .1);
+}
+
+.app--messages .bubble.them {
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+    background: var(--bg-panel-inner);
+}
+
+.app--messages .bubble.me {
+    align-self: flex-end;
+    border-color: color-mix(in srgb, var(--accent-primary) 18%, var(--border-glass));
+    border-bottom-right-radius: 4px;
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--accent-primary) 16%, var(--bg-panel));
+}
+
+.app--messages .bubble-body {
+    padding-right: 12px;
+    white-space: pre-wrap;
+}
+
+.app--messages .bubble-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    align-self: flex-end;
+    color: var(--text-secondary);
+    font-size: 9px;
+    line-height: 1;
+}
+
+.app--messages .bubble-meta i {
+    color: var(--accent-primary);
+    font-size: 10px;
+}
+
+.app--messages .delete-single-msg-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border: 1px solid var(--border-glass);
+    border-radius: 50%;
+    color: var(--danger);
+    background: var(--bg-panel);
+    opacity: 0;
+    transition: opacity .15s ease;
+}
+
+.app--messages .bubble:is(:hover, :focus-within) .delete-single-msg-btn {
+    opacity: 1;
+}
+
+.app--messages .chat-notice:empty {
+    display: none;
+}
+
+.app--messages .chat-notice .ui-state {
+    padding: 8px 18px;
+}
+
+.app--messages .chat-input {
+    min-height: 70px;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    border: 0;
+    background: var(--bg-panel);
+}
+
+.app--messages .chat-input input {
+    min-width: 0;
+    min-height: 46px;
+    padding: 0 18px;
+    border: 1px solid var(--border-glass) !important;
+    border-radius: 999px !important;
+    color: var(--text-primary) !important;
+    background: var(--bg-input) !important;
+    font-size: 12px;
+}
+
+.app--messages .chat-input button {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    color: var(--accent-text);
+    background: var(--accent-primary);
+}
+
+.app--messages .chat-input button:hover {
+    background: var(--accent-primary-hover);
+}
+
+@media (max-width: 800px) {
+    .app--map-layout.app--messages > main {
+        width: 100%;
+        margin: 0;
+    }
+
+    .app--map-layout.app--messages:not(.app--explore):not(.app--journeys) > main > .content {
+        inset: 0 0 calc(62px + env(safe-area-inset-bottom)) !important;
+        padding: 0;
+    }
+
+    .app--messages .messages-shell {
+        grid-template-columns: minmax(0, 1fr);
+        border: 1px solid var(--border-glass) !important;
+        border-radius: 16px !important;
+        box-shadow: var(--glass-shadow) !important;
+        backdrop-filter: var(--glass-blur) !important;
+        -webkit-backdrop-filter: var(--glass-blur) !important;
+    }
+
+    .app--messages .messages-list-header {
+        min-height: 66px;
+        padding: 10px 16px 7px;
+    }
+
+    .app--messages .messages-list-title .menu {
+        display: grid;
+        width: 34px;
+        height: 36px;
+        flex: 0 0 34px;
+        place-items: center;
+        border: 0;
+        color: var(--text-primary);
+        background: transparent;
+        font-size: 17px;
+    }
+
+    .app--messages .messages-list-title h1 {
+        font-size: 21px;
+    }
+
+    .app--messages .messages-conversations {
+        border-right: 0;
+    }
+
+    .app--messages .chat-panel {
+        display: none;
+    }
+
+    .app--messages .chat-shell.chat-thread-open .messages-conversations {
+        display: none;
+    }
+
+    .app--messages .chat-shell.chat-thread-open .messages-thread {
+        display: flex;
+        height: 100%;
+        min-height: 0;
+    }
+
+    .app--messages .chat-shell.chat-thread-open .chat-back-button {
+        display: grid;
+    }
+
+    .app--messages:has(.chat-shell.chat-thread-open) > main > .content {
+        inset: 0;
+    }
+
+    body:has(.app--messages .chat-shell.chat-thread-open) .mobile-bottom-nav {
+        display: none !important;
+    }
+
+    .app--messages .chat-messages {
+        padding: 18px 14px;
+    }
+
+    .app--messages .bubble {
+        max-width: 86%;
+    }
+
+    .app--messages .chat-input {
+        min-height: 64px;
+        padding: 8px 10px max(8px, env(safe-area-inset-bottom));
+    }
+}
+
+.app--messages {
+    position: fixed !important;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    min-height: 0 !important;
+    overflow: hidden;
+    background: transparent !important;
+    pointer-events: none;
+}
+
+.app--messages > main {
+    position: static !important;
+    width: 100%;
+    height: 100%;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    pointer-events: none;
+}
+
+.app--messages > main > .content {
+    position: fixed !important;
+    z-index: 30;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+    pointer-events: none !important;
+}
+
+.app--messages .messages-shell {
+    position: fixed;
+    inset: 0;
+    display: block;
+    overflow: visible;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    pointer-events: none;
+}
+
+.app--messages .messages-conversations,
+.app--messages .messages-thread {
+    position: fixed;
+    z-index: 40;
+    top: 20px;
+    bottom: 20px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 20px;
+    background: rgba(12, 16, 28, .74) !important;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, .35);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    pointer-events: auto;
+}
+
+.app--messages .messages-conversations {
+    left: 20px;
+    display: grid !important;
+    width: 320px;
+    height: auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    overflow: hidden;
+}
+
+.app--messages .messages-thread {
+    right: 20px;
+    display: flex !important;
+    width: 340px;
+    height: auto;
+    min-width: 0;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.app--messages .messages-list-header {
+    min-height: 64px;
+    padding: 12px 15px 8px;
+}
+
+.app--messages .messages-list-title h1 {
+    color: #F8FAFC;
+    font-size: 19px;
+}
+
+.app--messages .messages-new-chat {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+    border: 1px solid rgba(245, 158, 11, .38);
+    color: #111827;
+    background: linear-gradient(135deg, #F59E0B, #FB923C);
+}
+
+.app--messages .chat-search {
+    padding: 5px 12px 10px;
+}
+
+.app--messages .chat-search input,
+.app--messages .chat-input input {
+    border-color: rgba(255, 255, 255, .14) !important;
+    background: rgba(24, 30, 48, .65) !important;
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+}
+
+.app--messages .messages-filter-row {
+    gap: 6px;
+    padding: 0 12px 10px;
+}
+
+.app--messages .messages-filter {
+    min-height: 30px;
+    border-color: rgba(255, 255, 255, .12);
+    background: rgba(24, 30, 48, .65);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+}
+
+.app--messages .messages-filter.active {
+    border-color: rgba(245, 158, 11, .38);
+    color: #F59E0B;
+    background: rgba(245, 158, 11, .14);
+}
+
+.app--messages .messages-contact-link {
+    color: #CBD5E1;
+}
+
+.app--messages .messages-conversations .chat-list-items {
+    border-top: 1px solid rgba(255, 255, 255, .08);
+}
+
+.app--messages .messages-conversations .chat-item {
+    min-height: 70px;
+    padding: 9px 12px;
+}
+
+.app--messages .messages-conversations .chat-item:hover,
+.app--messages .messages-conversations .chat-item.active {
+    border-radius: 13px;
+    background: rgba(245, 158, 11, .12);
+}
+
+.app--messages .messages-conversations .chat-item .person,
+.app--messages .chat-head .person {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    border-color: rgba(245, 158, 11, .25);
+    color: #F59E0B;
+    background: rgba(245, 158, 11, .12);
+}
+
+.app--messages .messages-conversations .chat-item .meta b,
+.app--messages .chat-head-identity b {
+    color: #F8FAFC;
+}
+
+.app--messages .messages-conversations .chat-item .meta small,
+.app--messages .chat-item-time,
+.app--messages .chat-head-identity small {
+    color: #94A3B8;
+}
+
+.app--messages .messages-conversations .chat-item em {
+    color: #111827;
+    background: #F59E0B;
+}
+
+.app--messages .chat-head {
+    display: grid;
+    min-height: 72px;
+    grid-template-columns: 30px 42px minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+    padding: 10px 13px;
+    border-bottom-color: rgba(255, 255, 255, .1);
+    background: transparent;
+}
+
+.app--messages .chat-head > .notif-empty {
+    grid-column: 1 / -1;
+    color: #94A3B8;
+}
+
+.app--messages .chat-back-button {
+    display: none;
+}
+
+.app--messages .chat-messages {
+    gap: 9px;
+    padding: 16px 13px;
+    background: transparent;
+}
+
+.app--messages .bubble {
+    max-width: 90%;
+    border-color: rgba(255, 255, 255, .1);
+    background: rgba(24, 30, 48, .65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.app--messages .bubble.me {
+    border-color: rgba(245, 158, 11, .22);
+    background: rgba(245, 158, 11, .13);
+}
+
+.app--messages .bubble-meta {
+    color: #94A3B8;
+}
+
+.app--messages .bubble-meta i {
+    color: #F59E0B;
+}
+
+.app--messages .bubble-location-preview {
+    display: flex;
+    min-width: 190px;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid rgba(245, 158, 11, .22);
+    border-radius: 10px;
+    color: #F8FAFC;
+    background: rgba(12, 16, 28, .62);
+    cursor: pointer;
+    text-align: left;
+}
+
+.app--messages .bubble-location-preview > i:first-child {
+    color: #F59E0B;
+}
+
+.app--messages .bubble-location-preview > i:last-child {
+    margin-left: auto;
+    color: #94A3B8;
+    font-size: 10px;
+}
+
+.app--messages .messages-location-card {
+    display: grid;
+    flex: 0 0 auto;
+    gap: 8px;
+    margin: 0 12px 8px;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 15px;
+    background: rgba(24, 30, 48, .52);
+}
+
+.app--messages .messages-location-card[hidden] {
+    display: none;
+}
+
+.app--messages .messages-location-card-heading {
+    display: grid;
+    gap: 3px;
+}
+
+.app--messages .messages-location-card-heading strong {
+    color: #F8FAFC;
+    font-size: 11px;
+}
+
+.app--messages .messages-location-card-heading small {
+    color: #94A3B8;
+    font-size: 9px;
+}
+
+.app--messages .messages-share-location {
+    display: inline-flex;
+    min-height: 35px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border: 1px solid rgba(245, 158, 11, .34);
+    border-radius: 10px;
+    color: #111827;
+    background: linear-gradient(135deg, #F59E0B, #FB923C);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 750;
+}
+
+.app--messages .messages-share-location:disabled {
+    cursor: wait;
+    opacity: .7;
+}
+
+.app--messages .messages-location-map {
+    position: relative;
+    display: block;
+    min-height: 76px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 10px;
+    background:
+        linear-gradient(30deg, transparent 47%, rgba(245, 158, 11, .16) 48%, rgba(245, 158, 11, .16) 51%, transparent 52%),
+        linear-gradient(145deg, transparent 40%, rgba(148, 163, 184, .16) 41%, rgba(148, 163, 184, .16) 44%, transparent 45%),
+        repeating-linear-gradient(0deg, transparent 0 22px, rgba(148, 163, 184, .09) 23px 24px),
+        #101827;
+    cursor: pointer;
+}
+
+.app--messages .messages-map-roads {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(80deg, transparent 47%, rgba(255, 255, 255, .12) 48%, rgba(255, 255, 255, .12) 50%, transparent 51%);
+}
+
+.app--messages .messages-map-pin {
+    position: absolute;
+    z-index: 1;
+    display: grid;
+    width: 23px;
+    height: 23px;
+    place-items: center;
+    border: 2px solid #fff;
+    border-radius: 50% 50% 50% 3px;
+    color: #111827;
+    background: #F59E0B;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, .2), 0 2px 12px rgba(0, 0, 0, .5);
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.app--messages .messages-map-pin i {
+    font-size: 10px;
+    transform: rotate(45deg);
+}
+
+.app--messages .messages-map-pin--contact {
+    top: 43%;
+    left: 44%;
+}
+
+.app--messages .messages-map-pin--self {
+    top: 61%;
+    left: 59%;
+    background: #FB923C;
+}
+
+.app--messages .messages-map-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #94A3B8;
+    font-size: 9px;
+    pointer-events: none;
+}
+
+.app--messages .messages-location-map:not(:has(.messages-map-pin:not([hidden]))) .messages-map-empty {
+    display: grid;
+}
+
+.app--messages .messages-location-map:has(.messages-map-pin:not([hidden])) .messages-map-empty {
+    display: none;
+}
+
+body:has(.app--messages) .app-map-marker--shared-location .app-map-marker-dot {
+    background: #F59E0B;
+    box-shadow: 0 0 0 4px #F59E0B55, 0 0 22px #F59E0B;
+}
+
+.app--messages .chat-notice:empty {
+    display: none;
+}
+
+.app--messages .chat-notice .ui-state {
+    padding: 5px 12px;
+    font-size: 9px;
+}
+
+.app--messages .chat-input {
+    min-height: 62px;
+    padding: 8px 10px 10px;
+    background: transparent;
+}
+
+.app--messages .chat-input input {
+    min-height: 42px;
+    padding: 0 14px;
+    font-size: 11px;
+}
+
+.app--messages .chat-input button {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+    color: #111827;
+    background: linear-gradient(135deg, #F59E0B, #FB923C);
+}
+
+@media (min-width: 801px) and (max-width: 1300px) {
+    .app--messages > .sidebar {
+        max-width: calc(100vw - 24px);
+    }
+
+    .app--messages > .sidebar nav a {
+        width: 38px !important;
+        padding: 0 !important;
+        font-size: 0 !important;
+    }
+
+    .app--messages > .sidebar nav .nav-link-label {
+        display: none !important;
+    }
+}
+
+@media (max-width: 1100px) {
+    .app--messages > .sidebar {
+        top: 10px !important;
+        max-width: calc(100vw - 24px);
+        min-height: 42px;
+        padding: 3px !important;
+    }
+
+    .app--messages > .sidebar nav {
+        max-width: calc(100vw - 32px);
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .app--messages > .sidebar nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .app--messages > .sidebar nav a {
+        width: 34px !important;
+        min-height: 34px !important;
+        padding: 0 !important;
+        font-size: 0 !important;
+    }
+
+    .app--messages > .sidebar nav .nav-link-label {
+        display: none !important;
+    }
+
+    body:has(.app--messages) .app-map-controls {
+        top: 58px;
+    }
+
+    body:has(.app--messages) #appMapBackground .maplibregl-ctrl-bottom-right {
+        right: auto;
+        bottom: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    .app--messages .messages-conversations {
+        top: 102px;
+        right: 12px;
+        bottom: 12px;
+        left: 12px;
+        width: auto;
+        border-radius: 17px;
+    }
+
+    .app--messages .messages-thread {
+        top: 102px;
+        right: 12px;
+        bottom: 12px;
+        left: 12px;
+        display: none !important;
+        height: auto !important;
+        min-height: 0 !important;
+        width: auto;
+        border-radius: 17px;
+    }
+
+    .app--messages .chat-shell.chat-thread-open .messages-conversations {
+        display: none !important;
+    }
+
+    .app--messages .chat-shell.chat-thread-open .messages-thread {
+        display: flex !important;
+        height: auto !important;
+    }
+
+    .app--messages .chat-shell.chat-thread-open .chat-back-button {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border: 1px solid rgba(255, 255, 255, .12);
+        border-radius: 50%;
+        color: #F8FAFC;
+        background: rgba(24, 30, 48, .65);
+    }
+
+    .app--messages .messages-location-card {
+        margin: 0 9px 6px;
+        padding: 8px;
+    }
+}
+
+@media (max-width: 800px) {
+    .app--messages .chat-messages {
+        padding: 12px 10px;
+    }
+
+    .app--messages .chat-input {
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+}
+
+.app--map-layout.app--messages:not(.app--explore):not(.app--journeys) > main > .content {
+    inset: 0 !important;
+    height: auto !important;
+    transform: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+.app--map-layout.app--messages > main > .content > .messages-shell {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    transform: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html .app.app--messages > .sidebar,
+html .app.app--messages .messages-conversations,
+html .app.app--messages .messages-thread {
+    border: 1px solid rgba(255, 255, 255, .1) !important;
+    background: rgba(12, 16, 28, .74) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+html[data-theme] .app.app--workspace.app--messages > .sidebar,
+html[data-theme] .app.app--workspace.app--messages .messages-conversations,
+html[data-theme] .app.app--workspace.app--messages .messages-thread {
+    border-color: rgba(255, 255, 255, .1) !important;
+    background: rgba(12, 16, 28, .74) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+html .app.app--messages .chat-search input,
+html .app.app--messages .chat-input input,
+body:has(.app--messages) #appMapControls button {
+    border: 1px solid rgba(255, 255, 255, .14) !important;
+    background: rgba(24, 30, 48, .65) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+}
+
+html[data-theme] .app.app--workspace.app--messages .chat-search input,
+html[data-theme] .app.app--workspace.app--messages .chat-input input {
+    border: 1px solid rgba(255, 255, 255, .14) !important;
+    background: rgba(24, 30, 48, .65) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+}
+
+html[data-theme] #chatSearch,
+html[data-theme] #chatInput {
+    border: 1px solid rgba(255, 255, 255, .14) !important;
+    color: #F8FAFC !important;
+    background: rgba(24, 30, 48, .65) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+}
+
+html .app.app--messages .messages-location-card {
+    border-color: rgba(255, 255, 255, .1) !important;
+    background: rgba(24, 30, 48, .65) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+html[data-theme] .app.app--workspace.app--messages .messages-location-card {
+    border-color: rgba(255, 255, 255, .1) !important;
+    background: rgba(24, 30, 48, .65) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+html .app.app--messages .chat-input {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-theme] .app.app--workspace.app--messages .chat-input {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+body:has(.app--messages) #appMapControls button {
+    color: #F8FAFC !important;
+}
+
+.app--messages .chat-input {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
+}
+
+.app--messages .chat-input #attachChatPhoto {
+    border: 1px solid rgba(255, 255, 255, .13);
+    color: #F8FAFC;
+    background: rgba(24, 30, 48, .72);
+}
+
+.app--messages .messages-photo-details {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: 82px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    margin: 0 12px 8px;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 14px;
+    background: rgba(24, 30, 48, .62);
+}
+
+.app--messages .messages-photo-details[hidden],
+.app--messages #chatPhotoPreview[hidden] {
+    display: none !important;
+}
+
+.app--messages #chatPhotoPreview {
+    width: 82px;
+    height: 66px;
+    border-radius: 9px;
+    object-fit: cover;
+}
+
+.app--messages .messages-photo-fields {
+    display: grid;
+    min-width: 0;
+    gap: 7px;
+}
+
+.app--messages .messages-photo-fields label {
+    display: grid;
+    gap: 4px;
+    color: #CBD5E1;
+    font-size: 9px;
+    font-weight: 650;
+}
+
+.app--messages .messages-photo-fields label span {
+    font-weight: 400;
+}
+
+.app--messages .messages-photo-fields input {
+    width: 100%;
+    min-height: 34px;
+    padding: 0 9px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 9px;
+    color: #F8FAFC;
+    background: rgba(12, 16, 28, .74);
+    font: inherit;
+}
+
+.app--messages .messages-photo-actions {
+    display: grid;
+    gap: 6px;
+}
+
+.app--messages .messages-photo-actions button {
+    min-height: 32px;
+    padding: 0 9px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 9px;
+    color: #E2E8F0;
+    background: rgba(255, 255, 255, .06);
+    font-size: 9px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.app--messages .messages-photo-actions #sendChatPhoto {
+    border-color: rgba(245, 158, 11, .38);
+    color: #111827;
+    background: linear-gradient(135deg, #F59E0B, #FB923C);
+}
+
+.app--messages .bubble-photo {
+    display: grid;
+    gap: 5px;
+    margin: 0;
+}
+
+.app--messages .bubble-photo img {
+    display: block;
+    width: min(100%, 300px);
+    max-height: 240px;
+    border-radius: 9px;
+    object-fit: cover;
+}
+
+.app--messages .bubble-photo figcaption {
+    color: #FBBF24;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.app--messages .bubble-photo-caption {
+    display: block;
+}
+
+@media (max-width: 600px) {
+    .app--messages .messages-photo-details {
+        grid-template-columns: 64px minmax(0, 1fr);
+    }
+
+    .app--messages #chatPhotoPreview {
+        width: 64px;
+        height: 58px;
+    }
+
+    .app--messages .messages-photo-actions {
+        grid-column: 1 / -1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

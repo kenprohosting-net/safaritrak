@@ -1,6 +1,9 @@
 <?php
 require __DIR__ . '/backend/includes/auth-guard.php';
 $showAppMapBackground = true;
+$showAppMapPanelsToggle = false;
+$showAppMapFocusControl = false;
+$appMapPage = 'journeys';
 
 $db = safaritrak_db();
 
@@ -30,6 +33,38 @@ $groupStmt = $db->prepare(
 );
 $groupStmt->execute([$currentUser['id'], $currentUser['id']]);
 $groupJourneys = $groupStmt->fetchAll();
+
+$journeyCarouselItems = [];
+$journeyStatusLabels = ['planned' => 'Scheduled', 'active' => 'In progress', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
+foreach ($journeys as $journey) {
+    $journeyCarouselItems[] = [
+        'type' => 'journey',
+        'id' => (int) $journey['id'],
+        'status' => (string) $journey['status'],
+        'start' => (string) $journey['start_label'],
+        'end' => (string) $journey['end_label'],
+        'startLat' => $journey['start_lat'] === null ? null : (float) $journey['start_lat'],
+        'startLng' => $journey['start_lng'] === null ? null : (float) $journey['start_lng'],
+        'endLat' => $journey['end_lat'] === null ? null : (float) $journey['end_lat'],
+        'endLng' => $journey['end_lng'] === null ? null : (float) $journey['end_lng'],
+        'date' => (string) ($journey['planned_departure_at'] ?: $journey['started_at']),
+        'statusLabel' => $journeyStatusLabels[$journey['status']] ?? ucfirst((string) $journey['status']),
+        'distance' => $journey['distance_km'] !== null ? number_format((float) $journey['distance_km'], 1) . ' km' : 'Not recorded',
+        'shared' => (string) ($journey['shared_names'] ?: 'Not shared'),
+    ];
+}
+foreach ($groupJourneys as $journey) {
+    $journeyCarouselItems[] = [
+        'type' => 'group',
+        'status' => 'group',
+        'groupTitle' => (string) $journey['title'],
+        'groupDestination' => (string) $journey['destination_label'],
+        'date' => (string) ($journey['departure_at'] ?? ''),
+        'statusLabel' => ucfirst((string) $journey['status']),
+        'distance' => $journey['distance_km'] !== null ? number_format((float) $journey['distance_km'], 1) . ' km' : 'Not recorded',
+        'shared' => (int) $journey['member_count'] . ' members',
+    ];
+}
 
 $mapFeatures = [];
 $visibleMapJourneys = array_slice($journeys, 0, 20);
@@ -84,16 +119,6 @@ if ($visibleMapJourneys) {
     }
 }
 
-function journey_duration(string $start, ?string $end): string {
-    if (!$end) {
-        return '';
-    }
-    $diff = (new DateTime($start))->diff(new DateTime($end));
-    $parts = [];
-    if ($diff->h > 0) $parts[] = $diff->h . 'h';
-    $parts[] = $diff->i . 'm';
-    return implode(' ', $parts);
-}
 ?>
 <!doctype html>
 <html lang="en" data-theme="dark">
@@ -137,14 +162,7 @@ function journey_duration(string $start, ?string $end): string {
 
 <div class="content">
 
-<div class="page-head">
-  <div><h2>Everywhere you have travelled</h2><p>See your active trip, look back at past journeys, or plan a new one.</p></div>
-  <div style="display:flex;gap:10px;flex-wrap:wrap">
-    <a class="btn-ghost" href="groups.php?tab=trips"><i class="fa-solid fa-user-group"></i>Group trips</a>
-    <a class="btn-primary" href="start-journey.php"><i class="fa-solid fa-plus"></i>Start a journey</a>
-  </div>
-</div>
-
+<section class="card journey-overview-panel" id="journeyOverviewPanel" aria-label="Trip filters and actions">
 <div class="tabs journey-filter-bar" data-tab-group="journeys" role="group" aria-label="Filter journeys">
   <span class="journey-filter-label">FILTER TRIPS</span>
   <div class="journey-filter-options">
@@ -157,126 +175,58 @@ function journey_duration(string $start, ?string $end): string {
   </div>
 </div>
 
-<div class="card journey-picker-panel" id="journeyPickerPanel" role="region" aria-label="Choose a trip" hidden>
-  <div class="journey-list" id="journeyList">
-
-    <?php if (empty($journeys) && empty($groupJourneys)): ?>
-    <p class="hint" style="padding:20px 21px;color:var(--muted);font-size:11px">You have not started any journeys yet. When you do, they will show up here.</p>
-    <?php endif; ?>
-
-    <?php foreach ($journeys as $j): ?>
-    <?php
-      $statusBadge = ['planned' => 'planned', 'active' => 'active', 'completed' => 'completed', 'cancelled' => 'cancelled'][$j['status']];
-      $statusLabel = ['planned' => 'Scheduled', 'active' => 'In progress', 'completed' => 'Completed', 'cancelled' => 'Cancelled'][$j['status']];
-      $icon = $j['status'] === 'cancelled' ? 'fa-xmark' : ($j['status'] === 'completed' ? 'fa-check' : 'fa-route');
-      $subLine = $j['status'] === 'planned'
-        ? 'Leaves ' . (new DateTime($j['planned_departure_at']))->format('j M, g:i A') . ($j['share_count'] > 0 ? ' &middot; Shared with ' . $j['share_count'] . ' ' . ($j['share_count'] == 1 ? 'contact' : 'contacts') : '')
-        : ($j['status'] === 'active'
-          ? 'Started ' . (new DateTime($j['started_at']))->format('g:i A') . ($j['share_count'] > 0 ? ' &middot; Shared with ' . $j['share_count'] . ' ' . ($j['share_count'] == 1 ? 'contact' : 'contacts') : '')
-          : ucfirst($j['status']) . ' &middot; ' . (new DateTime($j['started_at']))->format('j M, g:i A'));
-    ?>
-    <div class="journey-row" role="button" tabindex="0" aria-label="Show trip from <?= htmlspecialchars($j['start_label'], ENT_QUOTES, 'UTF-8') ?> to <?= htmlspecialchars($j['end_label'], ENT_QUOTES, 'UTF-8') ?>" data-status="<?= $j['status'] ?>" data-journey-id="<?= (int) $j['id'] ?>"
-      data-journey-start="<?= htmlspecialchars($j['start_label'], ENT_QUOTES, 'UTF-8') ?>"
-      data-journey-end="<?= htmlspecialchars($j['end_label'], ENT_QUOTES, 'UTF-8') ?>"
-      data-start-lat="<?= $j['start_lat'] !== null ? (float) $j['start_lat'] : '' ?>"
-      data-start-lng="<?= $j['start_lng'] !== null ? (float) $j['start_lng'] : '' ?>"
-      data-end-lat="<?= $j['end_lat'] !== null ? (float) $j['end_lat'] : '' ?>"
-      data-end-lng="<?= $j['end_lng'] !== null ? (float) $j['end_lng'] : '' ?>"
-      data-journey-date="<?= htmlspecialchars($j['planned_departure_at'] ?: $j['started_at'], ENT_QUOTES, 'UTF-8') ?>"
-      data-journey-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>"
-      data-journey-distance="<?= $j['distance_km'] !== null ? number_format((float) $j['distance_km'], 1) . ' km' : 'Not recorded' ?>"
-      data-journey-shared="<?= htmlspecialchars($j['shared_names'] ?: 'Not shared', ENT_QUOTES, 'UTF-8') ?>"
-      data-journey-note="<?= htmlspecialchars($j['note'] ?: 'No trip note', ENT_QUOTES, 'UTF-8') ?>">
-      <div class="jicon"><i class="fa-solid <?= $icon ?>"></i></div>
-      <div class="jinfo"><b><?= htmlspecialchars($j['start_label']) ?> &rarr; <?= htmlspecialchars($j['end_label']) ?></b><small><?= $subLine ?></small></div>
-      <div class="jmeta"><strong><?= $j['distance_km'] !== null ? number_format((float) $j['distance_km'], 1) . ' km' : '-' ?></strong><span class="badge <?= $statusBadge ?>"><?= $statusLabel ?></span></div>
-    </div>
-    <?php endforeach; ?>
-
-    <?php foreach ($groupJourneys as $g): ?>
-    <div class="journey-row" data-status="group" data-open-modal="groupModal<?= (int) $g['id'] ?>">
-      <div class="jicon"><i class="fa-solid fa-user-group"></i></div>
-      <div class="jinfo"><b><?= htmlspecialchars($g['title']) ?></b><small>Group journey &middot; <?= (int) $g['member_count'] ?> members &middot; <?= htmlspecialchars(ucfirst($g['status'])) ?></small></div>
-      <div class="jmeta"><strong><?= $g['distance_km'] !== null ? number_format((float) $g['distance_km'], 1) . ' km' : '-' ?></strong><span class="badge active">Group</span></div>
-    </div>
-    <?php endforeach; ?>
-
-  </div>
-  <p class="hint" id="emptyState" style="display:none;padding:0 21px 21px;color:var(--muted);font-size:11px">No journeys in this category yet.</p>
+<div class="journey-action-row">
+  <a class="btn-ghost" href="trusted-contacts.php"><i class="fa-solid fa-user-plus"></i>Add trusted people</a>
+  <a class="btn-ghost" href="groups.php?tab=trips"><i class="fa-solid fa-user-group"></i>Group trips</a>
+  <a class="btn-primary" href="start-journey.php"><i class="fa-solid fa-plus"></i>Start a journey</a>
 </div>
+</section>
+
+<section class="card trip-carousel-panel" id="tripCarouselPanel" role="region" aria-label="Trips carousel">
+  <div class="trip-carousel-heading">
+    <h2>TRIPS</h2>
+    <span id="journeyCarouselPosition" aria-live="polite">0 trips</span>
+  </div>
+  <div class="trip-carousel">
+    <button type="button" class="trip-carousel-arrow" id="previousJourney" aria-label="Previous trip" title="Previous trip"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+    <article class="trip-carousel-slide" aria-live="polite">
+      <h3 id="tripCarouselTitle">Choose a trip</h3>
+      <div class="trip-carousel-summary">
+        <strong id="tripCarouselDistance">Not recorded</strong>
+        <span class="badge" id="tripCarouselStatus">No trip selected</span>
+      </div>
+      <p>Departure: <time id="tripCarouselDate">—</time></p>
+      <p>Shared with: <span id="tripCarouselShared">—</span></p>
+      <p id="tripCarouselRouteStatus" class="journey-map-route-status" role="status" aria-live="polite">Select a trip to load its road route.</p>
+      <div class="trip-carousel-actions">
+        <button type="button" class="btn-primary" id="shareSelectedJourney" disabled><i class="fa-solid fa-share-nodes"></i>Share trip</button>
+        <button type="button" class="btn-primary journey-start-button" id="startSelectedJourney" hidden><i class="fa-solid fa-play" aria-hidden="true"></i>Start now</button>
+        <a class="btn-ghost" id="endSelectedJourney" href="end-journey.php" hidden><i class="fa-solid fa-stop" aria-hidden="true"></i>End trip</a>
+        <a class="btn-ghost" id="openCarouselGroup" href="groups.php?tab=trips" hidden>Open group trips</a>
+        <input type="url" id="selectedJourneyShareUrl" aria-label="Temporary trip sharing link" readonly hidden>
+        <button type="button" class="btn-ghost" id="copySelectedJourneyLink" hidden>Copy link</button>
+        <p id="selectedJourneyShareStatus" role="status" aria-live="polite"></p>
+      </div>
+    </article>
+    <button type="button" class="trip-carousel-arrow" id="nextJourney" aria-label="Next trip" title="Next trip"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+  </div>
+  <p class="trip-carousel-empty" id="emptyState" hidden>You have no trips in this category yet.</p>
+</section>
+
+<button type="button" class="journey-panels-toggle" id="journeyPanelsToggle" aria-controls="journeyOverviewPanel tripCarouselPanel" aria-pressed="false" aria-label="Focus on selected trip route" hidden>
+  <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
+  <span id="journeyPanelsToggleLabel">Focus route</span>
+</button>
+
 </div>
 
-<aside class="journey-map-detail" id="journeyMapDetail" aria-live="polite" aria-label="Selected trip details">
-  <div class="journey-map-detail-actions">
-    <button type="button" class="btn-ghost" id="journeyPickerToggle" aria-expanded="false" aria-controls="journeyPickerPanel"><i class="fa-solid fa-list"></i>Choose trip</button>
-    <button type="button" class="btn-ghost" data-theme-toggle aria-label="Switch colour theme" title="Switch colour theme"><i class="fa-solid fa-circle-half-stroke"></i>Theme</button>
-    <?php if (empty($journeys)): ?><a class="btn-primary" href="start-journey.php"><i class="fa-solid fa-plus"></i>Plan a trip</a><?php endif; ?>
-  </div>
-  <span class="explore-eyebrow">SELECTED TRIP</span>
-  <h3 id="journeyMapDetailTitle"><?= !empty($journeys[0]) ? htmlspecialchars($journeys[0]['start_label'] . ' → ' . $journeys[0]['end_label'], ENT_QUOTES, 'UTF-8') : 'Choose a trip' ?></h3>
-  <p id="journeyMapDetailStatus"><?= !empty($journeys[0]) ? htmlspecialchars(ucfirst($journeys[0]['status']), ENT_QUOTES, 'UTF-8') : 'Your selected route will appear here.' ?></p>
-  <p id="journeyMapDetailRouteStatus" class="journey-map-route-status" role="status" aria-live="polite">Choose a trip to load its road route.</p>
-  <dl>
-    <div><dt>Distance</dt><dd id="journeyMapDetailDistance"><?= !empty($journeys[0]) && $journeys[0]['distance_km'] !== null ? number_format((float) $journeys[0]['distance_km'], 1) . ' km' : 'Not recorded' ?></dd></div>
-    <div><dt>Departure</dt><dd id="journeyMapDetailDate"><?= !empty($journeys[0]) ? htmlspecialchars($journeys[0]['planned_departure_at'] ?: $journeys[0]['started_at'], ENT_QUOTES, 'UTF-8') : '—' ?></dd></div>
-    <div><dt>Shared with</dt><dd id="journeyMapDetailShared"><?= !empty($journeys[0]) ? htmlspecialchars($journeys[0]['shared_names'] ?: 'Not shared', ENT_QUOTES, 'UTF-8') : '—' ?></dd></div>
-  </dl>
-  <p class="journey-map-detail-note" id="journeyMapDetailNote"><?= !empty($journeys[0]) ? htmlspecialchars($journeys[0]['note'] ?: 'No trip note', ENT_QUOTES, 'UTF-8') : 'Select a trip from your history to focus its route.' ?></p>
-  <div class="journey-map-detail-share">
-    <button type="button" class="btn-primary" id="shareSelectedJourney" disabled><i class="fa-solid fa-share-nodes"></i>Share trip</button>
-    <input type="url" id="selectedJourneyShareUrl" aria-label="Temporary trip sharing link" readonly hidden>
-    <button type="button" class="btn-ghost" id="copySelectedJourneyLink" hidden>Copy link</button>
-    <p id="selectedJourneyShareStatus" role="status" aria-live="polite"></p>
-  </div>
-</aside>
-
+<script type="application/json" id="journeyCarouselData"><?= json_encode($journeyCarouselItems, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?></script>
 <footer>&copy; <?= date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
 </main>
 </div>
 
-<?php foreach ($journeys as $j): ?>
-<div class="modal-overlay" id="journeyModal<?= (int) $j['id'] ?>">
-  <div class="modal">
-    <div class="modal-head">
-      <div><h3><?= htmlspecialchars($j['start_label']) ?> &rarr; <?= htmlspecialchars($j['end_label']) ?></h3><p><?= ucfirst($j['status']) ?><?= $j['status'] === 'active' ? ' &middot; started ' . (new DateTime($j['started_at']))->format('g:i A') : ($j['status'] === 'planned' ? ' &middot; leaves ' . (new DateTime($j['planned_departure_at']))->format('j M, g:i A') : '') ?></p></div>
-      <button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <p><b>Distance:</b> <?= $j['distance_km'] !== null ? number_format((float) $j['distance_km'], 1) . ' km' : 'Not available' ?><?= $j['ended_at'] ? ' &middot; <b>Duration:</b> ' . journey_duration($j['started_at'], $j['ended_at']) : '' ?></p>
-      <?php if (!empty($j['shared_names'])): ?>
-      <p style="margin-top:8px"><b>Shared with:</b> <?= htmlspecialchars($j['shared_names']) ?></p>
-      <?php endif; ?>
-      <?php if ($j['note']): ?>
-      <p style="margin-top:8px"><b>Note:</b> <?= htmlspecialchars($j['note']) ?></p>
-      <?php endif; ?>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="ghost" data-close-modal>Close</button>
-      <?php if ($j['status'] === 'active'): ?>
-      <a class="primary" href="my-journeys.php?selected=<?= (int) $j['id'] ?>">View on map</a>
-      <?php elseif ($j['status'] === 'planned'): ?>
-      <button type="button" class="primary" data-start-planned="<?= (int) $j['id'] ?>">Start now</button>
-      <?php endif; ?>
-    </div>
-  </div>
-</div>
-<?php endforeach; ?>
-
-<?php foreach ($groupJourneys as $g): ?>
-<div class="modal-overlay" id="groupModal<?= (int) $g['id'] ?>">
-  <div class="modal">
-    <div class="modal-head"><div><h3><?= htmlspecialchars($g['title']) ?></h3><p><?= (int) $g['member_count'] ?> members &middot; <?= htmlspecialchars(ucfirst($g['status'])) ?></p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p><b>Destination:</b> <?= htmlspecialchars($g['destination_label']) ?></p></div>
-    <div class="modal-actions">
-      <button type="button" class="ghost" data-close-modal>Close</button>
-      <a class="primary" href="groups.php?tab=trips">Manage group</a>
-    </div>
-  </div>
-</div>
-<?php endforeach; ?>
-
 <script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
 <script src="notifications-widget.js?v=<?= hash_file('sha256', __DIR__ . '/notifications-widget.js') ?>"></script>
-<script src="journeys.js"></script>
+<script src="journeys.js?v=<?= hash_file('sha256', __DIR__ . '/journeys.js') ?>"></script>
 </body>
 </html>

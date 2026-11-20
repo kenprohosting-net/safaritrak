@@ -20,6 +20,7 @@
 
     <form class="login-form" id="resetForm" novalidate>
       <div class="input-group">
+        <label class="auth-visually-hidden" for="newPassword">New password (at least 12 characters)</label>
         <input type="password" id="newPassword" placeholder="At least 12 characters" minlength="12" maxlength="1024" autocomplete="new-password" required>
         <button type="button" class="input-icon" id="toggleNewPassword" aria-label="Show password">
           <i class="fa-regular fa-eye-slash"></i>
@@ -28,6 +29,7 @@
       <p class="field-error" id="newPasswordError">Password must be at least 12 characters and no more than 1024 bytes</p>
 
       <div class="input-group">
+        <label class="auth-visually-hidden" for="confirmPassword">Confirm new password</label>
         <input type="password" id="confirmPassword" placeholder="Confirm new password" maxlength="1024" autocomplete="new-password" required>
         <button type="button" class="input-icon" id="toggleConfirmPassword" aria-label="Show password">
           <i class="fa-regular fa-eye-slash"></i>

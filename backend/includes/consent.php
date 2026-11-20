@@ -2,7 +2,7 @@
 
 function st_current_consent_versions(): array {
     return [
-        'terms' => '2026-08-04',
+        'terms' => '2026-10-15',
         'privacy' => '2026-10-15',
     ];
 }

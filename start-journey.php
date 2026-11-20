@@ -29,7 +29,7 @@ $confirmedContacts = $contactsStmt->fetchAll();
 </head>
 <body>
 <?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
-<div class="app app--map-layout">
+<div class="app app--map-layout app--journey-create">
 <?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
@@ -65,15 +65,15 @@ $confirmedContacts = $contactsStmt->fetchAll();
 
     <div class="form-field">
       <label for="startPoint">Starting point</label>
-      <input type="text" id="startPoint" data-location-autocomplete placeholder="e.g. Nairobi CBD" required>
-      <button type="button" class="btn-ghost" id="useMyLocationBtn" style="margin-top:6px;align-self:flex-start;font-size:9px;padding:7px 10px"><i class="fa-solid fa-location-crosshairs"></i> Use my current location</button>
+      <input type="text" id="startPoint" data-location-autocomplete data-map-review placeholder="e.g. Nairobi CBD" required>
+      <button type="button" class="btn-ghost" id="useMyLocationBtn" data-map-review style="margin-top:6px;align-self:flex-start;font-size:9px;padding:7px 10px"><i class="fa-solid fa-location-crosshairs"></i> Use my current location</button>
       <input type="hidden" id="startLat">
       <input type="hidden" id="startLng">
     </div>
 
     <div class="form-field">
       <label for="endPoint">Destination</label>
-      <input type="text" id="endPoint" data-location-autocomplete placeholder="e.g. Meru Town" value="<?= htmlspecialchars($initialDestination, ENT_QUOTES, 'UTF-8') ?>" required>
+      <input type="text" id="endPoint" data-location-autocomplete data-map-review placeholder="e.g. Meru Town" value="<?= htmlspecialchars($initialDestination, ENT_QUOTES, 'UTF-8') ?>" required>
       <input type="hidden" id="endLat" value="<?= htmlspecialchars((string) $initialDestinationLat, ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" id="endLng" value="<?= htmlspecialchars((string) $initialDestinationLng, ENT_QUOTES, 'UTF-8') ?>">
     </div>

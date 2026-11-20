@@ -1,19 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <title>SafariTrak | Shared live location</title>
+  <link rel="stylesheet" href="theme.css?v=<?= hash_file('sha256', __DIR__ . '/theme.css') ?>">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css">
+  <script src="map-style.js?v=<?= hash_file('sha256', __DIR__ . '/map-style.js') ?>"></script>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; color: #f3edff; background: #080a14; font: 15px system-ui, sans-serif; }
-    header { position: absolute; z-index: 2; top: 14px; left: 50%; width: min(560px, calc(100% - 28px)); padding: 16px 20px; border: 1px solid #ca63ff70; border-radius: 16px; background: #0b0c19e8; box-shadow: 0 12px 32px #0008; transform: translateX(-50%); backdrop-filter: blur(18px); }
+    body { margin: 0; font: 15px system-ui, sans-serif; }
+    header { position: absolute; z-index: 2; top: 14px; left: 50%; width: min(560px, calc(100% - 28px)); padding: 16px 20px; border: 1px solid var(--border-glass); border-radius: var(--glass-radius); background: var(--bg-panel); box-shadow: var(--glass-shadow); transform: translateX(-50%); backdrop-filter: var(--glass-blur); }
     header h1 { margin: 0 0 6px; font-size: 18px; }
-    header p { margin: 4px 0; color: #c8bed8; font-size: 13px; }
+    header p { margin: 4px 0; color: var(--text-secondary); font-size: 13px; }
     #shareMap { position: fixed; inset: 0; }
-    #shareStatus { position: fixed; z-index: 3; right: 14px; bottom: 14px; max-width: min(400px, calc(100% - 28px)); padding: 10px 13px; border: 1px solid #ca63ff70; border-radius: 12px; background: #0b0c19e8; box-shadow: 0 8px 24px #0008; }
+    #shareStatus { position: fixed; z-index: 3; right: 14px; bottom: 14px; max-width: min(400px, calc(100% - 28px)); padding: 10px 13px; border: 1px solid var(--border-glass); border-radius: 12px; background: var(--bg-panel); box-shadow: var(--glass-shadow); backdrop-filter: var(--glass-blur); }
   </style>
 </head>
 <body>
@@ -67,7 +69,7 @@
         }
         map = new maplibregl.Map({
           container: 'shareMap',
-          style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+          style: window.SafariTrakMapStyle.styleUrl,
           center: start,
           zoom: 7,
           attributionControl: true,
@@ -77,6 +79,7 @@
           touchZoomRotate: false,
         });
         map.once('load', () => {
+          window.SafariTrakMapStyle.apply(map);
           map.addSource('planned-trip-route', {
             type: 'geojson',
             data: {
@@ -85,14 +88,23 @@
               geometry: { type: 'LineString', coordinates },
             },
           });
+          const routeColors = window.SafariTrakMapStyle.getRouteColors();
+          map.addLayer({
+            id: 'planned-trip-route-glow',
+            type: 'line',
+            source: 'planned-trip-route',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': routeColors.glow, 'line-width': 12, 'line-blur': 4, 'line-opacity': 0.8 },
+          });
           map.addLayer({
             id: 'planned-trip-route-line',
             type: 'line',
             source: 'planned-trip-route',
-            paint: { 'line-color': '#ff2d75', 'line-width': 5, 'line-opacity': 0.92 },
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': routeColors.stroke, 'line-width': 5, 'line-opacity': 1 },
           });
           marker = new maplibregl.Marker({ color: '#47f5cf' }).setLngLat(start).addTo(map);
-          new maplibregl.Marker({ color: '#ff4db8' }).setLngLat(end).addTo(map);
+          new maplibregl.Marker({ color: '#FF2D2D' }).setLngLat(end).addTo(map);
           const bounds = coordinates.reduce(
             (routeBounds, point) => routeBounds.extend(point),
             new maplibregl.LngLatBounds(coordinates[0], coordinates[0])
@@ -153,7 +165,7 @@
             }
             map = new maplibregl.Map({
               container: 'shareMap',
-              style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+              style: window.SafariTrakMapStyle.styleUrl,
               center: [point.lng, point.lat],
               zoom: 15,
               attributionControl: true,
@@ -163,6 +175,7 @@
               touchZoomRotate: false,
             });
             map.once('load', () => {
+              window.SafariTrakMapStyle.apply(map);
               marker = new maplibregl.Marker({ color: '#ff365d' })
                 .setLngLat([currentPoint.lng, currentPoint.lat])
                 .addTo(map);

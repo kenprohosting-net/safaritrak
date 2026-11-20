@@ -15,13 +15,8 @@ $journeyId = isset($input['journey_id'])
     ? (int) $input['journey_id']
     : 0;
 
-$lat = isset($input['latitude'])
-    ? (float) $input['latitude']
-    : null;
-
-$lng = isset($input['longitude'])
-    ? (float) $input['longitude']
-    : null;
+$lat = st_parse_coordinate($input['latitude'] ?? null, -90, 90);
+$lng = st_parse_coordinate($input['longitude'] ?? null, -180, 180);
 
 $speedKmh = isset($input['speed_kmh']) &&
             $input['speed_kmh'] !== '' &&
@@ -33,22 +28,8 @@ if ($journeyId <= 0) {
     st_json_error('Invalid journey ID.', 422);
 }
 
-if (
-    $lat === null ||
-    $lng === null ||
-    !is_finite($lat) ||
-    !is_finite($lng)
-) {
+if ($lat === null || $lng === null) {
     st_json_error('Valid GPS coordinates are required.', 422);
-}
-
-if (
-    $lat < -90 ||
-    $lat > 90 ||
-    $lng < -180 ||
-    $lng > 180
-) {
-    st_json_error('Invalid GPS coordinates.', 422);
 }
 
 $db = safaritrak_db();

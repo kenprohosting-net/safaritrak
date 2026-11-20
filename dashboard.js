@@ -8,8 +8,62 @@ try {
 }
 
 const sidebar = document.getElementById('sidebar');
-const menuButton = document.getElementById('menu');
+let menuButton = document.getElementById('menu');
+const sidebarCloseButton = document.getElementById('sidebarClose');
+const usesStandardNavbar = sidebar?.hasAttribute('data-standard-navbar') ?? false;
+const sidebarInertTargets = [
+  document.querySelector('.app > main'),
+  document.getElementById('appMapPanelsToggle'),
+  document.getElementById('appMapBackground'),
+  document.getElementById('appMapControls'),
+].filter(Boolean);
 let sidebarBackdrop = document.getElementById('sidebarBackdrop');
+const mobileNavigationMedia = window.matchMedia('(max-width: 800px)');
+let sidebarOpener = null;
+
+if (usesStandardNavbar && sidebar && !menuButton) {
+  menuButton = document.createElement('button');
+  menuButton.type = 'button';
+  menuButton.id = 'menu';
+  menuButton.className = 'app-navbar-menu-toggle';
+  menuButton.setAttribute('aria-label', 'Open navigation');
+  menuButton.setAttribute('aria-controls', 'sidebar');
+  menuButton.setAttribute('aria-expanded', 'false');
+  menuButton.innerHTML = '<i class="fa-solid fa-bars" aria-hidden="true"></i>';
+  document.body.append(menuButton);
+}
+
+function addAccessibleTooltips(root = document) {
+  const selector = 'button[aria-label], a[aria-label], input[aria-label], select[aria-label], textarea[aria-label]';
+  const controls = [];
+  if (root instanceof Element && root.matches(selector)) controls.push(root);
+  if (root.querySelectorAll) controls.push(...root.querySelectorAll(selector));
+
+  controls.forEach(control => {
+    if (!control.hasAttribute('title') || control.hasAttribute('data-safaritrak-generated-title')) {
+      control.title = control.getAttribute('aria-label')?.trim() || '';
+      control.setAttribute('data-safaritrak-generated-title', '');
+    }
+  });
+}
+
+addAccessibleTooltips();
+new MutationObserver(records => {
+  records.forEach(record => {
+    if (record.type === 'attributes') {
+      addAccessibleTooltips(record.target);
+      return;
+    }
+    record.addedNodes.forEach(node => {
+      if (node instanceof Element) addAccessibleTooltips(node);
+    });
+  });
+}).observe(document.body, {
+  attributes: true,
+  attributeFilter: ['aria-label'],
+  childList: true,
+  subtree: true,
+});
 
 if (menuButton) {
   menuButton.setAttribute('aria-controls', 'sidebar');
@@ -91,7 +145,7 @@ window.SafariTrakUI.setStatus = (container, {
   container.replaceChildren(wrapper);
 };
 
-if (!sidebarBackdrop && sidebar) {
+if (!usesStandardNavbar && !sidebarBackdrop && sidebar) {
   sidebarBackdrop = document.createElement('button');
   sidebarBackdrop.type = 'button';
   sidebarBackdrop.id = 'sidebarBackdrop';
@@ -101,7 +155,8 @@ if (!sidebarBackdrop && sidebar) {
 }
 
 if (
-  !document.querySelector('.mobile-bottom-nav')
+  !usesStandardNavbar
+  && !document.querySelector('.mobile-bottom-nav')
   && sidebar?.querySelector('nav a[href="messages.php"]')
   && sidebar.querySelector('nav a[href="my-journeys.php"]')
 ) {
@@ -193,24 +248,117 @@ if (!window.__safaritrakCsrfFetch) {
   window.__safaritrakCsrfFetch = true;
 }
 
-function closeSidebar() {
+function syncSidebarAccessibility() {
+  if (!sidebar || usesStandardNavbar) return;
+  const isMobile = mobileNavigationMedia.matches;
+  if (!isMobile && sidebar.classList.contains('open')) {
+    sidebar.classList.remove('open');
+    sidebarBackdrop?.classList.remove('open');
+    menuButton?.setAttribute('aria-expanded', 'false');
+    menuButton?.setAttribute('aria-label', 'Open navigation');
+    document.querySelector('[data-mobile-more]')?.setAttribute('aria-expanded', 'false');
+  }
+  const isOpen = isMobile && sidebar.classList.contains('open');
+  sidebar.toggleAttribute('inert', isMobile && !isOpen);
+  if (isMobile && !isOpen) {
+    sidebar.setAttribute('aria-hidden', 'true');
+  } else {
+    sidebar.removeAttribute('aria-hidden');
+  }
+  if (isMobile && isOpen) {
+    sidebar.setAttribute('role', 'dialog');
+    sidebar.setAttribute('aria-modal', 'true');
+  } else {
+    sidebar.removeAttribute('role');
+    sidebar.removeAttribute('aria-modal');
+  }
+  sidebarInertTargets.forEach(target => target.toggleAttribute('inert', isOpen));
+}
+
+function openSidebar(opener = menuButton) {
+  if (!sidebar) return;
+  sidebarOpener = opener;
+  sidebar.classList.add('open');
+  if (mobileNavigationMedia.matches) {
+    sidebar.style.width = 'min(292px, calc(100vw - 52px))';
+    sidebar.style.maxWidth = 'calc(100vw - 52px)';
+    sidebar.style.height = '100dvh';
+    sidebar.style.inset = '0 auto 0 0';
+    sidebar.style.flexDirection = 'column';
+    sidebar.style.alignItems = 'stretch';
+    sidebar.style.borderRadius = '0';
+    sidebar.style.transform = 'translateX(0)';
+    sidebar.style.visibility = 'visible';
+    const nav = sidebar.querySelector('nav');
+    if (nav) {
+      nav.style.display = 'grid';
+      nav.style.width = '100%';
+      nav.style.gridTemplateColumns = 'minmax(0, 1fr)';
+      nav.style.gap = '5px';
+    }
+    sidebar.querySelectorAll('nav a').forEach(link => {
+      link.style.width = '260px';
+      link.style.maxWidth = 'none';
+      link.style.height = '46px';
+      link.style.display = 'flex';
+      link.style.alignItems = 'center';
+      link.style.justifyContent = 'flex-start';
+      link.style.gap = '12px';
+      link.style.padding = '0 13px';
+      link.style.overflow = 'visible';
+      const label = link.querySelector('.nav-link-label');
+      if (label) {
+        label.style.display = 'block';
+        label.style.maxWidth = 'none';
+        label.style.opacity = '1';
+        label.style.transform = 'none';
+      }
+    });
+  }
+  sidebarBackdrop?.classList.add('open');
+  menuButton?.setAttribute('aria-expanded', 'true');
+  menuButton?.setAttribute('aria-label', 'Close navigation');
+  document.querySelector('[data-mobile-more]')?.setAttribute('aria-expanded', 'true');
+  syncSidebarAccessibility();
+  sidebarCloseButton?.focus();
+}
+
+function closeSidebar({ restoreFocus = false } = {}) {
   sidebar?.classList.remove('open');
+  if (sidebar && mobileNavigationMedia.matches) {
+    sidebar.style.transform = 'translateX(-105%)';
+    sidebar.style.visibility = 'hidden';
+  }
   sidebarBackdrop?.classList.remove('open');
   menuButton?.setAttribute('aria-expanded', 'false');
   menuButton?.setAttribute('aria-label', 'Open navigation');
   document.querySelector('[data-mobile-more]')?.setAttribute('aria-expanded', 'false');
+  syncSidebarAccessibility();
+  if (restoreFocus && mobileNavigationMedia.matches) (sidebarOpener || menuButton)?.focus();
+  sidebarOpener = null;
 }
 
 menuButton?.addEventListener('click', () => {
-  const isOpen = sidebar?.classList.toggle('open') || false;
-  sidebarBackdrop?.classList.toggle('open', isOpen);
-  menuButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-  menuButton.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Open navigation');
-  document.querySelector('[data-mobile-more]')?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  if (sidebar?.classList.contains('open')) {
+    closeSidebar();
+  } else {
+    openSidebar(menuButton);
+  }
 });
-sidebarBackdrop?.addEventListener('click', closeSidebar);
-sidebar?.querySelectorAll('nav a').forEach(link => link.addEventListener('click', closeSidebar));
-document.querySelector('[data-mobile-more]')?.addEventListener('click', () => menuButton?.click());
+sidebarCloseButton?.addEventListener('click', () => closeSidebar({ restoreFocus: true }));
+sidebarBackdrop?.addEventListener('click', () => closeSidebar({ restoreFocus: true }));
+sidebar?.querySelectorAll('a[href]').forEach(link => link.addEventListener('click', () => closeSidebar()));
+document.querySelector('[data-mobile-more]')?.addEventListener('click', event => openSidebar(event.currentTarget));
+syncSidebarAccessibility();
+
+window.addEventListener('resize', () => {
+  const wasOpen = sidebar?.classList.contains('open');
+  syncSidebarAccessibility();
+  if (wasOpen && !mobileNavigationMedia.matches) {
+    sidebar?.querySelector('nav a[href]')?.focus();
+    sidebarOpener = null;
+  }
+});
 
 const pagePanelsToggle = document.getElementById('appMapPanelsToggle');
 function clearPagePanelFocus() {
@@ -224,24 +372,27 @@ function clearPagePanelFocus() {
 }
 
 document.querySelectorAll('.app--map-layout:not(.app--explore):not(.app--journeys) .content').forEach(content => {
-  content.addEventListener('click', event => {
-    if (event.target.closest('a, button, input, select, textarea, [role="button"], [contenteditable="true"]')) return;
+  const focusMapReviewPanel = event => {
+    if (!document.getElementById('appMapBackground')) return;
+    const mapReviewTarget = event.target.closest('[data-map-review]');
+    if (!mapReviewTarget) return;
 
-    let panel = event.target;
+    let panel = mapReviewTarget;
     while (panel?.parentElement && panel.parentElement !== content) {
       if (panel.parentElement.matches('.grid, .lower, .stat-grid')) break;
       panel = panel.parentElement;
     }
     const panelParent = panel?.parentElement;
     if (!panelParent || (panelParent !== content && !panelParent.matches('.grid, .lower, .stat-grid'))) return;
-
     document.querySelectorAll('.is-page-panel-selected').forEach(selected => {
       selected.classList.remove('is-page-panel-selected');
     });
     panel.classList.add('is-page-panel-selected');
     document.body.classList.add('page-panel-focus');
     if (pagePanelsToggle) pagePanelsToggle.hidden = false;
-  });
+  };
+  content.addEventListener('focusin', focusMapReviewPanel);
+  content.addEventListener('click', focusMapReviewPanel);
 });
 
 pagePanelsToggle?.addEventListener('click', clearPagePanelFocus);
@@ -271,29 +422,58 @@ document.querySelectorAll('[data-theme-toggle]').forEach(button => {
 document.querySelectorAll('[data-open-modal]').forEach(trigger => {
   trigger.addEventListener('click', () => {
     const id = trigger.getAttribute('data-open-modal');
-    document.getElementById(id)?.classList.add('open');
+    const overlay = document.getElementById(id);
+    if (!overlay) return;
+    if (overlay.parentElement !== document.body) document.body.append(overlay);
+    overlay.classList.add('open');
+    document.body.classList.add('modal-overlay-open');
   });
 });
 
 document.querySelectorAll('[data-close-modal]').forEach(trigger => {
   trigger.addEventListener('click', () => {
-    trigger.closest('.modal-overlay')?.classList.remove('open');
+    const overlay = trigger.closest('.modal-overlay');
+    overlay?.classList.remove('open');
+    if (!document.querySelector('.modal-overlay.open')) document.body.classList.remove('modal-overlay-open');
   });
 });
 
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', e => {
-    if (e.target === overlay) overlay.classList.remove('open');
+    if (e.target === overlay) {
+      overlay.classList.remove('open');
+      if (!document.querySelector('.modal-overlay.open')) document.body.classList.remove('modal-overlay-open');
+    }
   });
 });
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.querySelectorAll('.modal-overlay.open').forEach(o => o.classList.remove('open'));
+    if (!document.querySelector('.modal-overlay.open')) document.body.classList.remove('modal-overlay-open');
     if (sidebar?.classList.contains('open')) {
-      closeSidebar();
-      menuButton?.focus();
+      closeSidebar({ restoreFocus: true });
     }
+  }
+  if (e.key !== 'Tab' || !sidebar?.classList.contains('open') || !mobileNavigationMedia.matches) return;
+
+  const focusable = [...sidebar.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  )].filter(element => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true');
+  if (focusable.length === 0) {
+    e.preventDefault();
+    sidebarCloseButton?.focus();
+    return;
+  }
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (e.shiftKey && (document.activeElement === first || !sidebar.contains(document.activeElement))) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (document.activeElement === last || !sidebar.contains(document.activeElement))) {
+    e.preventDefault();
+    first.focus();
   }
 });
 

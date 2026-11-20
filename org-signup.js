@@ -2,6 +2,10 @@ togglePassword('toggleOrgPassword', 'orgPassword');
 
 const orgSignupForm = document.getElementById('orgSignupForm');
 if (orgSignupForm) {
+  const accountType = document.getElementById('orgAccountType');
+  if (new URLSearchParams(window.location.search).get('type') === 'car_hire') {
+    accountType.value = 'car_hire';
+  }
   const submitBtn = orgSignupForm.querySelector('.login-btn');
   const fieldIds = ['orgNameError', 'fullNameError', 'orgUsernameError', 'orgEmailError', 'orgPhoneError', 'orgPasswordError', 'orgTermsError'];
 

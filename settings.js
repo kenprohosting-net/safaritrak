@@ -2,6 +2,23 @@
 // (data-tab-group / data-tab-panel-group) and modal open/close
 // (data-open-modal / data-close-modal) used elsewhere in the app.
 
+document.querySelectorAll('[data-settings-tab]').forEach((trigger) => {
+  trigger.addEventListener('click', () => {
+    const tabName = trigger.dataset.settingsTab;
+    const tabButton = [...document.querySelectorAll('[data-tab-group="settings"] [data-tab]')]
+      .find((button) => button.dataset.tab === tabName);
+    tabButton?.click();
+  });
+});
+
+const accountSupportButton = document.querySelector('[data-account-support]');
+const accountSupportNote = document.getElementById('accountSupportNote');
+accountSupportButton?.addEventListener('click', () => {
+  const isExpanded = accountSupportButton.getAttribute('aria-expanded') === 'true';
+  accountSupportButton.setAttribute('aria-expanded', String(!isExpanded));
+  if (accountSupportNote) accountSupportNote.hidden = isExpanded;
+});
+
 function stClearFieldErrors(ids) {
   ids.forEach((id) => {
     const el = document.getElementById(id);
@@ -84,6 +101,10 @@ saveProfileBtn?.addEventListener('click', async () => {
     }
 
     document.getElementById('settingPhone').value = data.user.phone_display || '';
+    const profileName = document.getElementById('accountProfileName');
+    const profileUsername = document.getElementById('accountProfileUsername');
+    if (profileName) profileName.textContent = data.user.full_name;
+    if (profileUsername) profileUsername.textContent = `@${data.user.username}`;
     document.querySelectorAll('.account b').forEach((el) => {
       el.textContent = data.user.full_name;
     });
@@ -216,9 +237,11 @@ function updateAvatarEverywhere(avatarPath, initials) {
     : initials;
 
   const preview = document.getElementById('profileAvatarPreview');
+  const accountProfile = document.getElementById('accountProfileAvatar');
   const sidebar = document.getElementById('sidebarAvatar');
   const header = document.getElementById('headerAvatar');
   if (preview) preview.innerHTML = html;
+  if (accountProfile) accountProfile.innerHTML = html;
   if (sidebar) sidebar.innerHTML = html;
   if (header) header.innerHTML = html;
 }

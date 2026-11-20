@@ -120,13 +120,10 @@ document.querySelectorAll('.group-action-btn').forEach(btn => {
 });
 
 if (window.ACTIVE_GROUP_ID) {
-  const memberIcon = L.divIcon({
-    className: 'st-marker',
-    html: '<div style="width:16px;height:16px;background:#176b5b;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.25)"></div>',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
-  });
-
+  const memberColor = member => `hsl(${(Number(member.member_id) * 137.508) % 360} 72% 45%)`;
+  const memberRouteColor = member => ['#E60026', '#FF2D2D', '#FF5252', '#FF6B6B', '#FF1744'][
+    Math.abs(Number(member.member_id)) % 5
+  ];
   const destinationIcon = L.divIcon({
     className: 'st-marker',
     html: '<div style="width:16px;height:16px;background:#d69b2d;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.25)"></div>',
@@ -142,18 +139,31 @@ if (window.ACTIVE_GROUP_ID) {
     boxZoom: false,
     keyboard: false
   }).setView([-1.286389, 36.817223], 6);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap contributors'
-  }).addTo(groupMap);
+  window.SafariTrakMapStyle.attachLeafletBase(groupMap);
 
   const bounds = [];
   const memberMarkers = {};
+  const memberRoutes = {};
 
   window.ACTIVE_GROUP_MEMBERS.forEach(m => {
-    if (m.status !== 'confirmed' || m.lat === null || m.lng === null) return;
+    if (m.status !== 'confirmed') return;
+    const color = memberColor(m);
+    const route = Array.isArray(m.route) ? m.route : [];
+    if (route.length > 1) {
+      memberRoutes[m.member_id] = L.polyline(route, { color: memberRouteColor(m), weight: 5, opacity: 0.82 }).addTo(groupMap);
+      route.forEach(point => bounds.push(point));
+    }
+    if (m.lat === null || m.lng === null) return;
     const label = m.user_id === window.MY_USER_ID ? m.name + ' (you)' : m.name;
-    const marker = L.marker([m.lat, m.lng], { icon: memberIcon }).addTo(groupMap).bindPopup('<b>' + label + '</b>');
+    const icon = L.divIcon({
+      className: 'st-marker',
+      html: '<div style="width:16px;height:16px;background:' + color + ';border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.25)"></div>',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8]
+    });
+    const popup = document.createElement('b');
+    popup.textContent = label;
+    const marker = L.marker([m.lat, m.lng], { icon }).addTo(groupMap).bindPopup(popup);
     memberMarkers[m.user_id] = marker;
     bounds.push([m.lat, m.lng]);
   });
@@ -167,7 +177,8 @@ if (window.ACTIVE_GROUP_ID) {
     groupMap.fitBounds(bounds, { padding: [40, 40] });
   }
 
-  const amIConfirmedMember = window.ACTIVE_GROUP_MEMBERS.some(m => m.user_id === window.MY_USER_ID && m.status === 'confirmed');
+  const amIConfirmedMember = window.ACTIVE_GROUP_STATUS === 'active'
+    && window.ACTIVE_GROUP_MEMBERS.some(m => m.user_id === window.MY_USER_ID && m.status === 'confirmed');
 
   if (amIConfirmedMember && navigator.geolocation) {
     let lastPush = 0;
@@ -188,8 +199,58 @@ if (window.ACTIVE_GROUP_ID) {
           group_id: window.ACTIVE_GROUP_ID,
           lat,
           lng,
+          speed_kmh: position.coords.speed === null ? null : position.coords.speed * 3.6,
+          heading: position.coords.heading,
+          accuracy: position.coords.accuracy,
         }).catch(() => {});
+      }
+      const currentMember = window.ACTIVE_GROUP_MEMBERS.find(m => m.user_id === window.MY_USER_ID);
+      if (currentMember) {
+        currentMember.route = currentMember.route || [];
+        const previous = currentMember.route[currentMember.route.length - 1];
+        if (!previous || L.latLng(previous).distanceTo([lat, lng]) >= 15) {
+          currentMember.route.push([lat, lng]);
+          if (!memberRoutes[currentMember.member_id]) {
+            memberRoutes[currentMember.member_id] = L.polyline([], { color: memberRouteColor(currentMember), weight: 5, opacity: 0.82 }).addTo(groupMap);
+          }
+          memberRoutes[currentMember.member_id].addLatLng([lat, lng]);
+        }
       }
     }, () => {}, { enableHighAccuracy: true, maximumAge: 10000 });
   }
+
+  const mapStatus = document.getElementById('groupMapStatus');
+  const refreshMemberRoutes = async () => {
+    try {
+      const response = await fetch(`backend/api/journeys/position.php?group_journey_id=${encodeURIComponent(window.ACTIVE_GROUP_ID)}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || 'Group member routes could not be refreshed.');
+      }
+      for (const member of payload.data.members) {
+        const initialMember = window.ACTIVE_GROUP_MEMBERS.find(item => item.member_id === member.group_member_id);
+        const points = Array.isArray(member.route) ? member.route : [];
+        if (memberRoutes[member.group_member_id]) {
+          memberRoutes[member.group_member_id].setLatLngs(points);
+        } else if (points.length > 1) {
+          memberRoutes[member.group_member_id] = L.polyline(points, {
+            color: initialMember ? memberRouteColor(initialMember) : '#FF2D2D',
+            weight: 5,
+            opacity: 0.82,
+          }).addTo(groupMap);
+        }
+        if (member.lat !== null && member.lng !== null && memberMarkers[member.user_id]) {
+          memberMarkers[member.user_id].setLatLng([member.lat, member.lng]);
+        }
+      }
+      mapStatus.textContent = 'Member routes updated just now. Only confirmed trip members can view them.';
+    } catch (error) {
+      mapStatus.textContent = error.message || 'Group member routes could not be refreshed.';
+    }
+  };
+  refreshMemberRoutes();
+  window.setInterval(refreshMemberRoutes, 30000);
 }

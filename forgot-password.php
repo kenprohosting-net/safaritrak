@@ -20,6 +20,7 @@
 
     <form class="login-form" id="forgotForm" novalidate>
       <div class="input-group">
+        <label class="auth-visually-hidden" for="resetContact">Email or phone number</label>
         <input type="text" id="resetContact" placeholder="Email or phone number" required>
         <i class="fa-regular fa-envelope input-icon"></i>
       </div>

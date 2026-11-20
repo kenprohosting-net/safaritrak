@@ -1,5 +1,5 @@
 (() => {
-  const viewKey = 'safaritrak-map-view-v3';
+  const viewKey = 'safaritrak-map-view-v5';
   const locationKey = 'safaritrak-device-location-v1';
   const userId = document.querySelector('[data-map-user-id]')?.dataset.mapUserId;
   const scopedViewKey = userId ? `${viewKey}:${userId}` : viewKey;
@@ -50,7 +50,9 @@
         zoom: state.zoom,
         bearing: Number.isFinite(state.bearing) ? state.bearing : 0,
         pitch: Number.isFinite(state.pitch) ? state.pitch : 0,
-        projection: state.projection === 'satellite' ? 'satellite' : 'flat',
+        projection: state.projection === 'satellite'
+          ? 'satellite'
+          : state.projection === 'globe' ? 'globe' : 'flat',
       };
     },
     save(map, projection) {
@@ -63,7 +65,9 @@
         zoom: map.getZoom(),
         bearing: map.getBearing?.() || 0,
         pitch: map.getPitch?.() || 0,
-        projection: mapProjection === 'satellite' ? 'satellite' : 'flat',
+        projection: mapProjection === 'satellite'
+          ? 'satellite'
+          : mapProjection === 'globe' ? 'globe' : 'flat',
       });
     },
     readLocation() {

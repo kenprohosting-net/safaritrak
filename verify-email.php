@@ -55,7 +55,7 @@ if ($token !== '') {
             );
 
             st_send_welcome_email($user);
-            st_login_user($user, false, $db);
+            st_login_user($user, $db);
 
             $orgAdminStmt = $db->prepare('SELECT 1 FROM organization_admins WHERE user_id = ? LIMIT 1');
             $orgAdminStmt->execute([(int) $user['id']]);

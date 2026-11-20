@@ -38,6 +38,7 @@ foreach (st_active_shared_journey_locations($db, $userId) as $location) {
 
     $locations[] = [
         'journey_id' => (int) $location['journey_id'],
+        'owner_id' => (int) $location['owner_id'],
         'name' => $location['owner_name'],
         'avatar_url' => $avatarUrl,
         'lat' => $location['lat'] !== null && (float) $location['lat'] >= -90 && (float) $location['lat'] <= 90

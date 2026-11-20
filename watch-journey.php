@@ -41,6 +41,8 @@ $journey = $stmt->fetch();
 <link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
 </head>
 <body>
 <?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
@@ -842,13 +844,7 @@ const sharedMap =
     })
         .setView(defaultCenter, 12);
 
-L.tileLayer(
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap contributors'
-    }
-).addTo(sharedMap);
+window.SafariTrakMapStyle.attachLeafletBase(sharedMap);
 
 const travelerIcon =
     L.divIcon({
@@ -1041,7 +1037,7 @@ function drawRemainingLine(
             L.polyline(
                 points,
                 {
-                    color: '#176b5b',
+                    color: window.SafariTrakMapStyle.getRouteColors().stroke,
 
                     weight: 4,
 

@@ -3,6 +3,14 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 require_once __DIR__ . '/backend/includes/helpers.php';
 require_once __DIR__ . '/backend/includes/consent.php';
 
+$profileCountsStmt = $db->prepare(
+    'SELECT
+        (SELECT COUNT(*) FROM journeys WHERE user_id = ?) AS journey_count,
+        (SELECT COUNT(*) FROM trusted_contacts WHERE owner_id = ? AND status = "confirmed") AS trusted_count'
+);
+$profileCountsStmt->execute([$currentUser['id'], $currentUser['id']]);
+$profileCounts = $profileCountsStmt->fetch() ?: ['journey_count' => 0, 'trusted_count' => 0];
+
 $consentVersions = st_current_consent_versions();
 $consentStmt = $db->prepare(
     'SELECT consent_type, document_version, accepted_at
@@ -21,41 +29,99 @@ foreach ($consentVersions as $consentType => $consentVersion) {
         break;
     }
 }
+
+$appMapPage = 'profile';
+$showAppMapControls = false;
+$showAppMapPanelsToggle = false;
 ?>
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SafariTrak | Settings</title>
+<title>SafariTrak | Account</title>
 <link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
+<link rel="stylesheet" href="account-workspace.css?v=<?= hash_file('sha256', __DIR__ . '/account-workspace.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
 <?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
-<div class="app app--map-layout">
+<div class="app app--map-layout app--workspace app--account-workspace">
 <?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
-<header>
-  <button class="menu" id="menu"><i class="fa-solid fa-bars"></i></button>
-  <div><label>YOUR ACCOUNT</label><h1>Settings</h1></div>
-  <div class="head-actions">
-    <div class="notif-wrap">
-      <button type="button" class="notif-bell" id="notifBell"><i class="fa-regular fa-bell"></i><span class="notif-dot" id="notifDot"></span></button>
-      <div class="notif-dropdown" id="notifDropdown">
-        <div class="notif-dropdown-head"><b>Notifications</b><a href="notifications.php">View all</a></div>
-        <div class="notif-list" id="notifDropdownList">
-          <p class="notif-empty">Loading...</p>
-        </div>
-      </div>
-    </div>
-    <div class="avatar" id="headerAvatar"><?= st_avatar_inner($currentUser) ?></div>
+<div class="content account-workspace-content">
+
+<section class="account-profile-card" aria-label="Account profile">
+<section class="account-profile-hero" aria-labelledby="accountProfileName">
+  <div class="account-profile-cover">
+    <span><i class="fa-solid fa-compass" aria-hidden="true"></i> SAFARITRAK PROFILE</span>
+    <p>Every journey is better when your people know you are safe.</p>
   </div>
-</header>
+  <div class="account-profile-body">
+    <div class="account-profile-avatar" id="accountProfileAvatar"><?= st_avatar_inner($currentUser) ?></div>
+    <div class="account-profile-identity">
+      <h2 id="accountProfileName"><?= htmlspecialchars($currentUser['full_name'], ENT_QUOTES, 'UTF-8') ?></h2>
+      <p><span id="accountProfileUsername">@<?= htmlspecialchars($currentUser['username'], ENT_QUOTES, 'UTF-8') ?></span> <span>·</span> <?= ($currentUser['role'] ?? '') === 'org_admin' ? 'Organization account' : (($currentUser['role'] ?? '') === 'platform_admin' ? 'Platform administrator' : 'SafariTrak traveler') ?></p>
+    </div>
+    <div class="account-profile-stats" aria-label="Profile activity">
+      <div><i class="fa-solid fa-route" aria-hidden="true"></i><strong><?= (int) $profileCounts['journey_count'] ?></strong><span>Journeys</span></div>
+      <div><i class="fa-solid fa-user-shield" aria-hidden="true"></i><strong><?= (int) $profileCounts['trusted_count'] ?></strong><span>Trusted people</span></div>
+    </div>
+    <div class="account-profile-actions">
+      <button class="btn-primary" type="button" data-open-modal="editProfileModal"><i class="fa-solid fa-pen" aria-hidden="true"></i>Edit profile</button>
+    </div>
+  </div>
+</section>
+</section>
 
-<div class="content">
+<section class="account-settings-grid" aria-label="Account settings and support">
+  <div class="account-settings-column">
+    <h2>Profile &amp; Safety Settings</h2>
+    <a class="account-setting-link" href="trusted-contacts.php">
+      <span class="account-setting-icon"><i class="fa-solid fa-phone-volume" aria-hidden="true"></i></span>
+      <span><b>Emergency Contacts</b><small>Manage trusted contacts &amp; SOS alerts</small></span>
+      <i class="fa-solid fa-chevron-right account-setting-chevron" aria-hidden="true"></i>
+    </a>
+    <a class="account-setting-link" href="trusted-contacts.php">
+      <span class="account-setting-icon"><i class="fa-solid fa-location-dot" aria-hidden="true"></i></span>
+      <span><b>Live Location Share Settings</b><small>Control who sees your active route</small></span>
+      <i class="fa-solid fa-chevron-right account-setting-chevron" aria-hidden="true"></i>
+    </a>
+    <button class="account-setting-link" type="button" data-open-modal="editProfileModal" data-settings-tab="privacy">
+      <span class="account-setting-icon"><i class="fa-solid fa-lock" aria-hidden="true"></i></span>
+      <span><b>Profile Privacy</b><small>Manage visibility &amp; account security</small></span>
+      <i class="fa-solid fa-chevron-right account-setting-chevron" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div class="account-settings-column">
+    <h2>Journey History &amp; Support</h2>
+    <a class="account-setting-link" href="my-journeys.php">
+      <span class="account-setting-icon"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></span>
+      <span><b>Recent Journeys</b><small>View past trips &amp; saved routes</small></span>
+      <i class="fa-solid fa-chevron-right account-setting-chevron" aria-hidden="true"></i>
+    </a>
+    <a class="account-setting-link" href="car-hire.php#myRentalBookings">
+      <span class="account-setting-icon"><i class="fa-solid fa-wallet" aria-hidden="true"></i></span>
+      <span><b>Payment Methods</b><small>Review car hire requests &amp; provider payment terms</small></span>
+      <i class="fa-solid fa-chevron-right account-setting-chevron" aria-hidden="true"></i>
+    </a>
+    <button class="account-setting-link" type="button" data-account-support aria-expanded="false">
+      <span class="account-setting-icon"><i class="fa-solid fa-circle-question" aria-hidden="true"></i></span>
+      <span><b>Help &amp; Feedback</b><small>Support center &amp; app feedback</small></span>
+      <i class="fa-solid fa-chevron-right account-setting-chevron" aria-hidden="true"></i>
+    </button>
+    <p class="account-support-note" id="accountSupportNote" role="status" hidden>In-app help and feedback are not available in this build yet. For account questions, contact your SafariTrak service administrator.</p>
+  </div>
+</section>
 
+<div class="modal-overlay account-edit-modal" id="editProfileModal">
+  <div class="modal account-edit-modal-card">
+    <div class="modal-head">
+      <div><h3>Edit your account</h3><p>Update your profile and account preferences.</p></div>
+      <button class="modal-close" type="button" data-close-modal aria-label="Close profile editor"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
 <div class="card">
   <div class="settings-tabs" data-tab-group="settings">
     <button type="button" class="tab active" data-tab="profile">Profile</button>
@@ -180,6 +246,9 @@ foreach ($consentVersions as $consentType => $consentVersion) {
   </div>
 
 </div>
+  </div>
+  </div>
+  </div>
 
 </div>
 <footer>&copy; <?= date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
@@ -204,7 +273,6 @@ foreach ($consentVersions as $consentType => $consentVersion) {
 </div>
 
 <script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
-<script src="notifications-widget.js?v=<?= hash_file('sha256', __DIR__ . '/notifications-widget.js') ?>"></script>
 <script src="settings.js"></script>
 </body>
 </html>

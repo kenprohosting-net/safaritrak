@@ -15,6 +15,8 @@ if (!$userId) {
     exit;
 }
 
+$csrfToken = st_csrf_token();
+
 $journeyId =
     isset($_GET['journey_id'])
         ? (int)$_GET['journey_id']
@@ -164,8 +166,16 @@ SafariTrak - Journey Tracking
 
 <link
     rel="stylesheet"
+    href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css"
+>
+
+<link
+    rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
 >
+
+<script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
+<script src="map-style.js?v=<?= hash_file('sha256', __DIR__ . '/map-style.js') ?>"></script>
 
 <style>
 
@@ -1024,6 +1034,9 @@ Go to My Journeys
 const JOURNEY_ID =
     <?= json_encode($journeyId) ?>;
 
+const CSRF_TOKEN =
+    <?= json_encode($csrfToken) ?>;
+
 const START_LAT =
     <?= json_encode($startLat) ?>;
 
@@ -1324,7 +1337,7 @@ async function sendPosition(
 
         const response =
             await fetch(
-                './backend/api/journey/update-position.php',
+                './backend/api/journeys/update-location.php',
                 {
                     method: 'POST',
 
@@ -1336,7 +1349,10 @@ async function sendPosition(
                             'application/json',
 
                         'Accept':
-                            'application/json'
+                            'application/json',
+
+                        'X-CSRF-Token':
+                            CSRF_TOKEN
                     },
 
                     body:
@@ -1361,26 +1377,35 @@ async function sendPosition(
             );
 
 
-        if (!response.ok) {
-            return;
-        }
-
-
         const data =
             await response.json();
 
+        if (!response.ok || !data.success) {
+            document.getElementById(
+                'mapStatus'
+            ).textContent =
+                data.message ||
+                'Location update failed. Showing the last known position.';
+            return;
+        }
+
+        document.getElementById(
+            'mapStatus'
+        ).textContent =
+            'GPS connected';
 
         if (
             data.success &&
-            data.distance_remaining !==
-            undefined
+            data.distance_km !==
+            undefined &&
+            data.distance_km !== null
         ) {
 
             document.getElementById(
                 'remainingValue'
             ).textContent =
                 Number(
-                    data.distance_remaining
+                    data.distance_km
                 ).toFixed(2) +
                 ' km';
         }
@@ -1388,7 +1413,7 @@ async function sendPosition(
 
         if (
             data.success &&
-            data.distance_travelled !==
+            data.covered_km !==
             undefined
         ) {
 
@@ -1396,14 +1421,19 @@ async function sendPosition(
                 'distanceValue'
             ).textContent =
                 Number(
-                    data.distance_travelled
+                    data.covered_km
                 ).toFixed(2) +
                 ' km';
         }
 
     } catch (error) {
 
-        console.log(
+        document.getElementById(
+            'mapStatus'
+        ).textContent =
+            'Location update failed. Showing the last known position.';
+
+        console.error(
             'Unable to update location.'
         );
     }
@@ -1418,14 +1448,7 @@ function createMap() {
         );
 
 
-    L.tileLayer(
-        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        {
-            maxZoom: 19,
-            attribution:
-                '&copy; OpenStreetMap contributors'
-        }
-    ).addTo(map);
+    window.SafariTrakMapStyle.attachLeafletBase(map);
 
 
     if (
@@ -1555,7 +1578,7 @@ function createMap() {
                     ]
                 ],
                 {
-                    color: '#147968',
+                    color: window.SafariTrakMapStyle.getRouteColors().stroke,
                     weight: 7,
                     opacity: .85
                 }
@@ -1639,7 +1662,10 @@ async function endJourney() {
                             'application/json',
 
                         'Accept':
-                            'application/json'
+                            'application/json',
+
+                        'X-CSRF-Token':
+                            CSRF_TOKEN
                     },
 
                     body:

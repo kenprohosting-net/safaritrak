@@ -144,6 +144,39 @@ document.getElementById('copySchoolInvite')?.addEventListener('click', async eve
   }
 });
 
+document.querySelectorAll('.child-viewer-invite-open').forEach(button => {
+  button.addEventListener('click', () => {
+    document.getElementById('childViewerInviteStudent').value = button.dataset.childId;
+    document.getElementById('childViewerInviteDescription').textContent =
+      `Invite a guardian to view ${button.dataset.childName}'s trips. They must accept first.`;
+    document.getElementById('childViewerInviteStatus').textContent = '';
+  });
+});
+
+document.getElementById('sendChildViewerInvite')?.addEventListener('click', async event => {
+  const button = event.currentTarget;
+  const status = document.getElementById('childViewerInviteStatus');
+  button.disabled = true;
+  status.textContent = 'Sending invitation…';
+  try {
+    const response = await fetch('backend/api/org/invite-child-viewer.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        child_user_id: document.getElementById('childViewerInviteStudent').value,
+        guardian_user_id: document.getElementById('childViewerInviteGuardian').value,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.message || 'Could not invite this guardian.');
+    status.textContent = data.message;
+    button.textContent = 'Invitation sent';
+  } catch (error) {
+    status.textContent = error.message || 'Could not invite this guardian.';
+    button.disabled = false;
+  }
+});
+
 document.querySelectorAll('.enrollment-review-btn').forEach(button => {
   button.addEventListener('click', async () => {
     const action = button.dataset.action;

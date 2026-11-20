@@ -143,6 +143,14 @@ $userName = $currentUser['full_name'] ?? 'Traveler';
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     >
 
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css"
+    >
+
+    <script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
+    <script src="map-style.js?v=<?= hash_file('sha256', __DIR__ . '/map-style.js') ?>"></script>
+
     <style>
         .shared-map {
             width: 100%;

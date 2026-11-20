@@ -104,7 +104,7 @@ try {
             FROM group_members
             WHERE group_journey_id = ?
               AND user_id = ?
-              AND status IN ('confirmed', 'accepted')
+              AND status = 'confirmed'
             LIMIT 1
         ");
 
@@ -114,27 +114,6 @@ try {
         ]);
 
         if ($memberStmt->fetch()) {
-            $isAllowed = true;
-        }
-    }
-
-    if (!$isAllowed) {
-
-        $inviteStmt = $db->prepare("
-            SELECT id
-            FROM group_journey_invite
-            WHERE group_journey_id = ?
-              AND invitee_id = ?
-              AND status = 'accepted'
-            LIMIT 1
-        ");
-
-        $inviteStmt->execute([
-            $groupJourneyId,
-            $userId
-        ]);
-
-        if ($inviteStmt->fetch()) {
             $isAllowed = true;
         }
     }
@@ -172,7 +151,7 @@ try {
 
         WHERE gm.group_journey_id = ?
 
-        AND gm.status IN ('confirmed', 'accepted')
+        AND gm.status = 'confirmed'
 
         ORDER BY gm.id ASC
     ");
@@ -182,6 +161,18 @@ try {
     ]);
 
     $members = $memberStmt->fetchAll(PDO::FETCH_ASSOC);
+    $routeStmt = $db->prepare(
+        'SELECT group_member_id, lat, lng
+         FROM group_member_route_points
+         WHERE group_journey_id = ?
+         ORDER BY group_member_id, recorded_at, id'
+    );
+    $routeStmt->execute([$groupJourneyId]);
+    $routesByMember = [];
+    foreach ($routeStmt->fetchAll(PDO::FETCH_ASSOC) as $routePoint) {
+        $memberKey = (int) $routePoint['group_member_id'];
+        $routesByMember[$memberKey][] = [(float) $routePoint['lat'], (float) $routePoint['lng']];
+    }
 
     $destinationLat = $groupJourney['destination_lat'] !== null
         ? (float)$groupJourney['destination_lat']
@@ -322,7 +313,8 @@ try {
                     ? round($meetingDistance, 3)
                     : null,
 
-            'updated_at' => $member['updated_at']
+            'updated_at' => $member['updated_at'],
+            'route' => $routesByMember[(int) $member['group_member_id']] ?? []
         ];
     }
 

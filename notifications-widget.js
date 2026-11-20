@@ -8,6 +8,8 @@ const notifIconMap = {
   sos_alert: 'fa-triangle-exclamation',
   contact_request: 'fa-user-plus',
   group_invite: 'fa-user-group',
+  school_trip_access: 'fa-school',
+  school_transport_broadcast: 'fa-bus',
 };
 
 function notifRelativeTime(dateString) {
@@ -40,6 +42,10 @@ function notifLink(n) {
       return 'trusted-contacts.php';
     case 'group_invite':
       return 'groups.php?tab=trips';
+    case 'school_trip_access':
+      return 'school-trips.php#invitations';
+    case 'school_transport_broadcast':
+      return 'school.php';
     case 'sos_alert':
       return 'notifications.php';
     default:

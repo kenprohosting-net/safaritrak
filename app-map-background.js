@@ -2,19 +2,39 @@
   const mapElement = document.getElementById('appMapBackground');
   if (!mapElement) return;
 
+  const isJourneyPage = mapElement.dataset.mapPage === 'journeys';
+  const isGroupsPage = mapElement.dataset.mapPage === 'groups';
+  const isMessagesPage = mapElement.dataset.mapPage === 'messages';
+  const isCarHirePage = mapElement.dataset.mapPage === 'car-hire';
+  const isPlacesPage = mapElement.dataset.mapPage === 'places';
+  const isProfilePage = mapElement.dataset.mapPage === 'profile';
+  const isSchoolPage = mapElement.dataset.mapPage === 'school';
+  const journeyFeaturesStorageKey = `safaritrak-selected-journey-${mapElement.dataset.mapUserId}`;
   let map;
   let fallbackMessage;
   let userMarker;
   let pendingUserLocation;
   let featureMarkers = [];
   let features = [];
-  let mapView;
   let locationRequestStarted = false;
   let pendingSearchLocation;
   let searchMarker;
   let pendingFeatureFit = false;
   let pendingFeatureRender = false;
   let mapLoadStarted = false;
+  let journeyFeatures = [];
+  let sharedLocationFeatures = [];
+
+  try {
+    const savedJourneyFeatures = sessionStorage.getItem(journeyFeaturesStorageKey);
+    if (savedJourneyFeatures) {
+      const parsedFeatures = JSON.parse(savedJourneyFeatures);
+      if (Array.isArray(parsedFeatures)) journeyFeatures = parsedFeatures;
+    }
+  } catch (error) {
+    console.warn('SafariTrak could not restore the selected journey route.', error);
+  }
+  pendingFeatureFit = journeyFeatures.length > 0;
 
   function activateMap() {
     document.body.classList.add('map-background-visible');
@@ -32,69 +52,12 @@
     document.body.append(fallbackMessage);
   }
 
-  function mapStyle(theme) {
-    const style = theme === 'light' ? 'positron-gl-style' : 'dark-matter-gl-style';
-    return `https://basemaps.cartocdn.com/gl/${style}/style.json`;
+  function mapStyle() {
+    return window.SafariTrakMapStyle.styleUrl;
   }
 
   function applyMapStyle() {
-    if (!map?.getStyle()?.layers) return;
-    const light = document.documentElement.dataset.theme === 'light';
-    const roadLabelMinZooms = {
-      roadname_major: 8,
-      roadname_pri: 9,
-      roadname_sec: 10,
-      roadname_minor: 11,
-    };
-
-    for (const layer of map.getStyle().layers) {
-      if (Object.hasOwn(roadLabelMinZooms, layer.id)) {
-        map.setLayerZoomRange(layer.id, roadLabelMinZooms[layer.id], 24);
-      }
-      if (!layer.paint) continue;
-      const id = layer.id.toLowerCase();
-      if (layer.type === 'background') {
-        map.setPaintProperty(layer.id, 'background-color', light ? '#F1F5F9' : '#090D16');
-      } else if (layer.type === 'fill' && id.includes('water')) {
-        map.setPaintProperty(layer.id, 'fill-color', light ? '#E0F2FE' : '#050B24');
-      } else if (layer.type === 'fill' && /park|green|wood|forest/.test(id)) {
-        map.setPaintProperty(layer.id, 'fill-color', light ? '#D1FAE5' : '#064E3B');
-      } else if (layer.type === 'fill' && (id.includes('landcover') || id.includes('landuse'))) {
-        map.setPaintProperty(layer.id, 'fill-color', light ? '#F8FAFC' : '#0F172A');
-      } else if (layer.type === 'line' && id.startsWith('road_') && id.includes('case')) {
-        map.setPaintProperty(layer.id, 'line-color', light ? '#CBD5E1' : '#1E293B');
-        map.setPaintProperty(layer.id, 'line-opacity', 0.96);
-      } else if (layer.type === 'line' && id.startsWith('road_')) {
-        const color = /motorway/.test(id)
-          ? (light ? '#C026D3' : '#D946EF')
-          : /trunk|primary/.test(id)
-            ? (light ? '#C026D3' : '#D946EF')
-            : /secondary|tertiary/.test(id)
-              ? (light ? '#EA580C' : '#F97316')
-              : (light ? '#E2E8F0' : '#334155');
-        map.setPaintProperty(layer.id, 'line-color', color);
-        map.setPaintProperty(layer.id, 'line-opacity', /motorway|trunk|primary|secondary/.test(id) ? 0.98 : 0.86);
-        if (map.getPaintProperty(layer.id, 'line-blur') !== undefined) {
-          map.setPaintProperty(layer.id, 'line-blur', 0.35);
-        }
-      } else if (layer.type === 'line' && id.includes('waterway')) {
-        map.setPaintProperty(layer.id, 'line-color', light ? '#0891B2' : '#22D3EE');
-        map.setPaintProperty(layer.id, 'line-opacity', 0.92);
-      } else if (layer.type === 'symbol' && layer.layout?.['text-field']) {
-        const roadLabel = id.includes('roadname');
-        const cityLabel = /place|city|town|suburb|village/.test(id);
-        const labelColor = roadLabel
-          ? (light ? '#0F172A' : '#F8FAFC')
-          : (light ? '#0F172A' : '#F8FAFC');
-        map.setPaintProperty(layer.id, 'text-color', labelColor);
-        map.setPaintProperty(layer.id, 'text-halo-color', light ? '#FFFFFF' : '#000000');
-        map.setPaintProperty(layer.id, 'text-halo-width', roadLabel || cityLabel ? 2 : 1.8);
-        map.setPaintProperty(layer.id, 'text-opacity', 1);
-        if (map.getPaintProperty(layer.id, 'text-halo-blur') !== undefined) {
-          map.setPaintProperty(layer.id, 'text-halo-blur', 0.45);
-        }
-      }
-    }
+    window.SafariTrakMapStyle.apply(map);
   }
 
   function validPoint(point) {
@@ -124,16 +87,32 @@
     }
     pendingFeatureRender = false;
     removeFeatures();
-    for (const feature of features) {
+    const renderedFeatures = [...features, ...journeyFeatures, ...sharedLocationFeatures];
+    for (const feature of renderedFeatures) {
       if (!validPoint(feature)) continue;
-      const kind = ['start', 'finish', 'place', 'saved-place', 'home', 'journey'].includes(feature.kind)
+      const kind = ['start', 'finish', 'place', 'saved-place', 'home', 'journey', 'shared-location', 'rental', 'school', 'bus', 'student', 'dropoff'].includes(feature.kind)
         ? feature.kind
         : 'journey';
       const markerElement = document.createElement('button');
       markerElement.type = 'button';
       markerElement.className = `app-map-marker app-map-marker--${kind}`;
       markerElement.setAttribute('aria-label', String(feature.label || 'Map location'));
-      markerElement.innerHTML = '<span class="app-map-marker-dot"></span>';
+      const iconClasses = {
+        school: 'fa-solid fa-graduation-cap',
+        bus: 'fa-solid fa-bus',
+        student: 'fa-solid fa-child-reaching',
+        dropoff: 'fa-solid fa-house',
+      };
+      if (iconClasses[kind]) {
+        const icon = document.createElement('i');
+        icon.className = iconClasses[kind];
+        icon.setAttribute('aria-hidden', 'true');
+        markerElement.append(icon);
+      } else {
+        const dot = document.createElement('span');
+        dot.className = 'app-map-marker-dot';
+        markerElement.append(dot);
+      }
       if (feature.label) {
         const label = document.createElement('span');
         label.className = 'app-map-marker-label';
@@ -145,6 +124,12 @@
         .addTo(map);
       if (feature.description) {
         markerElement.addEventListener('click', () => {
+          if (kind === 'rental') {
+            window.dispatchEvent(new CustomEvent('safaritrak:rental-feature-click', {
+              detail: { vehicleId: Number(feature.vehicleId) },
+            }));
+            return;
+          }
           new maplibregl.Popup({ closeButton: true, offset: 18 })
             .setLngLat([Number(feature.lng), Number(feature.lat)])
             .setText(String(feature.description))
@@ -154,15 +139,20 @@
       featureMarkers.push(marker);
     }
 
-    features.forEach((feature, index) => {
+    renderedFeatures.forEach((feature, index) => {
       if (!Array.isArray(feature.route) || feature.route.length < 2) return;
       const validCoordinates = feature.route.filter(point => Array.isArray(point) && point.length === 2
         && Number.isFinite(Number(point[0])) && Number.isFinite(Number(point[1])));
       if (validCoordinates.length > 1) {
         const suffix = String(index);
-        const plannedRoute = feature.routeColor === 'planned';
-        const glowColor = plannedRoute ? '#D946EF' : '#D946EF';
-        const lineColor = plannedRoute ? '#C026D3' : '#D946EF';
+        const isPlannedRoute = feature.routeColor === 'planned';
+        const routeColors = window.SafariTrakMapStyle.getRouteColors();
+        const routeStroke = isPlannedRoute
+          ? routeColors.stroke
+          : feature.routeStroke || routeColors.stroke;
+        const routeGlow = isPlannedRoute
+          ? routeColors.glow
+          : feature.routeGlow || routeColors.glow;
         map.addSource(`safaritrak-page-route-${suffix}`, {
           type: 'geojson',
           data: {
@@ -171,30 +161,41 @@
             geometry: { type: 'LineString', coordinates: validCoordinates },
           },
         });
-        map.addLayer({
-          id: `safaritrak-page-route-casing-${suffix}`,
-          type: 'line',
-          source: `safaritrak-page-route-${suffix}`,
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: {
-            'line-color': plannedRoute ? '#fff0f3' : '#f8eaff',
-            'line-width': plannedRoute ? 10 : 8,
-            'line-opacity': 0.94,
-          },
-        });
+        if (!isPlannedRoute) {
+          map.addLayer({
+            id: `safaritrak-page-route-casing-${suffix}`,
+            type: 'line',
+            source: `safaritrak-page-route-${suffix}`,
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: {
+              'line-color': feature.routeCasing || '#450A0A',
+              'line-width': 10,
+              'line-opacity': 0.94,
+            },
+          });
+        }
         map.addLayer({
           id: `safaritrak-page-route-glow-${suffix}`,
           type: 'line',
           source: `safaritrak-page-route-${suffix}`,
           layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: { 'line-color': glowColor, 'line-width': 12, 'line-opacity': 0.55, 'line-blur': 5 },
+          paint: {
+            'line-color': routeGlow,
+            'line-width': isPlannedRoute ? 10 : 12,
+            'line-opacity': isPlannedRoute ? 1 : 0.55,
+            'line-blur': isPlannedRoute ? 2 : 5,
+          },
         });
         map.addLayer({
           id: `safaritrak-page-route-line-${suffix}`,
           type: 'line',
           source: `safaritrak-page-route-${suffix}`,
           layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: { 'line-color': lineColor, 'line-width': plannedRoute ? 6 : 5, 'line-opacity': 1 },
+          paint: {
+            'line-color': routeStroke,
+            'line-width': isPlannedRoute ? 4 : 5,
+            'line-opacity': 1,
+          },
         });
       }
     });
@@ -203,14 +204,59 @@
 
   function setFeatures(nextFeatures) {
     features = Array.isArray(nextFeatures) ? nextFeatures : [];
-    if (features.length) activateMap();
+    if (features.length || journeyFeatures.length) activateMap();
     renderFeatures();
   }
 
-  function fitFeatureBounds() {
-    if (!map?.isStyleLoaded() || !features.length) return;
+  function journeyFitPadding() {
+    const canvasRect = map.getCanvas().getBoundingClientRect();
+    const isMobile = window.matchMedia('(max-width: 800px)').matches;
+    const journeyPanels = [...document.querySelectorAll(
+      '.app--journeys .journey-overview-panel, .app--journeys .trip-carousel-panel'
+    )].filter(panel => {
+      const style = getComputedStyle(panel);
+      return panel.getClientRects().length && style.display !== 'none' && style.visibility !== 'hidden';
+    });
+
+    if (isMobile) {
+      let top = 88;
+      let bottom = 80;
+      const verticalCenter = canvasRect.top + canvasRect.height / 2;
+      journeyPanels.forEach(panel => {
+        const rect = panel.getBoundingClientRect();
+        const spansCanvas = rect.left <= canvasRect.left + 20 && rect.right >= canvasRect.right - 20;
+        if (!spansCanvas) return;
+        if (rect.top <= verticalCenter) {
+          top = Math.max(top, Math.ceil(rect.bottom - canvasRect.top + 16));
+        } else {
+          bottom = Math.max(bottom, Math.ceil(canvasRect.bottom - rect.top + 16));
+        }
+      });
+
+      const maxTotalPadding = Math.max(0, canvasRect.height - 120);
+      if (top + bottom > maxTotalPadding) {
+        const scale = maxTotalPadding / (top + bottom);
+        top = Math.floor(top * scale);
+        bottom = Math.max(0, maxTotalPadding - top);
+      }
+      return { top, right: 18, bottom, left: 18 };
+    }
+
+    return {
+      left: 480,
+      right: 60,
+      top: 100,
+      bottom: 60,
+    };
+  }
+
+  function fitFeatureBounds(targetFeatures = [...features, ...journeyFeatures, ...sharedLocationFeatures]) {
+    if (!map?.isStyleLoaded() || !targetFeatures.length) return;
+    if (isJourneyPage) {
+      map.setProjection({ type: 'mercator' });
+    }
     const coordinates = [];
-    features.forEach(feature => {
+    targetFeatures.forEach(feature => {
       if (validPoint(feature)) coordinates.push([Number(feature.lng), Number(feature.lat)]);
       if (Array.isArray(feature.route)) {
         feature.route.forEach(point => {
@@ -225,13 +271,34 @@
 
     const longitudes = coordinates.map(([lng]) => lng);
     const latitudes = coordinates.map(([, lat]) => lat);
+    const workspacePadding = window.matchMedia('(max-width: 1100px)').matches
+      ? { top: 100, right: 24, bottom: Math.min(360, Math.round(map.getCanvas().clientHeight * 0.5)), left: 24 }
+      : { left: 360, right: 380, top: 100, bottom: 60 };
     map.fitBounds([
       [Math.min(...longitudes), Math.min(...latitudes)],
       [Math.max(...longitudes), Math.max(...latitudes)],
     ], {
-      padding: window.matchMedia('(max-width: 800px)').matches
-        ? { top: 88, right: 24, bottom: 190, left: 24 }
-        : { top: 88, right: 380, bottom: 76, left: 96 },
+      padding: isSchoolPage
+        ? window.matchMedia('(max-width: 800px)').matches
+          ? { top: 100, right: 24, bottom: 250, left: 24 }
+          : { left: 380, right: 380, top: 100, bottom: 60 }
+        : isGroupsPage || isMessagesPage
+        ? workspacePadding
+        : isJourneyPage
+        ? journeyFitPadding()
+        : isCarHirePage
+          ? window.matchMedia('(max-width: 800px)').matches
+            ? { top: 100, right: 24, bottom: 230, left: 24 }
+            : { left: 460, right: 360, top: 100, bottom: 60 }
+        : isPlacesPage
+          ? window.matchMedia('(max-width: 800px)').matches
+            ? { top: 100, right: 24, bottom: 220, left: 24 }
+            : window.matchMedia('(max-width: 1100px)').matches
+              ? { left: 320, right: 300, top: 100, bottom: 60 }
+              : { left: 420, right: 360, top: 100, bottom: 60 }
+        : window.matchMedia('(max-width: 800px)').matches
+          ? { top: 88, right: 24, bottom: 190, left: 24 }
+          : { top: 88, right: 380, bottom: 76, left: 96 },
       maxZoom: 15,
       duration: 500,
     });
@@ -242,8 +309,35 @@
     if (features.length) activateMap();
     pendingFeatureFit = true;
     renderFeatures();
-    fitFeatureBounds();
+    fitFeatureBounds(features);
     if (map?.isStyleLoaded()) pendingFeatureFit = false;
+  }
+
+  function setSharedLocationFeatures(nextFeatures, { fit = false } = {}) {
+    sharedLocationFeatures = Array.isArray(nextFeatures) ? nextFeatures : [];
+    if (sharedLocationFeatures.length) activateMap();
+    if (fit) pendingFeatureFit = true;
+    renderFeatures();
+    if (fit) fitFeatureBounds();
+    if (fit && map?.isStyleLoaded()) pendingFeatureFit = false;
+  }
+
+  function setJourneyFeatures(nextFeatures, { focus = false } = {}) {
+    journeyFeatures = Array.isArray(nextFeatures) ? nextFeatures : [];
+    try {
+      if (journeyFeatures.length) {
+        sessionStorage.setItem(journeyFeaturesStorageKey, JSON.stringify(journeyFeatures));
+      } else {
+        sessionStorage.removeItem(journeyFeaturesStorageKey);
+      }
+    } catch (error) {
+      console.warn('SafariTrak could not save the selected journey route for other pages.', error);
+    }
+    if (journeyFeatures.length) activateMap();
+    if (focus) pendingFeatureFit = true;
+    renderFeatures();
+    if (focus) fitFeatureBounds(journeyFeatures);
+    if (focus && map?.isStyleLoaded()) pendingFeatureFit = false;
   }
 
   function showSearchLocation(point) {
@@ -269,7 +363,18 @@
     searchMarker?.remove();
     searchMarker = marker;
     window.SafariTrakPageMap.searchMarker = marker;
-    map.flyTo({ center: [Number(point.lng), Number(point.lat)], zoom: 15, essential: true, duration: 650 });
+    const offset = isGroupsPage || isMessagesPage
+      ? window.matchMedia('(max-width: 1100px)').matches
+        ? [0, (100 - Math.min(360, Math.round(map.getCanvas().clientHeight * 0.5))) / 2]
+        : [-10, 20]
+      : undefined;
+    map.flyTo({
+      center: [Number(point.lng), Number(point.lat)],
+      zoom: 15,
+      ...(offset ? { offset } : {}),
+      essential: true,
+      duration: 650,
+    });
   }
 
   function clearSearchLocation() {
@@ -305,6 +410,8 @@
   window.SafariTrakPageMap = {
     setFeatures,
     focusFeatures,
+    setSharedLocationFeatures,
+    setJourneyFeatures,
     setUserLocation,
     showSearchLocation,
     clearSearchLocation,
@@ -312,12 +419,15 @@
   };
 
   function keepUserLocationVisible() {
-    if (!userMarker || !map?.loaded()) return;
+    if (!userMarker || !map?.loaded() || (isJourneyPage && journeyFeatures.length)) return;
     const markerRect = userMarker.getElement().getBoundingClientRect();
     const markerPoint = { x: markerRect.left + markerRect.width / 2, y: markerRect.top + markerRect.height / 2 };
     const canvasRect = map.getCanvas().getBoundingClientRect();
-    const panels = [...document.querySelectorAll(
-      '.app--map-layout:not(.app--explore) .sidebar, .app--map-layout:not(.app--explore) > main > header, .app--map-layout:not(.app--explore) > main > .content > *'
+    const panels = [...document.querySelectorAll(isGroupsPage
+      ? '.app--groups .groups-list-panel, .app--groups .groups-chat-panel, .app--groups .group-hub-tabs'
+      : isMessagesPage
+      ? '.app--messages .messages-conversations, .app--messages .messages-thread'
+      : '.app--map-layout:not(.app--explore) .sidebar, .app--map-layout:not(.app--explore) > main > header, .app--map-layout:not(.app--explore) > main > .content > *'
     )].filter(panel => panel.getClientRects().length && getComputedStyle(panel).visibility !== 'hidden');
     const blocked = panels.some(panel => {
       const rect = panel.getBoundingClientRect();
@@ -376,17 +486,14 @@
 
   function initializeMap() {
     try {
-      mapView = window.SafariTrakMapView?.read() || null;
-      const cachedLocation = window.SafariTrakMapView?.readLocation() || null;
-      const initialPoint = mapView || cachedLocation || { lat: -1.286389, lng: 36.817223 };
       map = new maplibregl.Map({
         container: mapElement,
-        style: mapStyle(document.documentElement.dataset.theme),
-        center: [initialPoint.lng, initialPoint.lat],
-        zoom: mapView?.zoom ?? (cachedLocation ? 16 : 15),
-        bearing: mapView?.bearing ?? 0,
-        pitch: mapView?.pitch ?? 0,
-        projection: { type: mapView?.projection === 'flat' ? 'mercator' : 'globe' },
+        style: mapStyle(),
+        center: [36.817223, -1.286389],
+        zoom: 15,
+        bearing: 0,
+        pitch: 0,
+        projection: { type: 'mercator' },
         attributionControl: false,
         interactive: true,
         dragRotate: false,
@@ -409,8 +516,9 @@
       }
       map.on('style.load', () => {
         applyMapStyle();
-        map.setProjection({ type: mapView?.projection === 'globe' ? 'globe' : 'mercator' });
-        if (pendingFeatureRender || features.length) renderFeatures();
+        map.setProjection({ type: 'mercator' });
+        map.resize();
+        if (pendingFeatureRender || features.length || journeyFeatures.length) renderFeatures();
         if (pendingFeatureFit) {
           fitFeatureBounds();
           pendingFeatureFit = false;
@@ -423,9 +531,6 @@
           fitFeatureBounds();
           pendingFeatureFit = false;
         }
-        if (cachedLocation && !pendingUserLocation) {
-          setUserLocation(cachedLocation.lat, cachedLocation.lng);
-        }
         if (pendingUserLocation) {
           setUserLocation(
             pendingUserLocation.lat,
@@ -435,9 +540,34 @@
           );
         }
         if (pendingSearchLocation) showSearchLocation(pendingSearchLocation);
-        map.on('moveend', () => window.SafariTrakMapView?.save(map, mapView?.projection === 'flat' ? 'flat' : 'globe'));
+        map.on('moveend', () => window.SafariTrakMapView?.save(
+          map,
+          'flat'
+        ));
         document.dispatchEvent(new Event('safaritrak-map-ready'));
       });
+      if (isSchoolPage) {
+        map.on('click', event => {
+          if (event.originalEvent?.target?.closest?.('.maplibregl-ctrl, .app-map-marker')) return;
+          document.dispatchEvent(new CustomEvent('safaritrak:school-map-click', {
+            detail: {
+              lat: event.lngLat.lat,
+              lng: event.lngLat.lng,
+            },
+          }));
+        });
+      }
+      if (isPlacesPage) {
+        map.on('click', event => {
+          if (event.originalEvent?.target?.closest?.('.maplibregl-ctrl, .app-map-marker')) return;
+          document.dispatchEvent(new CustomEvent('safaritrak:places-map-click', {
+            detail: {
+              lat: event.lngLat.lat,
+              lng: event.lngLat.lng,
+            },
+          }));
+        });
+      }
       map.on('idle', () => {
         if (pendingFeatureRender) renderFeatures();
         if (pendingFeatureFit) {
@@ -450,7 +580,7 @@
       });
 
       const featureData = document.getElementById('safariTrakMapFeatures');
-      if (featureData && !document.querySelector('.app--journeys')) {
+      if (featureData && !isJourneyPage) {
         try {
           setFeatures(JSON.parse(featureData.textContent || '[]'));
         } catch (error) {
@@ -493,9 +623,9 @@
     focusButton?.setAttribute('aria-pressed', String(focused));
     if (focusButton) {
       focusButton.innerHTML = focused
-        ? '<i class="fa-solid fa-compress" aria-hidden="true"></i><span>Show panels</span>'
+        ? '<i class="fa-solid fa-arrow-left" aria-hidden="true"></i><span>Back</span>'
         : '<i class="fa-solid fa-expand" aria-hidden="true"></i><span>Focus map</span>';
-      focusButton.setAttribute('aria-label', focused ? 'Show page panels' : 'Focus on the map');
+      focusButton.setAttribute('aria-label', focused ? 'Back' : 'Focus on the map');
     }
   };
   focusButton?.addEventListener('click', () => {
@@ -508,10 +638,13 @@
   document.addEventListener('safaritrak-panels-restored', () => {
     setMapFocus(false);
   });
-  mapElement.addEventListener('pointerdown', event => {
-    if (event.target.closest('.maplibregl-ctrl, .app-map-marker')) return;
-    setMapFocus(true);
-  });
+  if (!isJourneyPage && !isGroupsPage && !isMessagesPage && !isProfilePage && !isSchoolPage) {
+    mapElement.addEventListener('pointerdown', event => {
+      if (event.target.closest('.maplibregl-ctrl, .app-map-marker')) return;
+      if (isPlacesPage && document.getElementById('addPlaceModal')?.classList.contains('is-map-picking')) return;
+      setMapFocus(true);
+    });
+  }
   const themeObserver = new MutationObserver(() => {
     if (!map) return;
     map.setStyle(mapStyle(document.documentElement.dataset.theme), { diff: false });
@@ -519,13 +652,14 @@
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
   const initialFeatureData = document.getElementById('safariTrakMapFeatures');
-  if (initialFeatureData && !document.querySelector('.app--journeys')) {
+  if (initialFeatureData && !isJourneyPage) {
     try {
       features = JSON.parse(initialFeatureData.textContent || '[]');
-      if (features.length) activateMap();
+      if (features.length || journeyFeatures.length) activateMap();
     } catch (error) {
       console.error('SafariTrak map feature data is invalid.', error);
       showMapError('Map locations could not be loaded. Other page functions remain available.');
     }
   }
+  activateMap();
 })();

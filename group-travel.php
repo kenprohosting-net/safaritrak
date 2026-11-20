@@ -4,7 +4,7 @@ if (basename($_SERVER['SCRIPT_NAME'] ?? '') === 'group-travel.php') {
     exit;
 }
 
-require __DIR__ . '/backend/includes/auth-guard.php';
+require_once __DIR__ . '/backend/includes/auth-guard.php';
 
 $db = safaritrak_db();
 $myId = $currentUser['id'];
@@ -23,24 +23,50 @@ $myGroups = $groupsStmt->fetchAll();
 $pendingInvites = array_filter($myGroups, fn($g) => $g['my_status'] === 'invited');
 
 $activeTrip = null;
+$requestedTripId = filter_var($_GET['trip'] ?? null, FILTER_VALIDATE_INT);
 foreach ($myGroups as $g) {
-    if ($g['status'] === 'active' && $g['my_status'] === 'confirmed') {
+    if ($g['my_status'] !== 'confirmed') {
+        continue;
+    }
+    if ($requestedTripId !== false && $requestedTripId !== null && (int) $g['id'] === (int) $requestedTripId) {
         $activeTrip = $g;
         break;
     }
 }
+if (!$activeTrip) {
+    foreach ($myGroups as $g) {
+        if ($g['status'] === 'active' && $g['my_status'] === 'confirmed') {
+            $activeTrip = $g;
+            break;
+        }
+    }
+}
 
 $activeMembers = [];
+$activeRoutes = [];
 if ($activeTrip) {
     $membersStmt = $db->prepare(
-        'SELECT gm.id, gm.user_id, gm.status, gm.last_lat, gm.last_lng, u.full_name, u.avatar_path
+        'SELECT gm.id, gm.user_id, gm.invite_name, gm.status, gm.last_lat, gm.last_lng, u.full_name, u.avatar_path
          FROM group_members gm
-         JOIN users u ON u.id = gm.user_id
+         LEFT JOIN users u ON u.id = gm.user_id
          WHERE gm.group_journey_id = ?
          ORDER BY FIELD(gm.status, "confirmed", "invited", "declined")'
     );
     $membersStmt->execute([$activeTrip['id']]);
     $activeMembers = $membersStmt->fetchAll();
+    $routesStmt = $db->prepare(
+        'SELECT group_member_id, lat, lng
+         FROM group_member_route_points
+         WHERE group_journey_id = ?
+         ORDER BY group_member_id, recorded_at, id'
+    );
+    $routesStmt->execute([$activeTrip['id']]);
+    foreach ($routesStmt->fetchAll(PDO::FETCH_ASSOC) as $routePoint) {
+        $activeRoutes[(int) $routePoint['group_member_id']][] = [
+            (float) $routePoint['lat'],
+            (float) $routePoint['lng'],
+        ];
+    }
 }
 
 $contactsStmt = $db->prepare(
@@ -73,6 +99,8 @@ $persistentGroups = $persistentGroupsStmt->fetchAll(PDO::FETCH_ASSOC);
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <?php if ($activeTrip): ?>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
 <?php endif; ?>
 </head>
 <body>
@@ -155,10 +183,11 @@ $persistentGroups = $persistentGroupsStmt->fetchAll(PDO::FETCH_ASSOC);
 
 <section class="lower" style="margin-top:18px">
   <div class="card">
-    <div class="card-head"><div><label>THIS TRIP</label><h3><?= $activeTrip ? htmlspecialchars($activeTrip['title']) : 'No active group trip' ?></h3></div><?php if ($activeTrip): ?><span class="status"><?= (int) $activeTrip['confirmed_count'] ?> members</span><?php endif; ?></div>
+    <div class="card-head"><div><label><?= $activeTrip && $activeTrip['status'] !== 'active' ? 'SELECTED TRIP' : 'THIS TRIP' ?></label><h3><?= $activeTrip ? htmlspecialchars($activeTrip['title']) : 'No active group trip' ?></h3></div><?php if ($activeTrip): ?><span class="status"><?= (int) $activeTrip['confirmed_count'] ?> members · <?= htmlspecialchars(ucfirst($activeTrip['status'])) ?></span><?php endif; ?></div>
     <?php if ($activeTrip): ?>
     <div id="groupMap"></div>
-    <div class="legend"><span><i class="current"></i>Group members</span><?php if ($activeTrip['destination_lat']): ?><span><i class="destination"></i>Destination</span><?php endif; ?></div>
+    <p id="groupMapStatus" class="hint" role="status" aria-live="polite">Routes show location updates shared by confirmed group members.</p>
+    <div class="legend">    <span><i class="current"></i>Each member has a distinct route color</span><?php if ($activeTrip['destination_lat']): ?><span><i class="destination"></i>Destination</span><?php endif; ?></div>
     <?php else: ?>
     <div class="empty" style="margin:21px"><i class="fa-solid fa-user-group"></i><div><b>No trip in progress</b><p>When one of your group journeys is started, the live map will show up here.</p></div></div>
     <?php endif; ?>
@@ -171,7 +200,8 @@ $persistentGroups = $persistentGroupsStmt->fetchAll(PDO::FETCH_ASSOC);
       <p class="hint" style="padding:16px 21px;color:var(--muted);font-size:11px">No active trip right now.</p>
       <?php endif; ?>
       <?php foreach ($activeMembers as $m): ?>
-      <div><span class="person"><?= htmlspecialchars(st_initials($m['full_name'])) ?></span><div><b><?= htmlspecialchars($m['full_name']) ?><?= (int) $m['user_id'] === $myId ? ' (you)' : '' ?></b><small>&#9679; <?= ucfirst($m['status']) ?></small></div><?php if ((int) $m['user_id'] !== $myId): ?><a class="msg-link" href="messages.php?to=<?= (int) $m['user_id'] ?>"><i class="fa-regular fa-message"></i></a><?php endif; ?></div>
+      <?php $memberName = trim((string) ($m['full_name'] ?: $m['invite_name'] ?: 'Group member')); ?>
+      <div><span class="person"><?= htmlspecialchars(st_initials($memberName)) ?></span><div><b><?= htmlspecialchars($memberName) ?><?= (int) $m['user_id'] === $myId ? ' (you)' : '' ?></b><small>&#9679; <?= ucfirst($m['status']) ?></small></div><?php if ($m['user_id'] && (int) $m['user_id'] !== $myId): ?><a class="msg-link" href="messages.php?to=<?= (int) $m['user_id'] ?>"><i class="fa-regular fa-message"></i></a><?php endif; ?></div>
       <?php endforeach; ?>
     </div>
   </div>
@@ -259,6 +289,7 @@ $persistentGroups = $persistentGroupsStmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
     <div class="modal-actions">
       <button type="button" class="ghost" data-close-modal>Close</button>
+      <?php if ($g['my_status'] === 'confirmed'): ?><a class="primary" href="groups.php?tab=trips&amp;trip=<?= (int) $g['id'] ?>">View route on map</a><?php endif; ?>
       <?php if ($isOrganizer && $g['status'] === 'upcoming'): ?>
       <button type="button" class="primary group-action-btn" data-action="start" data-group-id="<?= (int) $g['id'] ?>">Start trip</button>
       <button type="button" class="danger group-action-btn" data-action="cancel" data-group-id="<?= (int) $g['id'] ?>">Cancel trip</button>
@@ -275,6 +306,7 @@ $persistentGroups = $persistentGroupsStmt->fetchAll(PDO::FETCH_ASSOC);
 
 <script>
 window.ACTIVE_GROUP_ID = <?= $activeTrip ? (int) $activeTrip['id'] : 'null' ?>;
+window.ACTIVE_GROUP_STATUS = <?= $activeTrip ? json_encode($activeTrip['status'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null' ?>;
 window.ACTIVE_GROUP_DEST_LAT = <?= ($activeTrip && $activeTrip['destination_lat'] !== null) ? (float) $activeTrip['destination_lat'] : 'null' ?>;
 window.ACTIVE_GROUP_DEST_LNG = <?= ($activeTrip && $activeTrip['destination_lng'] !== null) ? (float) $activeTrip['destination_lng'] : 'null' ?>;
 window.ACTIVE_GROUP_MEMBERS = <?= json_encode(array_map(function ($m) {
@@ -284,6 +316,8 @@ window.ACTIVE_GROUP_MEMBERS = <?= json_encode(array_map(function ($m) {
         'status' => $m['status'],
         'lat' => $m['last_lat'] !== null ? (float) $m['last_lat'] : null,
         'lng' => $m['last_lng'] !== null ? (float) $m['last_lng'] : null,
+        'member_id' => (int) $m['id'],
+        'route' => $activeRoutes[(int) $m['id']] ?? [],
     ];
 }, $activeMembers)) ?>;
 window.MY_USER_ID = <?= (int) $myId ?>;

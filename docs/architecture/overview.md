@@ -1,4 +1,4 @@
-# SafariTrak architecture (Phase 1)
+# SafariTrak architecture
 
 ## Decision record
 
@@ -16,7 +16,7 @@ The Phase 1 shell is shared by the overview and roadmap screens through PHP view
 | Database connection | `backend/config/database.php` | Keep PDO and prepared statements; move schema evolution to versioned migrations |
 | Environment configuration | `backend/config/env.php`, ignored `backend/config/env.local.php`, `.env.example` | Process environment takes precedence; local values stay untracked |
 | Domain/API | `backend/api/` | Keep JSON conventions; extract business services as features are touched |
-| Database schema | `backend/sql/schema.sql` and existing SQL patches | Treat as legacy baseline until a migration ledger is introduced |
+| Database schema | `backend/sql/schema.sql`, migration ledger, and `backend/sql/migrations/` | Keep the checked-in schema as the baseline; evolve it through additive, versioned migrations |
 | Tests | `tests/` | Keep database-independent smoke tests and isolated SQLite session lifecycle coverage; exercise MySQL migrations/restores on disposable databases |
 | Design direction | `dashboard.css`, `dashboard.js`, `docs/design-system.md` | Dark/light violet shell; accessible controls and reduced motion |
 
@@ -27,6 +27,8 @@ The website uses same-origin PHP sessions and HTML pages. Existing API calls are
 Before a future Android client is built, define a versioned JSON API with a mobile-appropriate revocable token/session strategy, per-device expiry, refresh/revocation, rate limits, and audit records. Do not reuse browser session cookies as a native authentication design. The current same-origin browser API intentionally has no wildcard CORS. Document allowed origins explicitly; CORS is not an authorisation control.
 
 For now, requests are handled by route scripts, shared includes, PDO, and JSON response helpers (`backend/includes/response.php`). Unhandled API errors are logged server-side with a request reference and return a generic JSON error. Authentication endpoints use database-backed pseudonymous rate-limit keys; configure a random `SAFARITRAK_RATE_LIMIT_SECRET` in production. Extract controllers/services only when a coherent feature is implemented; a speculative framework conversion is out of scope.
+
+Transactional email is sent from PHP through the Gmail API using OAuth 2.0 user authorization and a dedicated sender mailbox. The client secret and refresh token remain in server environment configuration; short-lived access tokens are used only for server-to-Google requests. `backend/includes/mailer.php` builds multipart HTML/plain-text mail, applies the existing database-backed email limits, and keeps SMTP as a fallback only when no Google OAuth values are configured. Setup and verification steps are in the [Gmail API guide](../implementation/gmail-api-setup.md).
 
 ## Product and privacy boundaries
 

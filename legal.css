@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url("theme.css?v=7");
 
 * {
   margin: 0;
@@ -8,13 +9,16 @@
 
 body {
   font-family: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: #f5f7f6;
-  color: #17231f;
+  background: var(--bg-app);
+  color: var(--text-primary);
 }
 
 .legal-header {
-  background: #fff;
-  border-bottom: 1px solid #e3e9e6;
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  background: var(--bg-panel);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   padding: 18px 24px;
   display: flex;
   align-items: center;
@@ -26,15 +30,15 @@ body {
   align-items: center;
   gap: 10px;
   text-decoration: none;
-  color: #17231f;
+  color: var(--text-primary);
 }
 
 .legal-brand .logo {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: #d69b2d;
-  color: #fff;
+  background: var(--accent-primary);
+  color: var(--accent-text);
   display: grid;
   place-items: center;
 }
@@ -46,7 +50,7 @@ body {
 .legal-back {
   font-size: 12px;
   font-weight: 600;
-  color: #10b981;
+  color: var(--accent-primary);
   text-decoration: none;
   display: flex;
   align-items: center;
@@ -65,7 +69,7 @@ body {
 }
 
 .legal-updated {
-  color: #71807b;
+  color: var(--text-secondary);
   font-size: 12px;
   margin-top: 8px;
   margin-bottom: 30px;
@@ -75,13 +79,13 @@ body {
   font-size: 16px;
   margin-top: 32px;
   margin-bottom: 10px;
-  color: #10b981;
+  color: var(--accent-primary);
 }
 
 .legal-wrap p {
   font-size: 13px;
   line-height: 1.85;
-  color: #3c4844;
+  color: var(--text-secondary);
   margin-bottom: 12px;
 }
 
@@ -92,15 +96,39 @@ body {
 .legal-wrap li {
   font-size: 13px;
   line-height: 1.85;
-  color: #3c4844;
+  color: var(--text-secondary);
   margin-bottom: 6px;
 }
 
 .legal-footer {
   text-align: center;
   padding: 24px;
-  color: #8b9995;
+  color: var(--text-secondary);
   font-size: 10px;
+}
+
+.auth-theme-toggle {
+  position: fixed;
+  z-index: 10;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 1px solid var(--border-glass);
+  border-radius: 999px;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  cursor: pointer;
+}
+
+.auth-theme-toggle:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
 }
 
 @media(max-width:600px) {

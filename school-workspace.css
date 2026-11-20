@@ -1,0 +1,1202 @@
+.app.app--map-layout.app--workspace.app--school {
+    position: fixed !important;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    min-height: 0 !important;
+    overflow: hidden;
+    background: transparent !important;
+    pointer-events: none;
+}
+
+.app--school > main {
+    position: static !important;
+    width: 100%;
+    height: 100%;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    pointer-events: none;
+}
+
+.app--school > main > footer,
+.app--school .mobile-bottom-nav,
+.app--school ~ .mobile-bottom-nav {
+    display: none !important;
+}
+
+.app--school .school-workspace {
+    position: fixed !important;
+    z-index: 30;
+    inset: 0 !important;
+    width: 100vw;
+    height: 100dvh;
+    pointer-events: none;
+}
+
+.app--school > .sidebar {
+    z-index: 60;
+    border-color: rgba(255, 255, 255, .1) !important;
+    background: rgba(12, 16, 28, .74) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+.app--school .school-panel {
+    position: fixed;
+    z-index: 40;
+    top: 20px;
+    bottom: 20px;
+    display: flex;
+    width: 340px;
+    min-height: 0;
+    flex-direction: column;
+    gap: 14px;
+    overflow: hidden;
+    padding: 20px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 20px;
+    color: #F8FAFC;
+    background: rgba(12, 16, 28, .74);
+    box-shadow: 0 20px 55px rgba(0, 0, 0, .38);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    pointer-events: auto;
+}
+
+.app--school .school-left-panel {
+    left: 20px;
+}
+
+.app--school .school-right-panel {
+    right: 20px;
+}
+
+.app--school .school-heading,
+.app--school .school-panel-heading,
+.app--school .school-panel-title-row {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.app--school .school-heading {
+    align-items: flex-start;
+}
+
+.app--school .school-eyebrow {
+    margin: 0 0 5px;
+    color: #F59E0B;
+    font-size: 9px;
+    font-weight: 850;
+    letter-spacing: .13em;
+}
+
+.app--school .school-heading h1,
+.app--school .school-panel-heading h1,
+.app--school .school-panel-heading h2 {
+    margin: 0;
+    color: #F8FAFC;
+    font-size: 19px;
+    font-weight: 780;
+    letter-spacing: -.035em;
+    line-height: 1.2;
+}
+
+.app--school .school-heading h1 {
+    max-width: 178px;
+    font-size: 17px;
+}
+
+.app--school .school-verified,
+.app--school .school-live-pill {
+    display: inline-flex;
+    flex: 0 0 auto;
+    min-height: 25px;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 9px;
+    border: 1px solid rgba(16, 185, 129, .35);
+    border-radius: 999px;
+    color: #6EE7B7;
+    background: rgba(16, 185, 129, .12);
+    font-size: 9px;
+    font-weight: 780;
+    white-space: nowrap;
+}
+
+.app--school .school-panel-title-row h2,
+.app--school .school-panel-title-row h3 {
+    margin: 0;
+    color: #F8FAFC;
+    font-size: 12px;
+    font-weight: 760;
+}
+
+.app--school .school-icon-button {
+    display: inline-grid;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: 50%;
+    color: #1F2937;
+    background: linear-gradient(120deg, #F59E0B, #FB923C);
+    cursor: pointer;
+}
+
+.app--school .school-filter-row {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 6px;
+    padding: 4px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 999px;
+    background: rgba(24, 30, 48, .54);
+}
+
+.app--school .school-filter-row button,
+.app--school .school-secondary-button,
+.app--school .school-text-button {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 11px;
+    border: 1px solid rgba(255, 255, 255, .13);
+    border-radius: 999px;
+    color: #CBD5E1;
+    background: rgba(24, 30, 48, .65);
+    cursor: pointer;
+    font: inherit;
+    font-size: 9px;
+    font-weight: 730;
+    text-decoration: none;
+    transition: border-color .16s ease, color .16s ease, background .16s ease;
+}
+
+.app--school .school-filter-row button {
+    min-width: 0;
+    min-height: 29px;
+    flex: 1;
+    padding: 0 8px;
+}
+
+.app--school .school-filter-row button.is-active {
+    border-color: rgba(245, 158, 11, .38);
+    color: #1F2937;
+    background: linear-gradient(110deg, #F59E0B, #FB923C);
+}
+
+.app--school .school-secondary-button:hover,
+.app--school .school-filter-row button:not(.is-active):hover {
+    border-color: rgba(245, 158, 11, .42);
+    color: #FCD34D;
+}
+
+.app--school .school-primary-button {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 15px;
+    border: 1px solid rgba(245, 158, 11, .4);
+    border-radius: 14px;
+    color: #1F2937;
+    background: linear-gradient(110deg, #F59E0B, #FB923C);
+    box-shadow: 0 8px 22px rgba(245, 158, 11, .16);
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    text-decoration: none;
+    transition: filter .16s ease, transform .16s ease;
+}
+
+.app--school .school-primary-button:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+
+.app--school .school-route-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: #CBD5E1;
+    font-size: 9px;
+    line-height: 1.45;
+}
+
+.app--school .school-route-consent input {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    margin: 0;
+    accent-color: #F59E0B;
+}
+
+.app--school .school-broadcast-button {
+    width: 100%;
+    min-height: 46px;
+    flex: 0 0 auto;
+    border-radius: 15px;
+}
+
+.app--school .school-bus-list,
+.app--school .school-parent-roster {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 9px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 1px 3px 4px 1px;
+    scrollbar-color: rgba(148, 163, 184, .38) transparent;
+    scrollbar-width: thin;
+}
+
+.app--school .school-bus-card,
+.app--school .school-parent-card,
+.app--school .school-eta-card,
+.app--school .school-assigned-bus,
+.app--school .school-live-details,
+.app--school .school-roster-status,
+.app--school .school-notice,
+.app--school .school-driver-note {
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 16px;
+    color: #F8FAFC;
+    background: rgba(24, 30, 48, .65);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+}
+
+.app--school .school-bus-card {
+    display: grid;
+    flex: 0 0 auto;
+    gap: 10px;
+    padding: 13px;
+    transition: border-color .16s ease, background .16s ease;
+}
+
+.app--school .school-bus-card.is-selected {
+    border-color: rgba(245, 158, 11, .58);
+    background: rgba(245, 158, 11, .09);
+    box-shadow: inset 0 0 0 1px rgba(245, 158, 11, .1);
+}
+
+.app--school .school-bus-card-head,
+.app--school .school-bus-card-meta,
+.app--school .school-bus-card-actions,
+.app--school .school-parent-card-head,
+.app--school .school-parent-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.app--school .school-bus-select {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 3px;
+    padding: 0;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+}
+
+.app--school .school-bus-select strong,
+.app--school .school-parent-card strong {
+    overflow: hidden;
+    color: #F8FAFC;
+    font-size: 12px;
+    font-weight: 780;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app--school .school-bus-select small,
+.app--school .school-parent-card small,
+.app--school .school-bus-card-meta,
+.app--school .school-eta-card small,
+.app--school .school-parent-profile small,
+.app--school .school-assigned-bus small,
+.app--school .school-roster-status small,
+.app--school .school-notice,
+.app--school .school-small-note {
+    color: #94A3B8;
+    font-size: 9px;
+    line-height: 1.45;
+}
+
+.app--school .school-bus-card-meta {
+    justify-content: flex-start;
+    color: #CBD5E1;
+}
+
+.app--school .school-bus-card-meta i {
+    color: #F59E0B;
+}
+
+.app--school .school-progress {
+    height: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, .2);
+}
+
+.app--school .school-progress span {
+    display: block;
+    width: var(--progress, 0%);
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #F59E0B, #2DD4BF);
+}
+
+.app--school .school-progress-label {
+    margin-bottom: -6px;
+    color: #94A3B8;
+    font-size: 8px;
+}
+
+.app--school .school-bus-card-actions {
+    flex-wrap: wrap;
+}
+
+.app--school .school-card-action {
+    min-height: 29px;
+    padding: 0 9px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 999px;
+    color: #CBD5E1;
+    background: rgba(24, 30, 48, .65);
+    cursor: pointer;
+    font: inherit;
+    font-size: 9px;
+    font-weight: 750;
+}
+
+.app--school .school-card-action--primary {
+    border-color: rgba(245, 158, 11, .38);
+    color: #1F2937;
+    background: linear-gradient(110deg, #F59E0B, #FB923C);
+}
+
+.app--school .school-broadcast-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #94A3B8;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.app--school .school-broadcast-toggle input {
+    width: 30px;
+    height: 17px;
+    accent-color: #10B981;
+    cursor: pointer;
+}
+
+.app--school .school-eta-card {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 12px;
+}
+
+.app--school .school-eta-card strong,
+.app--school .school-eta-card small {
+    display: block;
+}
+
+.app--school .school-eta-card strong {
+    margin-bottom: 4px;
+    font-size: 11px;
+}
+
+.app--school .school-status-dot {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 auto;
+    margin-top: 3px;
+    border-radius: 50%;
+    background: #64748B;
+    box-shadow: 0 0 0 4px rgba(100, 116, 139, .14);
+}
+
+.app--school .is-live .school-status-dot,
+.app--school .school-status-dot.is-live {
+    background: #10B981;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, .15), 0 0 14px rgba(16, 185, 129, .8);
+}
+
+.app--school .school-roster-title {
+    margin-top: 2px;
+}
+
+.app--school .school-text-button {
+    min-height: 27px;
+    padding: 0 9px;
+    border-color: rgba(245, 158, 11, .25);
+    color: #FBBF24;
+    background: rgba(245, 158, 11, .08);
+}
+
+.app--school .school-parent-card {
+    display: grid;
+    flex: 0 0 auto;
+    gap: 9px;
+    padding: 11px;
+}
+
+.app--school .school-parent-card-head {
+    justify-content: flex-start;
+}
+
+.app--school .school-avatar {
+    display: inline-grid;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid rgba(245, 158, 11, .3);
+    border-radius: 50%;
+    color: #1F2937;
+    background: linear-gradient(130deg, #FBBF24, #FB923C);
+    font-size: 11px;
+    font-weight: 850;
+}
+
+.app--school .school-avatar--small {
+    width: 34px;
+    height: 34px;
+    font-size: 10px;
+}
+
+.app--school .school-parent-identity {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 3px;
+}
+
+.app--school .school-parent-identity small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app--school .school-parent-card-actions {
+    justify-content: flex-start;
+}
+
+.app--school .school-parent-card-actions a,
+.app--school .school-parent-card-actions button,
+.app--school .school-contact-actions a {
+    display: inline-flex;
+    min-height: 29px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 9px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 999px;
+    color: #CBD5E1;
+    background: rgba(24, 30, 48, .65);
+    cursor: pointer;
+    font: inherit;
+    font-size: 9px;
+    font-weight: 730;
+    text-decoration: none;
+}
+
+.app--school .school-note-form {
+    display: grid;
+    flex: 0 0 auto;
+    gap: 6px;
+}
+
+.app--school .school-note-form label,
+.app--school .school-dropoff-label-row label {
+    color: #CBD5E1;
+    font-size: 9px;
+    font-weight: 750;
+}
+
+.app--school .school-note-form > div {
+    display: flex;
+    gap: 6px;
+}
+
+.app--school .school-note-form input,
+.app--school .school-dropoff-label-row input,
+.app--school .school-form input,
+.app--school .school-form select {
+    width: 100%;
+    min-width: 0;
+    min-height: 39px;
+    padding: 0 11px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 12px;
+    outline: none;
+    color: #F8FAFC;
+    background: rgba(24, 30, 48, .7);
+    font: inherit;
+    font-size: 10px;
+}
+
+.app--school .school-note-form input:focus,
+.app--school .school-dropoff-label-row input:focus,
+.app--school .school-form input:focus,
+.app--school .school-form select:focus {
+    border-color: rgba(245, 158, 11, .65);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, .12);
+}
+
+.app--school .school-note-form input::placeholder,
+.app--school .school-form input::placeholder {
+    color: #94A3B8;
+}
+
+.app--school .school-note-form button {
+    width: 39px;
+    flex: 0 0 auto;
+    border: 1px solid rgba(245, 158, 11, .38);
+    border-radius: 12px;
+    color: #1F2937;
+    background: linear-gradient(110deg, #F59E0B, #FB923C);
+    cursor: pointer;
+}
+
+.app--school .school-small-note {
+    margin: 0;
+}
+
+.app--school .school-empty {
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 14px;
+    color: #94A3B8;
+    background: rgba(24, 30, 48, .5);
+    font-size: 10px;
+    line-height: 1.55;
+}
+
+.app--school .school-feedback {
+    min-height: 14px;
+    flex: 0 0 auto;
+    margin: 0;
+    color: #FBBF24;
+    font-size: 10px;
+    line-height: 1.4;
+}
+
+.app--school .school-feedback.is-error {
+    color: #FDA4AF;
+}
+
+.app--school .school-parent-profile {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
+    padding: 11px;
+    border: 1px solid rgba(255, 255, 255, .11);
+    border-radius: 15px;
+    background: rgba(24, 30, 48, .5);
+}
+
+.app--school .school-parent-profile > div {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+
+.app--school .school-parent-profile strong {
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app--school .school-assigned-bus {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    align-content: start;
+    column-gap: 10px;
+    flex: 0 0 auto;
+    padding: 14px;
+}
+
+.app--school .school-assigned-bus .school-empty {
+    grid-column: 1 / -1;
+}
+
+.app--school .school-vehicle-thumb {
+    display: grid;
+    width: 52px;
+    height: 52px;
+    grid-row: 1 / span 5;
+    place-items: center;
+    border: 1px solid rgba(45, 212, 191, .25);
+    border-radius: 14px;
+    color: #5EEAD4;
+    background:
+        radial-gradient(circle at 30% 20%, rgba(45, 212, 191, .22), transparent 65%),
+        rgba(8, 47, 73, .36);
+    font-size: 20px;
+}
+
+.app--school .school-assigned-bus h2 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    grid-column: 2;
+}
+
+.app--school .school-assigned-bus p {
+    margin: 5px 0;
+    color: #CBD5E1;
+    font-size: 10px;
+    grid-column: 2;
+}
+
+.app--school .school-assigned-bus small {
+    grid-column: 2;
+}
+
+.app--school .school-timeline-section {
+    display: flex;
+    min-height: 90px;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+}
+
+.app--school .school-timeline {
+    display: grid;
+    align-content: start;
+    gap: 0;
+    margin: 0;
+    padding: 0 0 0 4px;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.app--school .school-timeline li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 9px;
+    min-height: 49px;
+    color: #94A3B8;
+}
+
+.app--school .school-timeline li::before {
+    position: absolute;
+    top: 13px;
+    bottom: -1px;
+    left: 6px;
+    width: 1px;
+    background: rgba(148, 163, 184, .24);
+    content: "";
+}
+
+.app--school .school-timeline li:last-child::before {
+    display: none;
+}
+
+.app--school .school-timeline i {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: 13px;
+    height: 13px;
+    place-items: center;
+    border: 2px solid #475569;
+    border-radius: 50%;
+    color: transparent;
+    background: #121b2c;
+    font-size: 6px;
+}
+
+.app--school .school-timeline li.is-complete i {
+    border-color: #10B981;
+    color: #062b23;
+    background: #10B981;
+}
+
+.app--school .school-timeline strong,
+.app--school .school-timeline small {
+    display: block;
+}
+
+.app--school .school-timeline strong {
+    color: #E2E8F0;
+    font-size: 10px;
+}
+
+.app--school .school-timeline small {
+    margin-top: 3px;
+    color: #94A3B8;
+    font-size: 9px;
+}
+
+.app--school .school-driver-note {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 10px 12px;
+    color: #CBD5E1;
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.app--school .school-dropoff-controls {
+    display: grid;
+    flex: 0 0 auto;
+    gap: 8px;
+}
+
+.app--school .school-dropoff-controls .school-secondary-button {
+    width: 100%;
+    min-height: 36px;
+}
+
+.app--school .school-dropoff-label-row {
+    display: grid;
+    gap: 5px;
+}
+
+.app--school .school-broadcast-status {
+    display: flex;
+    min-height: 48px;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
+    padding: 0 13px;
+    border: 1px solid rgba(16, 185, 129, .28);
+    border-radius: 15px;
+    color: #6EE7B7;
+    background: rgba(16, 185, 129, .1);
+    font-size: 10px;
+}
+
+.app--school .school-live-details {
+    display: grid;
+    flex: 0 0 auto;
+    gap: 0;
+    padding: 5px 13px;
+}
+
+.app--school .school-live-details > div {
+    display: flex;
+    min-height: 38px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+.app--school .school-live-details > div:last-child {
+    border: 0;
+}
+
+.app--school .school-live-details span {
+    color: #94A3B8;
+    font-size: 9px;
+}
+
+.app--school .school-live-details strong {
+    max-width: 58%;
+    overflow: hidden;
+    color: #E2E8F0;
+    font-size: 9px;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app--school .school-contact-actions {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.app--school .school-contact-actions a {
+    min-height: 38px;
+    border-radius: 12px;
+    font-size: 10px;
+}
+
+.app--school .school-contact-actions a.school-contact-primary {
+    grid-column: 1 / -1;
+    border-color: rgba(245, 158, 11, .38);
+    color: #1F2937;
+    background: linear-gradient(110deg, #F59E0B, #FB923C);
+}
+
+.app--school .school-roster-status {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 9px;
+    margin-top: auto;
+    padding: 12px;
+}
+
+.app--school .school-roster-status > div {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 3px;
+}
+
+.app--school .school-roster-status strong {
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app--school .school-notice {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 11px;
+    line-height: 1.5;
+}
+
+.app--school .school-notice i {
+    margin-top: 1px;
+    color: #FBBF24;
+}
+
+.app--school .school-mobile-tabs {
+    display: none;
+}
+
+.app--school .school-modal {
+    width: min(660px, calc(100vw - 32px));
+    max-height: min(88dvh, 820px);
+    padding: 0;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, .15);
+    border-radius: 22px;
+    color: #F8FAFC;
+    background: rgba(12, 16, 28, .74);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, .62);
+    backdrop-filter: blur(16px);
+}
+
+.app--school .school-modal::backdrop {
+    background: rgba(2, 6, 15, .72);
+    backdrop-filter: blur(5px);
+}
+
+.app--school .school-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 21px 22px 15px;
+    border: 0;
+    background: transparent;
+}
+
+.app--school .school-modal-head h2 {
+    margin: 0 0 6px;
+    font-size: 19px;
+}
+
+.app--school .school-modal-head p:last-child {
+    margin: 0;
+    color: #94A3B8;
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.app--school .school-form {
+    display: grid;
+    gap: 14px;
+    padding: 0 22px 22px;
+}
+
+.app--school .school-form > label,
+.app--school .school-form-grid > label {
+    display: grid;
+    gap: 6px;
+    color: #CBD5E1;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.app--school .school-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px;
+}
+
+.app--school .school-form-full {
+    grid-column: 1 / -1;
+}
+
+.app--school .school-form select option {
+    color: #F8FAFC;
+    background: #111827;
+}
+
+.app--school .school-stop-editor {
+    display: grid;
+    gap: 9px;
+    padding: 13px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 15px;
+    background: rgba(24, 30, 48, .34);
+}
+
+.app--school .school-stop-row {
+    display: grid;
+    grid-template-columns: minmax(90px, 1fr) 100px minmax(75px, .75fr) minmax(75px, .75fr) 30px;
+    gap: 6px;
+}
+
+.app--school .school-stop-row input,
+.app--school .school-stop-row select {
+    min-height: 34px;
+    padding: 0 8px;
+    font-size: 9px;
+}
+
+.app--school .school-remove-stop {
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 10px;
+    color: #CBD5E1;
+    background: rgba(24, 30, 48, .65);
+    cursor: pointer;
+}
+
+.app--school .school-remove-stop:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+}
+
+.app--school .school-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 5px;
+}
+
+.app--school .app-map-marker--school,
+.app--school .app-map-marker--bus,
+.app--school .app-map-marker--student,
+.app--school .app-map-marker--dropoff {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, .76);
+    border-radius: 50%;
+    color: #082F49;
+    background: #2DD4BF;
+    box-shadow: 0 0 0 5px rgba(45, 212, 191, .22), 0 0 24px rgba(45, 212, 191, .85);
+    font-size: 14px;
+}
+
+.app--school .app-map-marker--school {
+    color: #1F2937;
+    background: #F59E0B;
+    box-shadow: 0 0 0 5px rgba(245, 158, 11, .22), 0 0 24px rgba(245, 158, 11, .85);
+}
+
+.app--school .app-map-marker--student,
+.app--school .app-map-marker--dropoff {
+    width: 27px;
+    height: 27px;
+    color: #062B23;
+    background: #6EE7B7;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, .18), 0 0 18px rgba(16, 185, 129, .7);
+    font-size: 11px;
+}
+
+.app--school .app-map-marker-label {
+    top: 35px;
+    border-color: rgba(45, 212, 191, .42);
+    color: #F8FAFC;
+    background: rgba(8, 15, 29, .94);
+    text-shadow: 0 0 10px rgba(45, 212, 191, .7);
+}
+
+@media (max-width: 1100px) and (min-width: 801px) {
+    .app--school .school-panel {
+        width: 315px;
+        padding: 16px;
+    }
+
+    .app--school .school-left-panel {
+        left: 12px;
+    }
+
+    .app--school .school-right-panel {
+        right: 12px;
+    }
+}
+
+@media (max-width: 800px) {
+    .app--school > .sidebar {
+        top: 9px !important;
+        max-width: calc(100vw - 24px) !important;
+        min-height: 42px;
+        padding: 3px !important;
+    }
+
+    .app--school > .sidebar nav {
+        max-width: calc(100vw - 30px);
+        gap: 2px;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .app--school > .sidebar nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .app--school > .sidebar nav a {
+        width: 34px !important;
+        min-height: 34px !important;
+        padding: 0 !important;
+        font-size: 0 !important;
+    }
+
+    .app--school > .sidebar nav .nav-link-label {
+        display: none !important;
+    }
+
+    .app--school .school-mobile-tabs {
+        position: fixed;
+        z-index: 55;
+        top: 61px;
+        left: 50%;
+        display: flex;
+        gap: 4px;
+        padding: 4px;
+        border: 1px solid rgba(255, 255, 255, .12);
+        border-radius: 999px;
+        background: rgba(12, 16, 28, .74);
+        backdrop-filter: blur(16px);
+        transform: translateX(-50%);
+        pointer-events: auto;
+    }
+
+    .app--school .school-mobile-tabs button {
+        min-height: 30px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 999px;
+        color: #94A3B8;
+        background: transparent;
+        cursor: pointer;
+        font: inherit;
+        font-size: 9px;
+        font-weight: 730;
+        white-space: nowrap;
+    }
+
+    .app--school .school-mobile-tabs button.is-active {
+        color: #1F2937;
+        background: linear-gradient(110deg, #F59E0B, #FB923C);
+    }
+
+    .app--school .school-panel {
+        top: auto;
+        right: 10px !important;
+        bottom: 12px;
+        left: 10px !important;
+        width: auto;
+        height: min(60dvh, 570px);
+        padding: 14px;
+        border-radius: 18px;
+    }
+
+    .app--school .school-left-panel {
+        display: flex;
+    }
+
+    .app--school .school-right-panel {
+        display: none;
+    }
+
+    .app--school.school-show-right .school-left-panel {
+        display: none;
+    }
+
+    .app--school.school-show-right .school-right-panel {
+        display: flex;
+    }
+
+    .app--school .school-heading h1,
+    .app--school .school-panel-heading h1,
+    .app--school .school-panel-heading h2 {
+        font-size: 17px;
+    }
+
+    .app--school .school-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .app--school .school-stop-row {
+        grid-template-columns: minmax(80px, 1fr) 90px minmax(68px, .7fr) minmax(68px, .7fr) 28px;
+    }
+
+    .app--school .school-modal {
+        max-height: 90dvh;
+    }
+
+    .app--school .school-modal-head {
+        padding: 17px 16px 13px;
+    }
+
+    .app--school .school-form {
+        padding: 0 16px 17px;
+    }
+}
+
+@media (max-width: 460px) {
+    .app--school .school-panel {
+        height: min(62dvh, 570px);
+    }
+
+    .app--school .school-stop-editor {
+        padding: 9px;
+    }
+
+    .app--school .school-stop-row {
+        grid-template-columns: minmax(75px, 1fr) 77px minmax(60px, .65fr) minmax(60px, .65fr) 26px;
+        gap: 4px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app--school *,
+    .app--school *::before,
+    .app--school *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+    }
+}

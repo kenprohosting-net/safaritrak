@@ -1,0 +1,1496 @@
+.app.app--rental-workspace {
+    position: fixed !important;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    min-height: 0 !important;
+    overflow: hidden;
+    background: transparent !important;
+    pointer-events: none;
+}
+
+.app--rental-workspace > main {
+    position: static !important;
+    width: 100%;
+    height: 100%;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    pointer-events: none;
+}
+
+.app--rental-workspace > main > .content {
+    position: fixed !important;
+    z-index: 30;
+    inset: 0;
+    width: 100vw !important;
+    height: 100dvh;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+    pointer-events: none;
+}
+
+.app--rental-workspace > main > footer {
+    display: none !important;
+}
+
+.app--rental-workspace :is(.rental-page, .fleet-page) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
+}
+
+.app--car-hire .rental-marketplace-panel,
+.app--car-hire .rental-preview,
+.app--fleet-dashboard :is(.fleet-rail, .fleet-dashboard-card, .fleet-kpi-card, .fleet-activity-sidebar) {
+    border: 1px solid rgba(255, 255, 255, .1) !important;
+    border-radius: 20px;
+    color: #F8FAFC;
+    background: rgba(12, 16, 28, .74) !important;
+    box-shadow: 0 20px 55px rgba(0, 0, 0, .38);
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+.app--car-hire .rental-marketplace-panel {
+    position: fixed;
+    z-index: 40;
+    top: 20px;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    width: 420px;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 18px 16px 12px;
+    pointer-events: auto;
+}
+
+.rental-marketplace-heading,
+.rental-page-heading,
+.fleet-dashboard-card > header,
+.fleet-activity-sidebar > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.rental-marketplace-heading {
+    flex: 0 0 auto;
+    margin-bottom: 14px;
+}
+
+.rental-marketplace-heading h1,
+.fleet-page-heading h1 {
+    margin: 0;
+    color: #F8FAFC;
+    font-size: 24px;
+    font-weight: 780;
+    letter-spacing: -.035em;
+}
+
+.rental-partner-link,
+.rental-primary-button,
+.rental-secondary-button,
+.fleet-manage-link,
+.fleet-booking-review {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 999px;
+    color: #F8FAFC;
+    background: rgba(24, 30, 48, .65);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 720;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.rental-partner-link:hover,
+.rental-secondary-button:hover,
+.fleet-manage-link:hover {
+    border-color: rgba(251, 146, 60, .46);
+    color: #FDBA74;
+}
+
+.rental-partner-link i {
+    color: #FB923C;
+}
+
+.rental-primary-button,
+.fleet-booking-review[data-status="approved"] {
+    border-color: rgba(245, 158, 11, .38);
+    color: #1F2937;
+    background: linear-gradient(110deg, #F59E0B, #FB923C);
+    box-shadow: 0 8px 22px rgba(245, 158, 11, .2);
+}
+
+.rental-primary-button:hover,
+.fleet-booking-review[data-status="approved"]:hover {
+    color: #111827;
+    filter: brightness(1.08);
+}
+
+.rental-date-bar,
+.rental-search,
+.rental-filter-row button,
+.rental-secondary-button,
+.rental-preview-specs span,
+.rental-booking-item,
+.rental-review-form :is(select, textarea),
+.app--rental-workspace .groups-dialog-card :is(input:not([type="checkbox"]), select, textarea) {
+    border: 1px solid rgba(255, 255, 255, .14) !important;
+    color: #F8FAFC !important;
+    background: rgba(24, 30, 48, .65) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+}
+
+.rental-date-bar {
+    display: flex;
+    flex: 0 0 auto;
+    min-height: 47px;
+    align-items: center;
+    gap: 5px;
+    overflow: hidden;
+    padding: 4px 8px;
+    border-radius: 14px;
+}
+
+.rental-date-bar label {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 6px;
+    color: #94A3B8;
+}
+
+.rental-date-location {
+    flex: 1 1 100px;
+}
+
+.rental-date-field {
+    flex: 0 0 auto;
+}
+
+.rental-date-bar input {
+    width: 100%;
+    min-width: 0;
+    min-height: 32px;
+    padding: 0 2px !important;
+    border: 0 !important;
+    color: #F8FAFC !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    font: inherit;
+    font-size: 10px;
+}
+
+.rental-date-bar input[type="date"] {
+    width: 118px;
+}
+
+.rental-date-bar input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: .7;
+}
+
+.rental-date-separator {
+    color: #94A3B8;
+}
+
+.rental-filter-row {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 7px;
+    overflow-x: auto;
+    margin: 12px -2px 9px;
+    padding: 0 2px 3px;
+    scrollbar-width: none;
+}
+
+.rental-filter-row::-webkit-scrollbar {
+    display: none;
+}
+
+.rental-filter-row button {
+    min-height: 34px;
+    flex: 0 0 auto;
+    padding: 0 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 650;
+}
+
+.rental-filter-row button.is-active {
+    border-color: rgba(251, 146, 60, .58) !important;
+    color: #FDBA74 !important;
+    background: rgba(245, 158, 11, .17) !important;
+}
+
+.rental-search {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 9px;
+    padding: 0 11px;
+    border-radius: 12px;
+    color: #94A3B8;
+}
+
+.rental-search input {
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 !important;
+    border: 0 !important;
+    outline: 0;
+    color: #F8FAFC !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    font: inherit;
+    font-size: 11px;
+}
+
+.rental-search input::placeholder,
+.app--rental-workspace .groups-dialog-card input::placeholder,
+.app--rental-workspace .groups-dialog-card textarea::placeholder {
+    color: #94A3B8;
+}
+
+.rental-status,
+.rental-map-status {
+    flex: 0 0 auto;
+    margin: 8px 2px 5px;
+    color: #94A3B8;
+    font-size: 10px;
+    line-height: 1.4;
+}
+
+.rental-map-status {
+    margin: 6px 2px;
+}
+
+.rental-vehicle-list {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 10px;
+    overflow: auto;
+    padding: 1px 3px 6px 0;
+    scrollbar-color: rgba(148, 163, 184, .35) transparent;
+}
+
+.app--car-hire .rental-vehicle-card {
+    display: grid;
+    grid-template-columns: 134px minmax(0, 1fr);
+    grid-template-rows: 1fr auto;
+    gap: 8px 10px;
+    min-height: 126px;
+    padding: 9px;
+    border: 1px solid rgba(255, 255, 255, .12) !important;
+    border-radius: 16px;
+    color: #F8FAFC;
+    background: rgba(24, 30, 48, .58) !important;
+    box-shadow: none !important;
+    cursor: pointer;
+    transition: border-color .16s ease, background .16s ease;
+}
+
+.app--car-hire .rental-vehicle-card:hover,
+.app--car-hire .rental-vehicle-card.is-selected {
+    border-color: rgba(245, 158, 11, .55) !important;
+    background: rgba(245, 158, 11, .09) !important;
+}
+
+.rental-vehicle-photo,
+.rental-vehicle-placeholder {
+    display: grid;
+    width: 100%;
+    height: 91px;
+    grid-row: 1 / 3;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 11px;
+    color: #FDBA74;
+    background: #101827;
+    object-fit: cover;
+}
+
+.rental-vehicle-placeholder,
+.rental-preview-placeholder {
+    background: linear-gradient(135deg, rgba(245, 158, 11, .2), rgba(24, 30, 48, .9));
+    font-size: 26px;
+}
+
+.rental-vehicle-copy {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 3px;
+}
+
+.rental-vehicle-meta,
+.rental-eyebrow,
+.fleet-page .rental-eyebrow {
+    color: #94A3B8;
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.rental-vehicle-copy h2 {
+    overflow: hidden;
+    margin: 0;
+    color: #F8FAFC;
+    font-size: 13px;
+    font-weight: 730;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rental-rate {
+    color: #FDBA74;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.rental-verified-line {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 5px;
+    overflow: hidden;
+    margin: 0;
+    color: #CBD5E1;
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rental-verified-icon,
+.rental-verified-badge {
+    color: #10B981;
+}
+
+.rental-verified-icon {
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.app--car-hire .rental-vehicle-card .rental-primary-button {
+    grid-column: 2;
+    justify-self: end;
+    min-height: 32px;
+    padding: 0 13px;
+    font-size: 10px;
+}
+
+.rental-my-bookings {
+    flex: 0 0 auto;
+    max-height: 35%;
+    overflow: auto;
+    border-top: 1px solid rgba(255, 255, 255, .08);
+}
+
+.rental-my-bookings summary {
+    display: flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: space-between;
+    color: #CBD5E1;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    list-style: none;
+}
+
+.rental-my-bookings summary span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rental-my-bookings[open] summary > i {
+    transform: rotate(180deg);
+}
+
+.rental-booking-list {
+    display: grid;
+    gap: 7px;
+    max-height: 190px;
+    overflow: auto;
+    padding-bottom: 8px;
+}
+
+.rental-booking-item {
+    display: grid;
+    gap: 5px;
+    padding: 9px;
+    border-radius: 12px;
+}
+
+.rental-booking-item strong {
+    color: #F8FAFC;
+    font-size: 10px;
+}
+
+.rental-booking-item :is(span, small) {
+    color: #94A3B8;
+    font-size: 9px;
+}
+
+.rental-contact-link {
+    color: #FDBA74;
+    font-size: 10px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.rental-preview {
+    position: fixed;
+    z-index: 42;
+    top: 132px;
+    right: 24px;
+    width: 250px;
+    padding: 12px;
+    pointer-events: auto;
+}
+
+.rental-preview[hidden] {
+    display: none !important;
+}
+
+.rental-preview-close {
+    position: absolute;
+    z-index: 1;
+    top: 7px;
+    right: 7px;
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 50%;
+    color: #F8FAFC;
+    background: rgba(12, 16, 28, .74);
+    cursor: pointer;
+}
+
+.rental-preview-photo,
+.rental-preview-placeholder {
+    display: grid;
+    width: 100%;
+    height: 132px;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 12px;
+    color: #FDBA74;
+    object-fit: cover;
+}
+
+.rental-verified-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    font-size: 10px;
+    font-weight: 750;
+}
+
+.rental-preview h2 {
+    margin: 6px 0 2px;
+    color: #F8FAFC;
+    font-size: 15px;
+}
+
+.rental-preview .rental-provider {
+    margin: 0 0 7px;
+    color: #94A3B8;
+    font-size: 10px;
+}
+
+.rental-preview-specs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 10px 0;
+}
+
+.rental-preview-specs span {
+    padding: 5px 7px;
+    border-radius: 8px;
+    font-size: 9px;
+}
+
+.rental-preview .rental-primary-button {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.rental-empty {
+    margin: 12px 4px;
+    color: #94A3B8;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.rental-dialog[hidden],
+.app--rental-workspace .groups-dialog[hidden] {
+    display: none !important;
+}
+
+.app--rental-workspace .groups-dialog {
+    position: fixed;
+    z-index: 100;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(2, 6, 14, .7);
+    pointer-events: auto;
+}
+
+.app--rental-workspace .groups-dialog-card {
+    width: min(520px, 100%);
+    max-height: min(90dvh, 880px);
+    overflow: auto;
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, .12) !important;
+    border-radius: 20px;
+    color: #F8FAFC;
+    background: rgba(12, 16, 28, .74) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+.app--rental-workspace .groups-dialog-card h2 {
+    margin: 6px 0 16px;
+    color: #F8FAFC;
+    font-size: 21px;
+}
+
+.app--rental-workspace .groups-dialog-card label {
+    display: block;
+    margin: 11px 0 5px;
+    color: #CBD5E1;
+    font-size: 11px;
+}
+
+.app--rental-workspace .groups-dialog-card :is(input:not([type="checkbox"]), select, textarea) {
+    width: 100%;
+    min-height: 40px;
+    padding: 9px 11px;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 12px;
+}
+
+.app--rental-workspace .groups-dialog-card textarea {
+    min-height: 76px;
+}
+
+.app--rental-workspace .groups-dialog-card .fleet-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.app--rental-workspace .groups-dialog-card .fleet-check input {
+    width: auto;
+}
+
+.rental-dialog-note {
+    color: #94A3B8;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.app--fleet-dashboard .fleet-page {
+    position: fixed;
+    inset: 94px 20px 20px;
+    display: grid;
+    grid-template-columns: 220px minmax(420px, 1fr) 300px;
+    gap: 12px;
+    width: auto;
+    height: auto;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.fleet-rail {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 7px;
+    padding: 14px;
+    pointer-events: auto;
+}
+
+.fleet-rail a {
+    display: flex;
+    min-height: 42px;
+    align-items: center;
+    gap: 11px;
+    padding: 0 11px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    color: #94A3B8;
+    font-size: 12px;
+    font-weight: 650;
+    text-decoration: none;
+}
+
+.fleet-rail a:hover,
+.fleet-rail a.is-active {
+    border-color: rgba(245, 158, 11, .28);
+    color: #FDBA74;
+    background: rgba(245, 158, 11, .11);
+}
+
+.fleet-rail a > i {
+    width: 17px;
+    text-align: center;
+}
+
+.fleet-rail-count {
+    display: grid;
+    min-width: 20px;
+    height: 20px;
+    place-items: center;
+    margin-left: auto;
+    border-radius: 50%;
+    color: #1F2937;
+    background: #F59E0B;
+    font-size: 9px;
+    font-weight: 800;
+}
+
+.fleet-rail > .rental-primary-button {
+    min-height: 42px;
+    margin-top: auto;
+    white-space: normal;
+}
+
+.fleet-workspace {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    gap: 12px;
+    overflow: auto;
+    padding: 0 2px 2px;
+    pointer-events: auto;
+    scrollbar-color: rgba(148, 163, 184, .35) transparent;
+}
+
+.fleet-page-heading {
+    flex: 0 0 auto;
+    padding: 3px 2px 0;
+}
+
+.fleet-page-heading h1 {
+    margin-top: 3px;
+    font-size: 21px;
+}
+
+.fleet-page-heading p {
+    margin: 5px 0 0;
+    color: #94A3B8;
+    font-size: 10px;
+}
+
+.fleet-page-heading .rental-verified-badge {
+    flex: 0 0 auto;
+    padding: 7px 10px;
+    border: 1px solid rgba(16, 185, 129, .23);
+    border-radius: 999px;
+    background: rgba(16, 185, 129, .1);
+}
+
+.fleet-kpi-grid {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 9px;
+}
+
+.fleet-kpi-card {
+    display: grid;
+    min-width: 0;
+    gap: 6px;
+    padding: 13px;
+}
+
+.fleet-kpi-card > span {
+    color: #94A3B8;
+    font-size: 10px;
+}
+
+.fleet-kpi-card strong {
+    overflow: hidden;
+    color: #F8FAFC;
+    font-size: clamp(14px, 1.35vw, 20px);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fleet-kpi-card small {
+    color: #10B981;
+    font-size: 9px;
+    line-height: 1.35;
+}
+
+.fleet-dashboard-card {
+    min-width: 0;
+    padding: 14px;
+    pointer-events: auto;
+}
+
+.fleet-dashboard-card > header {
+    margin-bottom: 11px;
+}
+
+.fleet-dashboard-card h2,
+.fleet-activity-sidebar h2 {
+    margin: 3px 0 0;
+    color: #F8FAFC;
+    font-size: 15px;
+}
+
+.fleet-dashboard-card > header p {
+    max-width: 60ch;
+    margin: 5px 0 0;
+    color: #94A3B8;
+    font-size: 10px;
+    line-height: 1.4;
+}
+
+.fleet-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.fleet-dashboard-card table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #F8FAFC;
+    font-size: 10px;
+    text-align: left;
+}
+
+.fleet-dashboard-card th,
+.fleet-dashboard-card td {
+    padding: 9px 7px;
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.fleet-dashboard-card th {
+    color: #94A3B8;
+    font-weight: 650;
+}
+
+.fleet-dashboard-card td:first-child {
+    font-weight: 650;
+}
+
+.fleet-check-icon,
+.fleet-org-tag i {
+    color: #10B981;
+}
+
+.fleet-status-pill,
+.fleet-org-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 8px;
+    border: 1px solid rgba(148, 163, 184, .18);
+    border-radius: 999px;
+    color: #CBD5E1;
+    background: rgba(148, 163, 184, .08);
+    font-size: 9px;
+    font-weight: 750;
+}
+
+.fleet-status-pill.is-verified,
+.fleet-status-pill.is-available {
+    border-color: rgba(16, 185, 129, .28);
+    color: #34D399;
+    background: rgba(16, 185, 129, .1);
+}
+
+.fleet-status-pill.is-booked {
+    border-color: rgba(245, 158, 11, .3);
+    color: #FDBA74;
+    background: rgba(245, 158, 11, .1);
+}
+
+.fleet-status-pill.is-maintenance,
+.fleet-status-pill.is-unavailable {
+    color: #94A3B8;
+}
+
+.fleet-manage-link {
+    min-height: 27px;
+    padding: 0 9px;
+    color: #FDBA74;
+    font-size: 9px;
+}
+
+.fleet-vehicle-table td {
+    white-space: normal;
+}
+
+.fleet-vehicle-table td:nth-child(2) {
+    min-width: 138px;
+}
+
+.fleet-vehicle-table td strong,
+.fleet-vehicle-table td small {
+    display: block;
+}
+
+.fleet-vehicle-table td strong {
+    color: #F8FAFC;
+    font-size: 10px;
+}
+
+.fleet-vehicle-table td small {
+    margin-top: 3px;
+    color: #94A3B8;
+    font-size: 9px;
+}
+
+.fleet-vehicle-thumb {
+    display: grid;
+    width: 56px;
+    height: 42px;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 8px;
+    color: #FDBA74;
+    background: #101827;
+    object-fit: cover;
+}
+
+.fleet-vehicle-thumb--empty {
+    font-size: 17px;
+}
+
+.fleet-company-profile {
+    pointer-events: auto;
+}
+
+.fleet-company-profile > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: #F8FAFC;
+    cursor: pointer;
+    list-style: none;
+}
+
+.fleet-company-profile > summary > span {
+    display: grid;
+    gap: 5px;
+}
+
+.fleet-company-profile > summary strong {
+    font-size: 12px;
+}
+
+.fleet-profile-form {
+    padding-top: 14px;
+}
+
+.fleet-activity-sidebar {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 9px;
+    overflow: auto;
+    padding: 14px;
+    pointer-events: auto;
+    scrollbar-color: rgba(148, 163, 184, .35) transparent;
+}
+
+.fleet-activity-sidebar > header {
+    flex: 0 0 auto;
+    margin-bottom: 2px;
+}
+
+.fleet-activity-sidebar > header > i {
+    color: #94A3B8;
+}
+
+.fleet-activity-item {
+    display: grid;
+    grid-template-columns: 11px minmax(0, 1fr);
+    gap: 8px;
+    padding: 11px 9px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 13px;
+    background: rgba(24, 30, 48, .48);
+}
+
+.fleet-activity-dot {
+    width: 9px;
+    height: 9px;
+    margin-top: 3px;
+    border-radius: 50%;
+    background: #94A3B8;
+    box-shadow: 0 0 10px currentColor;
+}
+
+.fleet-activity-dot.is-request {
+    color: #FB923C;
+    background: #FB923C;
+}
+
+.fleet-activity-dot.is-approved {
+    color: #10B981;
+    background: #10B981;
+}
+
+.fleet-activity-item strong {
+    color: #F8FAFC;
+    font-size: 10px;
+}
+
+.fleet-activity-item p,
+.fleet-activity-item small {
+    display: block;
+    margin: 5px 0 0;
+    color: #CBD5E1;
+    font-size: 9px;
+    line-height: 1.4;
+}
+
+.fleet-activity-item small {
+    color: #94A3B8;
+}
+
+.fleet-activity-actions {
+    display: flex;
+    gap: 5px;
+    margin-top: 8px;
+}
+
+.fleet-activity-actions .fleet-booking-review {
+    min-height: 27px;
+    padding: 0 8px;
+    font-size: 9px;
+}
+
+.fleet-booking {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.fleet-booking > div:first-child {
+    display: grid;
+    gap: 5px;
+}
+
+.fleet-booking h3 {
+    margin: 0;
+    color: #F8FAFC;
+    font-size: 12px;
+}
+
+.fleet-booking p,
+.fleet-booking small {
+    margin: 0;
+    color: #94A3B8;
+    font-size: 9px;
+    line-height: 1.45;
+}
+
+.fleet-booking-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+}
+
+.fleet-booking-review {
+    min-height: 30px;
+    font-size: 9px;
+}
+
+.fleet-booking-review.is-reject {
+    border-color: rgba(248, 113, 113, .3);
+    color: #FCA5A5;
+    background: rgba(127, 29, 29, .25);
+}
+
+.app-map-marker--rental .app-map-marker-dot {
+    width: 12px;
+    height: 12px;
+    border: 2px solid #FFF7ED;
+    background: #F59E0B;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, .25), 0 0 18px #F59E0B;
+}
+
+.app-map-marker--rental .app-map-marker-label,
+.app-google-marker-label--rental {
+    padding: 6px 9px !important;
+    border: 1px solid rgba(255, 255, 255, .16) !important;
+    border-radius: 999px !important;
+    color: #F8FAFC !important;
+    background: rgba(12, 16, 28, .74) !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .4);
+    font-size: 10px !important;
+    text-shadow: none !important;
+}
+
+.fleet-bookings .rental-eyebrow {
+    display: block;
+}
+
+body:has(.app--car-hire) .app-map-controls {
+    z-index: 28;
+    top: 82px;
+    right: 24px;
+    left: auto;
+}
+
+body:has(.app--fleet-dashboard) .app-map-controls {
+    display: none !important;
+}
+
+.fleet-company-profile fieldset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+}
+
+.fleet-company-profile .fleet-check {
+    color: #CBD5E1;
+    font-size: 10px;
+}
+
+.fleet-company-profile .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.app--rental-workspace .groups-dialog-close {
+    position: sticky;
+    float: right;
+    top: 0;
+    z-index: 2;
+}
+
+@media (max-width: 1320px) and (min-width: 801px) {
+    .app--fleet-dashboard .fleet-page {
+        grid-template-columns: 180px minmax(340px, 1fr) 260px;
+        inset-inline: 12px;
+        gap: 8px;
+    }
+
+    .fleet-kpi-grid {
+        gap: 6px;
+    }
+
+    .fleet-kpi-card {
+        padding: 10px;
+    }
+}
+
+@media (max-width: 1100px) {
+    .app--rental-workspace > .sidebar {
+        top: 10px !important;
+        max-width: calc(100vw - 24px);
+        min-height: 42px;
+    }
+
+    .app--rental-workspace > .sidebar nav {
+        max-width: calc(100vw - 32px);
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .app--rental-workspace > .sidebar nav a {
+        width: 36px !important;
+        min-height: 34px !important;
+        padding: 0 !important;
+        font-size: 0 !important;
+    }
+
+    .app--rental-workspace > .sidebar nav .nav-link-label {
+        display: none !important;
+    }
+
+    .app--car-hire .rental-marketplace-panel {
+        top: 78px;
+        right: 12px;
+        bottom: 12px;
+        left: 12px;
+        width: auto;
+        max-height: calc(100dvh - 90px);
+        padding: 12px;
+    }
+
+    .app--car-hire .rental-preview {
+        top: 82px;
+        right: 18px;
+        width: min(250px, calc(100vw - 36px));
+    }
+
+    .app--car-hire .rental-preview:not([hidden]) {
+        z-index: 55;
+    }
+
+    body:has(.app--car-hire) .app-map-controls {
+        top: 58px;
+        right: 12px;
+    }
+
+    .app--fleet-dashboard .fleet-page {
+        inset: 68px 10px 10px;
+        grid-template-columns: 150px minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) minmax(180px, 28dvh);
+        overflow: auto;
+    }
+
+    .fleet-activity-sidebar {
+        grid-column: 2;
+        min-height: 180px;
+    }
+
+    .fleet-workspace {
+        grid-row: 1 / 3;
+    }
+
+    .fleet-rail {
+        grid-row: 1 / 3;
+    }
+}
+
+@media (max-width: 800px) {
+    .app--rental-workspace > .sidebar {
+        top: 9px !important;
+        max-width: calc(100vw - 20px);
+        min-height: 40px;
+    }
+
+    .app--rental-workspace > .sidebar nav {
+        max-width: calc(100vw - 30px);
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .app--rental-workspace > .sidebar nav a {
+        width: 34px !important;
+        min-height: 34px !important;
+        padding: 0 !important;
+        font-size: 0 !important;
+    }
+
+    .app--rental-workspace > .sidebar nav .nav-link-label {
+        display: none !important;
+    }
+
+    .app--car-hire .rental-marketplace-panel {
+        top: auto;
+        right: 8px;
+        bottom: 8px;
+        left: 8px;
+        height: min(62dvh, 560px);
+        max-height: calc(100dvh - 68px);
+        padding: 10px;
+        border-radius: 17px;
+    }
+
+    .rental-marketplace-heading h1 {
+        font-size: 20px;
+    }
+
+    .rental-partner-link {
+        min-height: 33px;
+        padding: 0 9px;
+        font-size: 9px;
+    }
+
+    .rental-date-bar {
+        gap: 3px;
+        min-height: 40px;
+        padding-inline: 6px;
+    }
+
+    .rental-date-bar input {
+        font-size: 9px;
+    }
+
+    .rental-date-bar input[type="date"] {
+        width: 104px;
+        font-size: 9px;
+    }
+
+    .rental-filter-row {
+        gap: 5px;
+        margin: 8px -1px 6px;
+    }
+
+    .rental-filter-row button {
+        min-height: 30px;
+        padding-inline: 9px;
+        font-size: 10px;
+    }
+
+    .rental-vehicle-list {
+        gap: 7px;
+    }
+
+    .app--car-hire .rental-vehicle-card {
+        grid-template-columns: 94px minmax(0, 1fr);
+        min-height: 104px;
+        gap: 6px 8px;
+        padding: 7px;
+        border-radius: 13px;
+    }
+
+    .rental-vehicle-photo,
+    .rental-vehicle-placeholder {
+        height: 78px;
+    }
+
+    .rental-vehicle-copy h2 {
+        font-size: 12px;
+    }
+
+    .rental-vehicle-meta,
+    .rental-verified-line {
+        font-size: 8px;
+    }
+
+    .rental-rate {
+        font-size: 10px;
+    }
+
+    .app--car-hire .rental-vehicle-card .rental-primary-button {
+        min-height: 27px;
+        font-size: 9px;
+    }
+
+    .app--fleet-dashboard .fleet-page {
+        inset: 60px 8px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        overflow: auto;
+    }
+
+    .fleet-rail {
+        position: sticky;
+        z-index: 3;
+        top: 0;
+        display: flex;
+        min-height: 50px;
+        flex: 0 0 auto;
+        flex-direction: row;
+        gap: 4px;
+        overflow-x: auto;
+        padding: 6px;
+        border-radius: 14px !important;
+        scrollbar-width: none;
+    }
+
+    .fleet-rail a {
+        min-height: 36px;
+        flex: 0 0 auto;
+        gap: 6px;
+        padding-inline: 8px;
+        font-size: 9px;
+    }
+
+    .fleet-rail a > i {
+        width: auto;
+    }
+
+    .fleet-rail > .rental-primary-button {
+        min-height: 36px;
+        flex: 0 0 auto;
+        margin: 0;
+        font-size: 9px;
+    }
+
+    .fleet-workspace {
+        flex: 0 0 auto;
+        overflow: visible;
+    }
+
+    .fleet-page-heading h1 {
+        font-size: 18px;
+    }
+
+    .fleet-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .fleet-kpi-card strong {
+        font-size: 15px;
+    }
+
+    .fleet-dashboard-card {
+        padding: 10px;
+        border-radius: 15px !important;
+    }
+
+    .fleet-activity-sidebar {
+        min-height: 220px;
+        flex: 0 0 auto;
+        overflow: visible;
+        border-radius: 15px !important;
+    }
+
+    .fleet-booking {
+        flex-direction: column;
+    }
+
+    .fleet-booking-actions {
+        flex-wrap: wrap;
+    }
+
+    .fleet-company-profile .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .app--rental-workspace .groups-dialog {
+        padding: 8px;
+    }
+
+    .app--rental-workspace .groups-dialog-card {
+        max-height: calc(100dvh - 16px);
+        padding: 17px;
+    }
+}
+
+html[data-theme] .app.app--rental-workspace.app--car-hire .rental-marketplace-panel,
+html[data-theme] .app.app--rental-workspace.app--car-hire .rental-preview,
+html[data-theme] .app.app--rental-workspace.app--fleet-dashboard .fleet-rail,
+html[data-theme] .app.app--rental-workspace.app--fleet-dashboard .fleet-dashboard-card,
+html[data-theme] .app.app--rental-workspace.app--fleet-dashboard .fleet-kpi-card,
+html[data-theme] .app.app--rental-workspace.app--fleet-dashboard .fleet-activity-sidebar {
+    border-color: rgba(255, 255, 255, .1) !important;
+    background: rgba(12, 16, 28, .74) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+html[data-theme] .app.app--rental-workspace.app--car-hire .rental-vehicle-card {
+    border-color: rgba(255, 255, 255, .12) !important;
+    background: rgba(24, 30, 48, .65) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+html[data-theme] .app.app--rental-workspace :is(
+    .rental-date-bar,
+    .rental-search,
+    .rental-filter-row button,
+    .rental-preview-specs span,
+    .rental-booking-item,
+    .fleet-activity-item,
+    .rental-review-form :is(select, textarea),
+    .groups-dialog-card :is(input:not([type="checkbox"]), select, textarea)
+) {
+    border-color: rgba(255, 255, 255, .14) !important;
+    background: rgba(24, 30, 48, .65) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+}
+
+html[data-theme] .app.app--rental-workspace.app--car-hire .rental-search input,
+html[data-theme] .app.app--rental-workspace.app--car-hire .rental-date-bar input,
+html[data-theme] .app.app--rental-workspace .groups-dialog-card :is(
+    input:not([type="checkbox"]),
+    select,
+    textarea
+) {
+    border: 1px solid rgba(255, 255, 255, .14) !important;
+    border-radius: 9px;
+    color: #F8FAFC !important;
+    background: rgba(24, 30, 48, .65) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+}
+
+html[data-theme] .app.app--rental-workspace.app--car-hire .rental-search input {
+    padding: 0 9px !important;
+}
+
+html[data-theme] .app.app--rental-workspace.app--car-hire .rental-date-bar input {
+    padding: 0 5px !important;
+}
+
+html[data-theme] .app.app--rental-workspace.app--car-hire #rentalSearch,
+html[data-theme] .app.app--rental-workspace.app--car-hire #rentalPickupDate,
+html[data-theme] .app.app--rental-workspace.app--car-hire #rentalReturnDate {
+    border: 1px solid rgba(255, 255, 255, .14) !important;
+    color: #F8FAFC !important;
+    background: rgba(24, 30, 48, .65) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+}
+
+html[data-theme] .app.app--rental-workspace > #sidebar {
+    border-color: rgba(255, 255, 255, .1) !important;
+    background: rgba(12, 16, 28, .74) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+html[data-theme] body .app.app--rental-workspace.app--car-hire .rental-preview {
+    top: 76px !important;
+}
+
+html[data-theme] .app.app--rental-workspace .groups-dialog-card {
+    border-color: rgba(255, 255, 255, .1) !important;
+    background: rgba(12, 16, 28, .74) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+html[data-theme] .app.app--rental-workspace .groups-dialog-card input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="file"]),
+html[data-theme] .app.app--rental-workspace .groups-dialog-card select,
+html[data-theme] .app.app--rental-workspace .groups-dialog-card textarea {
+    border: 1px solid rgba(255, 255, 255, .14) !important;
+    color: #F8FAFC !important;
+    background: rgba(24, 30, 48, .65) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+}

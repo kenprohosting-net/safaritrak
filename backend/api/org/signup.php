@@ -128,7 +128,7 @@ $userStmt->execute([$userId]);
 $user = $userStmt->fetch();
 
 $mailSent = st_send_verification_email($user, $token);
-$devMode = getenv('SAFARITRAK_DEV_MODE') === '1';
+$devMode = st_is_local_development_request();
 
 $response = [
     'need_verification' => true,

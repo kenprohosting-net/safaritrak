@@ -1,17 +1,21 @@
 const userSearch = document.getElementById('userSearch');
 const userStatusFilter = document.getElementById('userStatusFilter');
+const userRoleFilter = document.getElementById('userRoleFilter');
 const userRows = document.querySelectorAll('#usersTable tbody tr');
 const emptyState = document.getElementById('usersEmptyState');
 
 function applyUserFilters() {
   const search = userSearch.value.trim().toLowerCase();
   const status = userStatusFilter.value;
+  const role = userRoleFilter.value;
   let visible = 0;
 
   userRows.forEach(row => {
     const matchesSearch = !search || row.textContent.toLowerCase().includes(search);
     const matchesStatus = status === 'all' || row.getAttribute('data-status') === status;
-    const show = matchesSearch && matchesStatus;
+    const roles = (row.getAttribute('data-roles') || '').split(/\s+/);
+    const matchesRole = role === 'all' || roles.includes(role);
+    const show = matchesSearch && matchesStatus && matchesRole;
 
     row.style.display = show ? '' : 'none';
     if (show) visible++;
@@ -22,6 +26,7 @@ function applyUserFilters() {
 
 userSearch?.addEventListener('input', applyUserFilters);
 userStatusFilter?.addEventListener('change', applyUserFilters);
+userRoleFilter?.addEventListener('change', applyUserFilters);
 
 document.querySelectorAll('.status-btn').forEach(btn => {
   btn.addEventListener('click', async () => {

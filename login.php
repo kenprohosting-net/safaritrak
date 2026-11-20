@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Please verify your email before logging in. Check your inbox for the verification link, or sign up again to request a new one.';
             } else {
                 st_rate_limit_clear($db, 'login-identifier', $rateLimitKey);
-                st_login_user($user, !empty($_POST['remember']), $db);
+                st_login_user($user, $db);
 
                 // Check Platform Admin status
                 $paStmt = $db->prepare('SELECT id FROM platform_admins WHERE user_id = ? LIMIT 1');
@@ -132,12 +132,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <form class="login-form" id="loginForm" method="POST" action="login.php" novalidate>
       <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
       <div class="input-group">
+        <label class="auth-visually-hidden" for="loginUsername">Username or email</label>
         <input type="text" name="username" id="loginUsername" placeholder="Username or Email" value="<?= htmlspecialchars($usernameInput) ?>" required>
         <i class="fa-regular fa-user input-icon"></i>
       </div>
       <p class="field-error" id="loginUsernameError">Enter your username</p>
 
       <div class="input-group">
+        <label class="auth-visually-hidden" for="loginPassword">Password</label>
         <input type="password" name="password" id="loginPassword" placeholder="Password" required>
         <button type="button" class="input-icon" id="toggleLoginPassword" aria-label="Show password">
           <i class="fa-regular fa-eye-slash"></i>
@@ -146,10 +148,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <p class="field-error" id="loginPasswordError">Enter your password</p>
 
       <div class="auth-row">
-        <div class="remember-me">
-          <input type="checkbox" id="remember" name="remember" checked>
-          <label for="remember">Remember me</label>
-        </div>
         <a class="forgot-link" href="forgot-password.php">Forgot password?</a>
       </div>
 

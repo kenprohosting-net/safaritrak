@@ -43,7 +43,7 @@ if ($email !== '') {
 
         st_send_verification_email($user, $token);
 
-        if (getenv('SAFARITRAK_DEV_MODE') === '1') {
+        if (st_is_local_development_request()) {
             $response['dev_verification_link'] = 'verify-email.php?token=' . $token;
             $response['message'] = 'Local development mode is enabled. Open the verification link below to activate your account.';
         }

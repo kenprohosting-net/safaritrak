@@ -51,6 +51,25 @@ try {
             (int) $request['user_id'],
             $request['member_type'],
         ]);
+        if ($request['member_type'] === 'staff') {
+            $db->prepare(
+                'INSERT INTO school_verifications
+                    (user_id, school_id, role, verification_status, verified_by, verified_at)
+                 SELECT ?, ?, "school_admin", "verified", ?, UTC_TIMESTAMP()
+                 FROM organization_profiles
+                 WHERE organization_id = ? AND account_type = "school"
+                   AND review_status = "approved"
+                 ON DUPLICATE KEY UPDATE
+                   verification_status = "verified",
+                   verified_by = VALUES(verified_by),
+                   verified_at = VALUES(verified_at)'
+            )->execute([
+                $request['user_id'],
+                $request['organization_id'],
+                $userId,
+                $request['organization_id'],
+            ]);
+        }
     }
     $db->commit();
 } catch (Throwable $error) {

@@ -1,0 +1,403 @@
+.app--trusted-contacts {
+    position: fixed !important;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    min-height: 0 !important;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.app--trusted-contacts > main {
+    width: 100%;
+    height: 100%;
+    min-height: 0 !important;
+    pointer-events: none;
+}
+
+.app--trusted-contacts > main > header {
+    z-index: 40;
+    pointer-events: auto;
+}
+
+.app--trusted-contacts > main > footer {
+    display: none !important;
+}
+
+.app--trusted-contacts > main > .content {
+    position: fixed !important;
+    z-index: 20;
+    inset: 112px 16px 16px !important;
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none;
+}
+
+.trusted-contacts-workspace {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-template-columns: minmax(330px, .92fr) minmax(0, 1.08fr);
+    gap: 14px;
+}
+
+.trusted-people-panel,
+.trusted-sharing-panel {
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid rgba(255, 255, 255, .13);
+    border-radius: 20px;
+    color: #F8FAFC;
+    background: rgba(10, 15, 27, .88);
+    box-shadow: 0 20px 46px rgba(0, 0, 0, .38);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    pointer-events: auto;
+}
+
+html body .app.app--trusted-contacts .trusted-people-panel,
+html body .app.app--trusted-contacts .trusted-sharing-panel {
+    border-color: rgba(255, 255, 255, .13) !important;
+    color: #F8FAFC !important;
+    background: rgba(10, 15, 27, .9) !important;
+    box-shadow: 0 20px 46px rgba(0, 0, 0, .38) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+}
+
+.trusted-people-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.trusted-people-panel > .page-head {
+    flex: 0 0 auto;
+    align-items: flex-start;
+    margin: 0;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, .1);
+}
+
+html body .app.app--trusted-contacts .trusted-people-panel > .page-head {
+    border-color: rgba(255, 255, 255, .1) !important;
+    color: #F8FAFC !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+.trusted-people-panel .page-head h2 {
+    margin: 0;
+    color: #F8FAFC;
+    font-size: 19px;
+}
+
+.trusted-people-panel .page-head p,
+.trusted-people-panel .hint {
+    color: #CBD5E1;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.trusted-people-panel .page-head .btn-primary {
+    flex: 0 0 auto;
+    min-height: 40px;
+    border-radius: 12px;
+}
+
+.trusted-requests-panel {
+    flex: 0 0 auto;
+    margin: 12px 14px 0 !important;
+    padding: 13px !important;
+    border: 1px solid rgba(255, 255, 255, .12) !important;
+    border-radius: 15px !important;
+    color: #F8FAFC !important;
+    background: rgba(26, 34, 51, .8) !important;
+}
+
+.trusted-requests-panel .card-head {
+    padding: 0 0 10px;
+}
+
+.trusted-requests-panel .card-head h3,
+.trusted-requests-panel .jinfo b,
+.trusted-requests-panel .jinfo small {
+    color: #F8FAFC;
+}
+
+.trusted-requests-panel .journey-list {
+    padding: 0;
+}
+
+.trusted-requests-panel .journey-row {
+    padding: 8px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, .1);
+}
+
+.trusted-people-panel .contacts-grid {
+    display: grid;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 10px;
+    padding: 14px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+
+.trusted-people-panel .contact-card {
+    gap: 10px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 16px;
+    color: #E2E8F0;
+    background: rgba(26, 34, 51, .78);
+}
+
+html body .app.app--trusted-contacts .trusted-people-panel .contact-card {
+    border-color: rgba(255, 255, 255, .12) !important;
+    color: #E2E8F0 !important;
+    background: rgba(26, 34, 51, .88) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+.trusted-people-panel .contact-card .top .person {
+    color: #111827;
+    background: linear-gradient(135deg, #FBBF24, #FB923C);
+}
+
+.trusted-people-panel .contact-card .top b {
+    color: #F8FAFC;
+}
+
+.trusted-people-panel .contact-card .top small,
+.trusted-people-panel .contact-card .permission-row {
+    color: #CBD5E1;
+}
+
+.trusted-people-panel .contact-card .permission-row {
+    border-color: rgba(255, 255, 255, .1);
+}
+
+.trusted-people-panel .contact-card .card-buttons a,
+.trusted-people-panel .contact-card .card-buttons button {
+    min-height: 36px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 10px;
+    color: #E2E8F0;
+    background: rgba(255, 255, 255, .06);
+    text-decoration: none;
+}
+
+.trusted-people-panel .contact-card .card-buttons .remove-btn {
+    color: #FCA5A5;
+}
+
+.trusted-people-panel .add-contact-card {
+    min-height: 86px;
+    flex-direction: row;
+    padding: 16px;
+    border-color: rgba(245, 158, 11, .45);
+    border-radius: 16px;
+    color: #FDE68A;
+    background: rgba(245, 158, 11, .07);
+}
+
+.trusted-people-panel .contacts-empty-note {
+    margin: auto;
+    padding: 0 20px 20px;
+}
+
+.trusted-sharing-panel {
+    display: grid;
+    align-content: start;
+    gap: 16px;
+    margin: 0;
+    padding: 24px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.trusted-sharing-panel > div:first-child > label {
+    color: #FBBF24;
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: .12em;
+}
+
+.trusted-sharing-panel h3 {
+    margin: 7px 0 5px;
+    color: #F8FAFC;
+    font-size: 22px;
+    line-height: 1.25;
+}
+
+.trusted-sharing-panel > div:first-child > p,
+.trusted-sharing-panel .live-share-option p {
+    color: #CBD5E1;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.trusted-sharing-panel .live-share-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.trusted-sharing-panel .live-share-option {
+    gap: 11px;
+    padding: 17px;
+    border-color: rgba(255, 255, 255, .12);
+    border-radius: 16px;
+    background: rgba(26, 34, 51, .78);
+}
+
+.trusted-sharing-panel .live-share-option h4 {
+    color: #F8FAFC;
+    font-size: 14px;
+}
+
+.trusted-sharing-panel .live-share-option p {
+    min-height: 56px;
+    margin: 0;
+}
+
+.trusted-sharing-panel .live-share-actions button {
+    min-height: 38px;
+}
+
+.trusted-sharing-panel #liveShareStatus {
+    min-height: 18px;
+    color: #CBD5E1;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+@media (max-width: 800px) {
+    .app--trusted-contacts > main > header {
+        position: fixed;
+        top: 8px;
+        right: 8px;
+        left: 8px;
+        width: auto;
+        max-width: none;
+        min-height: 64px;
+        margin: 0;
+    }
+
+    .app--trusted-contacts > main > .content {
+        inset: 80px 8px 8px !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        padding: 0 !important;
+        scrollbar-width: thin;
+    }
+
+    .trusted-contacts-workspace {
+        height: auto;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .trusted-people-panel {
+        min-height: 320px;
+        overflow: visible;
+    }
+
+    .trusted-people-panel .contacts-grid {
+        overflow: visible;
+    }
+
+    .trusted-sharing-panel {
+        overflow: visible;
+        padding: 20px;
+    }
+}
+
+@media (max-width: 540px) {
+    .trusted-people-panel > .page-head {
+        flex-direction: column;
+        padding: 17px 15px 14px;
+    }
+
+    .trusted-people-panel .page-head .btn-primary {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .trusted-sharing-panel .live-share-options {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .trusted-sharing-panel .live-share-option p {
+        min-height: 0;
+    }
+}
+
+body .app.app--map-layout.app--trusted-contacts > main > .content {
+    inset: 146px 14px 14px !important;
+}
+
+body .app.app--map-layout.app--trusted-contacts > main > .content > .trusted-contacts-workspace {
+    position: absolute !important;
+    inset: 0 !important;
+    display: grid !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden !important;
+}
+
+.trusted-contacts-workspace > .trusted-people-panel {
+    grid-column: 1;
+    grid-row: 1;
+    height: 100%;
+}
+
+.trusted-contacts-workspace > .trusted-sharing-panel {
+    grid-column: 2 !important;
+    grid-row: 1;
+    height: 100%;
+}
+
+@media (max-width: 800px) {
+    body .app.app--map-layout.app--trusted-contacts > main > .content {
+        inset: 80px 8px 56px !important;
+    }
+
+    body .app.app--map-layout.app--trusted-contacts > main > .content > .trusted-contacts-workspace {
+        position: relative !important;
+        inset: auto !important;
+        height: auto !important;
+        max-height: none !important;
+        grid-template-rows: auto auto;
+        overflow: visible !important;
+    }
+
+    .trusted-contacts-workspace > .trusted-people-panel,
+    .trusted-contacts-workspace > .trusted-sharing-panel {
+        grid-column: 1 !important;
+        grid-row: auto;
+        height: auto;
+    }
+
+    body:has(.app--trusted-contacts) .app-map-attribution {
+        right: 8px !important;
+        bottom: max(8px, env(safe-area-inset-bottom)) !important;
+        left: auto !important;
+        z-index: 5 !important;
+    }
+}

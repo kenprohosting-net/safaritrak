@@ -28,6 +28,8 @@
   const sharedJourneyInput = document.getElementById('sharedJourneyUrl');
   const viewSharedJourneyButton = document.getElementById('viewSharedJourney');
   const sharedJourneyStatus = document.getElementById('sharedJourneyStatus');
+  const savedLocationSelect = document.getElementById('savedPlannerLocation');
+  const savedLocationStatus = document.getElementById('savedPlannerLocationStatus');
   let routeRequest = null;
   let routeRequestId = 0;
   let routePoints = [];
@@ -42,6 +44,45 @@
   let publicRefreshTimer = null;
   let publicRequestId = 0;
   let publicRefreshInFlight = false;
+
+  async function loadSavedLocations() {
+    if (!savedLocationSelect) return;
+    try {
+      const response = await fetch('backend/api/places/saved.php', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || 'Saved locations could not be loaded.');
+      }
+      const placeholder = savedLocationSelect.options[0];
+      savedLocationSelect.replaceChildren(placeholder);
+      for (const location of payload.locations) {
+        const option = document.createElement('option');
+        option.value = String(location.id);
+        const category = String(location.category || 'other').replace(/_/g, ' ');
+        option.dataset.name = location.name;
+        option.textContent = `${location.name} · ${category}${location.note ? ` — ${location.note}` : ''}`;
+        option.title = location.note || '';
+        option.dataset.lat = String(location.lat);
+        option.dataset.lng = String(location.lng);
+        savedLocationSelect.append(option);
+      }
+      const requestedSavedLocationId = new URLSearchParams(window.location.search).get('saved_location_id');
+      if (requestedSavedLocationId
+        && payload.locations.some(location => String(location.id) === requestedSavedLocationId)
+      ) {
+        savedLocationSelect.value = requestedSavedLocationId;
+        savedLocationSelect.dispatchEvent(new Event('change'));
+      }
+      savedLocationStatus.textContent = payload.locations.length
+        ? ''
+        : 'Save places from the Places page to use them here.';
+    } catch (error) {
+      savedLocationStatus.textContent = error.message || 'Saved locations could not be loaded.';
+    }
+  }
 
   const readPoint = (latField, lngField) => {
     const lat = Number(latField.value);
@@ -266,6 +307,14 @@
   });
   fields.endLabel.addEventListener('safaritrak-location-selected', event => {
     locationSelected(event, fields.endLat, fields.endLng);
+  });
+  savedLocationSelect?.addEventListener('change', () => {
+    const option = savedLocationSelect.selectedOptions[0];
+    if (!option?.value) return;
+    fields.endLabel.value = option.dataset.name || option.textContent.split(' · ')[0];
+    fields.endLabel.dispatchEvent(new CustomEvent('safaritrak-location-selected', {
+      detail: { label: fields.endLabel.value, lat: option.dataset.lat, lng: option.dataset.lng },
+    }));
   });
   [fields.startLabel, fields.endLabel].forEach(input => {
     input.addEventListener('input', () => {
@@ -494,4 +543,21 @@
       resultStatus.textContent = 'Clipboard access is unavailable. Select the link and copy it manually.';
     }
   });
+
+  const requestedDestination = new URLSearchParams(window.location.search);
+  const destinationLabel = requestedDestination.get('destination');
+  const destinationLat = Number(requestedDestination.get('destination_lat'));
+  const destinationLng = Number(requestedDestination.get('destination_lng'));
+  if (destinationLabel && Number.isFinite(destinationLat) && Number.isFinite(destinationLng)
+    && destinationLat >= -90 && destinationLat <= 90
+    && destinationLng >= -180 && destinationLng <= 180) {
+    fields.endLabel.value = destinationLabel;
+    fields.endLat.value = String(destinationLat);
+    fields.endLng.value = String(destinationLng);
+    refreshRoute();
+    setStatus(`Destination set to ${destinationLabel}. Choose a starting point or use your current location.`);
+    fields.startLabel.focus();
+  }
+
+  loadSavedLocations();
 })();

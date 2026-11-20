@@ -24,69 +24,12 @@ function setDashboardMapStatus(message, isError = false) {
   dashboardMapStatus.classList.toggle('is-error', isError);
 }
 
-function dashboardStyleUrl(theme) {
-  const style = theme === 'light' ? 'positron-gl-style' : 'dark-matter-gl-style';
-  return `https://basemaps.cartocdn.com/gl/${style}/style.json`;
+function dashboardStyleUrl() {
+  return window.SafariTrakMapStyle.styleUrl;
 }
 
 function applyDashboardNeonStyle() {
-  const map = dashboardMapState.map;
-  if (!map || !map.getStyle()?.layers) return;
-  const light = document.documentElement.dataset.theme === 'light';
-  const roadLabelMinZooms = {
-    roadname_major: 8,
-    roadname_pri: 9,
-    roadname_sec: 10,
-    roadname_minor: 11,
-  };
-  for (const layer of map.getStyle().layers || []) {
-    if (Object.hasOwn(roadLabelMinZooms, layer.id)) {
-      map.setLayerZoomRange(layer.id, roadLabelMinZooms[layer.id], 24);
-    }
-    if (!layer.paint) continue;
-    const id = layer.id.toLowerCase();
-    if (layer.type === 'background') {
-      map.setPaintProperty(layer.id, 'background-color', light ? '#F1F5F9' : '#090D16');
-    } else if (layer.type === 'fill' && id.includes('water')) {
-      map.setPaintProperty(layer.id, 'fill-color', light ? '#E0F2FE' : '#050B24');
-    } else if (layer.type === 'fill' && /park|green|wood|forest/.test(id)) {
-      map.setPaintProperty(layer.id, 'fill-color', light ? '#D1FAE5' : '#064E3B');
-    } else if (layer.type === 'fill' && (id.includes('landcover') || id.includes('landuse'))) {
-      map.setPaintProperty(layer.id, 'fill-color', light ? '#F8FAFC' : '#0F172A');
-    } else if (layer.type === 'line' && id.startsWith('road_') && id.includes('case')) {
-      map.setPaintProperty(layer.id, 'line-color', light ? '#CBD5E1' : '#1E293B');
-    } else if (layer.type === 'line' && id.startsWith('road_')) {
-      const color = /motorway/.test(id)
-        ? (light ? '#C026D3' : '#D946EF')
-        : /trunk|primary/.test(id)
-          ? (light ? '#C026D3' : '#D946EF')
-          : /secondary|tertiary/.test(id)
-            ? (light ? '#EA580C' : '#F97316')
-            : (light ? '#E2E8F0' : '#334155');
-      map.setPaintProperty(layer.id, 'line-color', color);
-      map.setPaintProperty(layer.id, 'line-opacity', /motorway|trunk|primary|secondary/.test(id) ? 0.98 : 0.86);
-      if (map.getPaintProperty(layer.id, 'line-blur') !== undefined) {
-        map.setPaintProperty(layer.id, 'line-blur', 0.35);
-      }
-    } else if (layer.type === 'line' && id.includes('waterway')) {
-      map.setPaintProperty(layer.id, 'line-color', light ? '#0891B2' : '#22D3EE');
-      map.setPaintProperty(layer.id, 'line-opacity', 0.92);
-    } else if (layer.type === 'symbol' && layer.layout?.['text-field']) {
-      const roadLabel = id.includes('roadname');
-      const cityLabel = /place|city|town|suburb|village/.test(id);
-      map.setPaintProperty(
-        layer.id,
-        'text-color',
-        light ? '#0F172A' : '#F8FAFC'
-      );
-      map.setPaintProperty(layer.id, 'text-halo-color', light ? '#FFFFFF' : '#000000');
-      map.setPaintProperty(layer.id, 'text-halo-width', roadLabel || cityLabel ? 2 : 1.8);
-      if (map.getPaintProperty(layer.id, 'text-halo-blur') !== undefined) {
-        map.setPaintProperty(layer.id, 'text-halo-blur', 0.45);
-      }
-      map.setPaintProperty(layer.id, 'text-opacity', 1);
-    }
-  }
+  window.SafariTrakMapStyle.apply(dashboardMapState.map);
 }
 
 function markerElement(className, label, icon) {
@@ -169,6 +112,7 @@ function showDashboardSearchLocation(point) {
 function drawDashboardRoute(route) {
   const map = dashboardMapState.map;
   if (!map?.isStyleLoaded()) return;
+  const routeColors = window.SafariTrakMapStyle.getRouteColors();
   const coordinates = route
     .filter(point => point && Number.isFinite(point.lat) && Number.isFinite(point.lng))
     .map(point => [point.lng, point.lat]);
@@ -188,7 +132,7 @@ function drawDashboardRoute(route) {
       type: 'line',
       source: 'safaritrak-dashboard-route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#D946EF', 'line-width': 9, 'line-blur': 5, 'line-opacity': 0.8 },
+      paint: { 'line-color': routeColors.glow, 'line-width': 9, 'line-blur': 5, 'line-opacity': 0.8 },
     });
     map.addLayer({
       id: 'safaritrak-dashboard-route-core',
@@ -197,7 +141,7 @@ function drawDashboardRoute(route) {
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-width': 2.5,
-        'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, '#D946EF', 1, '#C026D3'],
+        'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, routeColors.stroke, 1, routeColors.stroke],
       },
     });
   }
@@ -206,6 +150,7 @@ function drawDashboardRoute(route) {
 function drawDashboardPlannedRoute(plannedRoute) {
   const map = dashboardMapState.map;
   if (!map?.isStyleLoaded() || !plannedRoute) return;
+  const routeColors = window.SafariTrakMapStyle.getRouteColors();
   const coordinates = plannedRoute.points
     .filter(point => point && Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lng)))
     .map(point => [Number(point.lng), Number(point.lat)]);
@@ -227,21 +172,21 @@ function drawDashboardPlannedRoute(plannedRoute) {
       type: 'line',
       source: sourceId,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#fff4f6', 'line-width': 9, 'line-opacity': 0.92 },
+      paint: { 'line-color': '#450A0A', 'line-width': 9, 'line-opacity': 0.96 },
     });
     map.addLayer({
       id: 'safaritrak-planned-route-glow',
       type: 'line',
       source: sourceId,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#D946EF', 'line-width': 7, 'line-blur': 3, 'line-opacity': 0.66 },
+      paint: { 'line-color': routeColors.glow, 'line-width': 7, 'line-blur': 3, 'line-opacity': 0.72 },
     });
     map.addLayer({
       id: 'safaritrak-planned-route-core',
       type: 'line',
       source: sourceId,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#C026D3', 'line-width': 5, 'line-opacity': 1 },
+      paint: { 'line-color': routeColors.stroke, 'line-width': 5, 'line-opacity': 1 },
     });
   }
 
@@ -311,20 +256,21 @@ function drawPublicDashboardRoute(points) {
       type: 'line',
       source: sourceId,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#fff4f6', 'line-width': 9, 'line-opacity': 0.92 },
+      paint: { 'line-color': '#450A0A', 'line-width': 9, 'line-opacity': 0.96 },
     });
     map.addLayer({
       id: 'safaritrak-public-journey-route',
       type: 'line',
       source: sourceId,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#C026D3', 'line-width': 5, 'line-opacity': 1 },
+      paint: { 'line-color': routeColors.stroke, 'line-width': 5, 'line-opacity': 1 },
     });
   }
 }
 
 function showSharedDashboardJourney(journey, points = [], fit = false) {
   const map = dashboardMapState.map;
+  const routeColors = window.SafariTrakMapStyle.getRouteColors();
   const shouldFit = fit || (!map?.isStyleLoaded() && Boolean(dashboardMapState.publicJourney?.fit));
   dashboardMapState.publicJourney = { journey, points, fit: shouldFit };
   window.SafariTrakSharedJourneyState = dashboardMapState.publicJourney;
@@ -629,17 +575,40 @@ function initDashboardMap() {
   }
 
   try {
-    const savedView = window.SafariTrakMapView?.read() || null;
-    const cachedLocation = window.SafariTrakMapView?.readLocation() || null;
-    const initialPoint = cachedLocation || savedView || { lat: -1.286389, lng: 36.817223 };
+    try {
+      const mapUserId = dashboardMapElement.closest('[data-map-user-id]')?.dataset.mapUserId;
+      const savedJourneyFeatures = JSON.parse(
+        mapUserId ? sessionStorage.getItem(`safaritrak-selected-journey-${mapUserId}`) || '[]' : '[]'
+      );
+      if (Array.isArray(savedJourneyFeatures)) {
+        const start = savedJourneyFeatures.find(feature => feature.kind === 'start');
+        const destination = savedJourneyFeatures.find(feature => feature.kind === 'finish');
+        const routeFeature = savedJourneyFeatures.find(feature => Array.isArray(feature.route) && feature.route.length > 1);
+        const points = routeFeature?.route
+          .filter(point => Array.isArray(point) && point.length === 2
+            && Number.isFinite(Number(point[0])) && Number.isFinite(Number(point[1])))
+          .map(([lng, lat]) => ({ lat: Number(lat), lng: Number(lng) })) || [];
+        if (start && destination && points.length > 1
+          && Number.isFinite(Number(start.lat)) && Number.isFinite(Number(start.lng))
+          && Number.isFinite(Number(destination.lat)) && Number.isFinite(Number(destination.lng))) {
+          dashboardMapState.plannedRoute = {
+            start: { lat: Number(start.lat), lng: Number(start.lng) },
+            destination: { lat: Number(destination.lat), lng: Number(destination.lng) },
+            points,
+          };
+        }
+      }
+    } catch (error) {
+      console.warn('SafariTrak could not restore the selected journey route on Explore.', error);
+    }
     dashboardMapState.map = new maplibregl.Map({
       container: dashboardMapElement,
-      style: dashboardStyleUrl(document.documentElement.dataset.theme),
-      center: [initialPoint.lng, initialPoint.lat],
-      zoom: cachedLocation ? 16 : savedView?.zoom ?? 15,
-      bearing: savedView?.bearing ?? 0,
-      pitch: savedView?.pitch ?? 0,
-      projection: { type: savedView?.projection === 'globe' ? 'globe' : 'mercator' },
+      style: dashboardStyleUrl(),
+      center: [36.817223, -1.286389],
+      zoom: 15,
+      bearing: 0,
+      pitch: 0,
+      projection: { type: 'mercator' },
       attributionControl: false,
       scrollZoom: false,
       boxZoom: false,
@@ -677,14 +646,6 @@ function initDashboardMap() {
     dashboardMapState.map.once('style.load', async () => {
       setDashboardProjection(dashboardMapState.projection);
       document.dispatchEvent(new Event('safaritrak-map-ready'));
-      if (cachedLocation) {
-        dashboardMapState.deviceLocation = cachedLocation;
-        setUserMarker(cachedLocation);
-        dashboardMapState.userCentered = true;
-      }
-      if (!dashboardMapState.pendingSearchLocation) {
-        locateOnDashboardMap(true);
-      }
       if (dashboardMapState.pendingSearchLocation) {
         showDashboardSearchLocation(dashboardMapState.pendingSearchLocation);
       }

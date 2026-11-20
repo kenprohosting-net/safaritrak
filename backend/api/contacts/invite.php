@@ -11,6 +11,7 @@ st_require_method('POST');
 $ownerId = st_require_login();
 $input = st_input();
 $name = trim(st_input_string($input, 'name'));
+$name = $name !== '' ? $name : 'SafariTrak friend';
 $email = trim(st_input_string($input, 'email'));
 $relationship = trim(st_input_string($input, 'relationship'));
 
@@ -47,17 +48,11 @@ if ($email !== '') {
     $ownerStmt = $db->prepare('SELECT full_name FROM users WHERE id = ?');
     $ownerStmt->execute([$ownerId]);
     $ownerName = (string) $ownerStmt->fetchColumn();
-    $safeOwner = htmlspecialchars($ownerName, ENT_QUOTES, 'UTF-8');
-    $safeUrl = htmlspecialchars($inviteUrl, ENT_QUOTES, 'UTF-8');
-    $html = '<p>' . $safeOwner . ' invited you to connect as a trusted contact on SafariTrak.</p>'
-        . '<p><a href="' . $safeUrl . '">Review the invitation</a></p>'
-        . '<p>This invitation expires in seven days. A trusted-contact relationship is created only after you sign up and accept.</p>';
-    $emailSent = st_send_mail(
+    $emailSent = st_send_trusted_contact_invitation_email(
         $email,
         $name,
-        'SafariTrak trusted-contact invitation',
-        $html,
-        $ownerName . ' invited you to connect as a trusted contact: ' . $inviteUrl
+        $ownerName,
+        $inviteUrl
     );
 }
 

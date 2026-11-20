@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/password-policy.php';
+require_once __DIR__ . '/../includes/mailer.php';
 
 st_require_method('POST');
 
@@ -25,8 +26,10 @@ $db = safaritrak_db();
 $db->beginTransaction();
 try {
     $stmt = $db->prepare(
-        'SELECT id, user_id FROM password_resets
-         WHERE token_hash = ? AND expires_at > NOW() AND used_at IS NULL
+        'SELECT pr.id, pr.user_id, u.full_name, u.email
+         FROM password_resets pr
+         JOIN users u ON u.id = pr.user_id
+         WHERE pr.token_hash = ? AND pr.expires_at > UTC_TIMESTAMP() AND pr.used_at IS NULL
          FOR UPDATE'
     );
     $stmt->execute([$tokenHash]);
@@ -39,8 +42,8 @@ try {
 
     $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
     $markUsedStmt = $db->prepare(
-        'UPDATE password_resets SET used_at = NOW()
-         WHERE id = ? AND used_at IS NULL AND expires_at > NOW()'
+        'UPDATE password_resets SET used_at = UTC_TIMESTAMP()
+         WHERE id = ? AND used_at IS NULL AND expires_at > UTC_TIMESTAMP()'
     );
     $markUsedStmt->execute([$reset['id']]);
     if ($markUsedStmt->rowCount() !== 1) {
@@ -60,5 +63,10 @@ try {
     }
     throw $exception;
 }
+
+st_send_password_changed_email([
+    'full_name' => (string) $reset['full_name'],
+    'email' => (string) $reset['email'],
+]);
 
 st_json_ok(['redirect' => 'login.php']);

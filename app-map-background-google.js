@@ -2,6 +2,10 @@
   const mapElement = document.getElementById('appMapBackground');
   if (!mapElement) return;
 
+  const isJourneyPage = mapElement.dataset.mapPage === 'journeys';
+  const isGroupsPage = mapElement.dataset.mapPage === 'groups';
+  const isMessagesPage = mapElement.dataset.mapPage === 'messages';
+  const isCarHirePage = mapElement.dataset.mapPage === 'car-hire';
   let map = null;
   let userMarker = null;
   let searchMarker = null;
@@ -9,11 +13,21 @@
   let pendingUserLocation = null;
   let pendingSearchLocation = null;
   let features = [];
+  let journeyFeatures = [];
   let featureMarkers = [];
   let routeLines = [];
   let fallbackMessage = null;
-  let mapView = null;
   let usesCloudMapStyle = false;
+  const journeyFeaturesStorageKey = `safaritrak-selected-journey-${mapElement.dataset.mapUserId}`;
+  try {
+    const savedJourneyFeatures = sessionStorage.getItem(journeyFeaturesStorageKey);
+    if (savedJourneyFeatures) {
+      const parsedFeatures = JSON.parse(savedJourneyFeatures);
+      if (Array.isArray(parsedFeatures)) journeyFeatures = parsedFeatures;
+    }
+  } catch (error) {
+    console.warn('SafariTrak could not restore the selected journey route.', error);
+  }
 
   function fallbackToMapLibre(message) {
     const fallback = window.SafariTrakMapFallback;
@@ -85,7 +99,7 @@
       { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: light ? '#F8FAFC' : '#0F172A' }] },
       { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: light ? '#D1FAE5' : '#064E3B' }] },
       { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: light ? '#0F172A' : '#F8FAFC' }] },
-      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: light ? '#C026D3' : '#D946EF' }] },
+      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: light ? '#EA580C' : '#F97316' }] },
       { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: light ? '#EA580C' : '#F97316' }] },
       { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: light ? '#E2E8F0' : '#334155' }] },
       { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: light ? '#0F172A' : '#F8FAFC' }] },
@@ -105,12 +119,14 @@
     const colors = {
       user: '#13dfff',
       start: '#47f5cf',
-      finish: '#ff4db8',
+      finish: '#FF2D2D',
       place: '#55ddff',
       'saved-place': '#55ddff',
       home: '#55ddff',
       search: '#ffcf5c',
-      journey: '#d538ff',
+      journey: '#F59E0B',
+      'shared-location': '#F59E0B',
+      rental: '#F59E0B',
     };
     const color = colors[kind] || colors.journey;
     const scale = kind === 'user' ? 9 : 7;
@@ -154,38 +170,65 @@
     return element.innerHTML;
   }
 
+  function getPolylineColor(color, opacity = 1) {
+    const components = color.match(/^rgba?\(([^)]+)\)$/i)?.[1]?.split(',').map(value => value.trim());
+    if (!components || components.length < 3) return { color, opacity };
+    const parsedOpacity = components.length > 3 ? Number(components[3]) : opacity;
+    return {
+      color: `rgb(${components.slice(0, 3).join(', ')})`,
+      opacity: Number.isFinite(parsedOpacity) ? parsedOpacity : opacity,
+    };
+  }
+
   function renderFeatures() {
     if (!map) return;
     clearFeatures();
-    for (const feature of features) {
+    for (const feature of [...features, ...journeyFeatures]) {
       if (!validPoint(feature)) continue;
-      const kind = ['start', 'finish', 'place', 'saved-place', 'home', 'journey'].includes(feature.kind)
+      const kind = ['start', 'finish', 'place', 'saved-place', 'home', 'journey', 'shared-location', 'rental'].includes(feature.kind)
         ? feature.kind
         : 'journey';
       addMarker(feature, kind, feature.label, feature.description);
+      if (kind === 'rental') {
+        const marker = featureMarkers[featureMarkers.length - 1];
+        marker.addListener('click', () => {
+          window.dispatchEvent(new CustomEvent('safaritrak:rental-feature-click', {
+            detail: { vehicleId: Number(feature.vehicleId) },
+          }));
+        });
+      }
       if (Array.isArray(feature.route) && feature.route.length > 1) {
         const path = feature.route
           .filter(point => Array.isArray(point) && point.length === 2 && point.every(value => Number.isFinite(Number(value))))
           .map(([lng, lat]) => ({ lat: Number(lat), lng: Number(lng) }));
         if (path.length > 1) {
-          const plannedRoute = feature.routeColor === 'planned';
+          const isPlannedRoute = feature.routeColor === 'planned';
+          const routeColors = window.SafariTrakMapStyle.getRouteColors();
+          const routeStroke = isPlannedRoute
+            ? routeColors.stroke
+            : feature.routeStroke || routeColors.stroke;
+          const routeGlow = isPlannedRoute
+            ? routeColors.glow
+            : feature.routeGlow || routeColors.glow;
+          const glowColor = getPolylineColor(routeGlow, 0.96);
+          const strokeColor = getPolylineColor(routeStroke);
           routeLines.push(new google.maps.Polyline({
             map,
             path,
             geodesic: false,
-            strokeColor: plannedRoute ? '#fff0f3' : '#f8eaff',
-            strokeOpacity: 0.96,
-            strokeWeight: plannedRoute ? 10 : 8,
-            zIndex: 19,
+            strokeColor: glowColor.color,
+            strokeOpacity: glowColor.opacity,
+            strokeWeight: 10,
+            zIndex: 21,
           }));
           routeLines.push(new google.maps.Polyline({
             map,
             path,
             geodesic: false,
-            strokeColor: plannedRoute ? '#C026D3' : '#D946EF',
-            strokeOpacity: 1,
-            strokeWeight: plannedRoute ? 6 : 5,
-            zIndex: 21,
+            strokeColor: strokeColor.color || routeColors.stroke,
+            strokeOpacity: strokeColor.opacity,
+            strokeWeight: isPlannedRoute ? 4 : 6,
+            zIndex: 22,
           }));
         }
       }
@@ -197,12 +240,53 @@
     if (map) renderFeatures();
   }
 
-  function focusFeatures(nextFeatures) {
-    setFeatures(nextFeatures);
-    if (!map || !features.length) return;
+  function journeyFitPadding() {
+    const canvasRect = map.getDiv().getBoundingClientRect();
+    const isMobile = window.matchMedia('(max-width: 800px)').matches;
+    const journeyPanels = [...document.querySelectorAll(
+      '.app--journeys .journey-overview-panel, .app--journeys .trip-carousel-panel'
+    )].filter(panel => {
+      const style = getComputedStyle(panel);
+      return panel.getClientRects().length && style.display !== 'none' && style.visibility !== 'hidden';
+    });
+
+    if (isMobile) {
+      let top = 88;
+      let bottom = 80;
+      const verticalCenter = canvasRect.top + canvasRect.height / 2;
+      journeyPanels.forEach(panel => {
+        const rect = panel.getBoundingClientRect();
+        const spansCanvas = rect.left <= canvasRect.left + 20 && rect.right >= canvasRect.right - 20;
+        if (!spansCanvas) return;
+        if (rect.top <= verticalCenter) {
+          top = Math.max(top, Math.ceil(rect.bottom - canvasRect.top + 16));
+        } else {
+          bottom = Math.max(bottom, Math.ceil(canvasRect.bottom - rect.top + 16));
+        }
+      });
+
+      const maxTotalPadding = Math.max(0, canvasRect.height - 120);
+      if (top + bottom > maxTotalPadding) {
+        const scale = maxTotalPadding / (top + bottom);
+        top = Math.floor(top * scale);
+        bottom = Math.max(0, maxTotalPadding - top);
+      }
+      return { top, right: 18, bottom, left: 18 };
+    }
+
+    return {
+      left: 480,
+      right: 60,
+      top: 100,
+      bottom: 60,
+    };
+  }
+
+  function fitFeatures(targetFeatures) {
+    if (!map || !targetFeatures.length) return;
     const bounds = new google.maps.LatLngBounds();
     let pointCount = 0;
-    features.forEach(feature => {
+    targetFeatures.forEach(feature => {
       if (validPoint(feature)) {
         bounds.extend({ lat: Number(feature.lat), lng: Number(feature.lng) });
         pointCount += 1;
@@ -214,7 +298,38 @@
         pointCount += 1;
       });
     });
-    if (pointCount > 0) map.fitBounds(bounds, 100);
+    if (pointCount > 0) {
+      const padding = isGroupsPage || isMessagesPage
+        ? window.matchMedia('(max-width: 1100px)').matches
+          ? { top: 100, right: 24, bottom: Math.min(360, Math.round(mapElement.clientHeight * 0.5)), left: 24 }
+          : { top: 100, right: 380, bottom: 60, left: 360 }
+        : isJourneyPage ? journeyFitPadding()
+        : isCarHirePage ? window.matchMedia('(max-width: 800px)').matches
+          ? { top: 100, right: 24, bottom: 230, left: 24 }
+          : { left: 460, right: 360, top: 100, bottom: 60 }
+        : 100;
+      map.fitBounds(bounds, padding);
+    }
+  }
+
+  function focusFeatures(nextFeatures) {
+    setFeatures(nextFeatures);
+    fitFeatures(features);
+  }
+
+  function setJourneyFeatures(nextFeatures, { focus = false } = {}) {
+    journeyFeatures = Array.isArray(nextFeatures) ? nextFeatures : [];
+    try {
+      if (journeyFeatures.length) {
+        sessionStorage.setItem(journeyFeaturesStorageKey, JSON.stringify(journeyFeatures));
+      } else {
+        sessionStorage.removeItem(journeyFeaturesStorageKey);
+      }
+    } catch (error) {
+      console.warn('SafariTrak could not save the selected journey route for other pages.', error);
+    }
+    if (map) renderFeatures();
+    if (focus) fitFeatures(journeyFeatures);
   }
 
   function setUserLocation(lat, lng, zoom = 16, recenter = false) {
@@ -252,6 +367,12 @@
     window.SafariTrakPageMap.searchMarker = searchMarker;
     map.panTo({ lat: Number(point.lat), lng: Number(point.lng) });
     map.setZoom(15);
+    if (isGroupsPage) {
+      const verticalPadding = Math.min(360, Math.round(mapElement.clientHeight * 0.5));
+      const offsetX = window.matchMedia('(max-width: 1100px)').matches ? 0 : -10;
+      const offsetY = window.matchMedia('(max-width: 1100px)').matches ? (100 - verticalPadding) / 2 : 20;
+      google.maps.event.addListenerOnce(map, 'idle', () => map.panBy(-offsetX, -offsetY));
+    }
   }
 
   function clearSearchLocation() {
@@ -262,7 +383,8 @@
   }
 
   function keepUserLocationVisible() {
-    if (!userMarker || !map || document.body.classList.contains('map-focus-mode')) return;
+    if (!userMarker || !map || document.body.classList.contains('map-focus-mode')
+      || (isJourneyPage && journeyFeatures.length)) return;
     const position = userMarker.getPosition();
     if (!position) return;
     const projection = map.getProjection();
@@ -281,8 +403,11 @@
       x: mapRect.left + (mapRect.width / 2) + (markerX - projection.fromLatLngToPoint(map.getCenter()).x * worldScale),
       y: mapRect.top + (mapRect.height / 2) + (markerY - projection.fromLatLngToPoint(map.getCenter()).y * worldScale),
     };
-    const panels = [...document.querySelectorAll(
-      '.app--map-layout:not(.app--explore) .sidebar, .app--map-layout:not(.app--explore) > main > header, .app--map-layout:not(.app--explore) > main > .content > *'
+    const panels = [...document.querySelectorAll(isGroupsPage
+      ? '.app--groups .groups-list-panel, .app--groups .groups-chat-panel, .app--groups .group-hub-tabs'
+      : isMessagesPage
+      ? '.app--messages .messages-conversations, .app--messages .messages-thread'
+      : '.app--map-layout:not(.app--explore) .sidebar, .app--map-layout:not(.app--explore) > main > header, .app--map-layout:not(.app--explore) > main > .content > *'
     )].filter(panel => panel.getClientRects().length && getComputedStyle(panel).visibility !== 'hidden');
     const covered = panels.some(panel => {
       const rect = panel.getBoundingClientRect();
@@ -330,15 +455,12 @@
   }
 
   function initializeMap() {
-    mapView = window.SafariTrakMapView?.read() || null;
-    const cachedLocation = window.SafariTrakMapView?.readLocation() || null;
-    const initialPoint = cachedLocation || mapView || { lat: -1.286389, lng: 36.817223 };
     const mapId = document.querySelector('meta[name="google-map-id"]')?.content.trim();
     usesCloudMapStyle = Boolean(mapId);
     const mapOptions = {
-      center: { lat: initialPoint.lat, lng: initialPoint.lng },
-      zoom: cachedLocation ? 16 : mapView?.zoom ?? 15,
-      mapTypeId: mapView?.projection === 'satellite' ? 'hybrid' : 'roadmap',
+      center: { lat: -1.286389, lng: 36.817223 },
+      zoom: 15,
+      mapTypeId: 'roadmap',
       tilt: 0,
       ...(mapId ? { mapId } : { styles: mapStyles() }),
       disableDefaultUI: true,
@@ -356,11 +478,12 @@
     map.addListener('idle', saveMapView);
     map.addListener('idle', keepUserLocationVisible);
     map.addListener('click', () => {
+      if (isGroupsPage || isMessagesPage) return;
       if (!document.querySelector('.app--map-layout:not(.app--explore)')) return;
       setMapFocus(true);
     });
     const featureData = document.getElementById('safariTrakMapFeatures');
-    if (featureData && !document.querySelector('.app--journeys')) {
+    if (featureData && !isJourneyPage) {
       try {
         features = JSON.parse(featureData.textContent || '[]');
         renderFeatures();
@@ -369,14 +492,11 @@
         showMapError('Map locations could not be loaded. Other page functions remain available.');
       }
     }
-    if (cachedLocation) setUserLocation(cachedLocation.lat, cachedLocation.lng);
     if (pendingUserLocation) {
       setUserLocation(pendingUserLocation.lat, pendingUserLocation.lng, pendingUserLocation.zoom, pendingUserLocation.recenter);
     }
     if (pendingSearchLocation) showSearchLocation(pendingSearchLocation);
-    if (!pendingSearchLocation && !pendingUserLocation && !document.querySelector('.app--journeys')) {
-      requestUserLocation(true);
-    }
+    if (journeyFeatures.length) fitFeatures(journeyFeatures);
     document.dispatchEvent(new Event('safaritrak-map-ready'));
   }
 
@@ -386,24 +506,29 @@
     focusButton?.setAttribute('aria-pressed', String(focused));
     if (focusButton) {
       focusButton.innerHTML = focused
-        ? '<i class="fa-solid fa-compress" aria-hidden="true"></i><span>Show panels</span>'
+        ? '<i class="fa-solid fa-arrow-left" aria-hidden="true"></i><span>Back</span>'
         : '<i class="fa-solid fa-expand" aria-hidden="true"></i><span>Focus map</span>';
-      focusButton.setAttribute('aria-label', focused ? 'Show page panels' : 'Focus on the map');
+      focusButton.setAttribute('aria-label', focused ? 'Back' : 'Focus on the map');
     }
   };
   focusButton?.addEventListener('click', () => setMapFocus(!document.body.classList.contains('map-focus-mode')));
-  mapElement.addEventListener('pointerdown', event => {
-    if (event.target.closest('.gm-control-active, button')) return;
-    setMapFocus(true);
-  });
+  if (!isJourneyPage && !isGroupsPage && !isMessagesPage) {
+    mapElement.addEventListener('pointerdown', event => {
+      if (event.target.closest('.gm-control-active, button')) return;
+      setMapFocus(true);
+    });
+  }
   document.getElementById('appMapLocate')?.addEventListener('click', () => requestUserLocation(true));
   const themeObserver = new MutationObserver(() => {
-    if (map && !usesCloudMapStyle) map.setOptions({ styles: mapStyles() });
+    if (!map) return;
+    if (!usesCloudMapStyle) map.setOptions({ styles: mapStyles() });
+    renderFeatures();
   });
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   window.SafariTrakPageMap = {
     setFeatures,
     focusFeatures,
+    setJourneyFeatures,
     setUserLocation,
     showSearchLocation,
     clearSearchLocation,

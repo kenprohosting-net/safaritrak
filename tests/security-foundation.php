@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../backend/includes/session.php';
 require_once __DIR__ . '/../backend/includes/rate-limit.php';
 require_once __DIR__ . '/../backend/includes/password-policy.php';
+require_once __DIR__ . '/../backend/includes/migration-checksum.php';
 
 $checks = 0;
 $passed = [];
@@ -18,18 +19,31 @@ $expect(hash_equals(st_rate_limit_key('login', 'alice'), st_rate_limit_key('logi
 $expect(st_rate_limit_key('login', 'alice') !== st_rate_limit_key('login', 'bob'), 'rate-limit keys are scoped to their input');
 $expect(st_rate_limit_key('login', 'alice') !== st_rate_limit_key('register', 'alice'), 'rate-limit buckets have separate keys');
 $previousDevMode = getenv('SAFARITRAK_DEV_MODE');
+$previousEnvironment = getenv('SAFARITRAK_ENV');
 $previousRemoteAddress = $_SERVER['REMOTE_ADDR'] ?? null;
 putenv('SAFARITRAK_DEV_MODE=0');
+putenv('SAFARITRAK_ENV=development');
 $_SERVER['REMOTE_ADDR'] = '::1';
 $expect(st_local_development_rate_limit_maximum(5) === 5, 'development rate-limit override is disabled when development mode is off');
 putenv('SAFARITRAK_DEV_MODE=1');
+$expect(st_is_local_development_request(), 'loopback requests enable local development conveniences outside production');
 $expect(st_local_development_rate_limit_maximum(5) === 100, 'loopback development requests get a practical signup rate limit');
+putenv('SAFARITRAK_ENV=production');
+$expect(!st_is_local_development_request(), 'production never exposes local verification or reset links');
+$expect(st_local_development_rate_limit_maximum(5) === 5, 'production never receives development rate-limit overrides');
+putenv('SAFARITRAK_ENV=development');
 $_SERVER['REMOTE_ADDR'] = '198.51.100.20';
+$expect(!st_is_local_development_request(), 'non-loopback clients never receive local verification or reset links');
 $expect(st_local_development_rate_limit_maximum(5) === 5, 'development rate-limit override does not apply to non-loopback clients');
 if ($previousDevMode === false) {
     putenv('SAFARITRAK_DEV_MODE');
 } else {
     putenv('SAFARITRAK_DEV_MODE=' . $previousDevMode);
+}
+if ($previousEnvironment === false) {
+    putenv('SAFARITRAK_ENV');
+} else {
+    putenv('SAFARITRAK_ENV=' . $previousEnvironment);
 }
 if ($previousRemoteAddress === null) {
     unset($_SERVER['REMOTE_ADDR']);
@@ -43,7 +57,7 @@ $expect(st_password_policy_error("\xFF") !== null, 'password policy rejects malf
 
 $resetSource = file_get_contents(__DIR__ . '/../backend/api/reset-password.php');
 $expect(is_string($resetSource) && str_contains($resetSource, 'FOR UPDATE'), 'password reset locks its token against concurrent reuse');
-$expect(is_string($resetSource) && str_contains($resetSource, 'used_at IS NULL AND expires_at > NOW()'), 'password reset consumes only an unused unexpired token');
+$expect(is_string($resetSource) && str_contains($resetSource, 'used_at IS NULL AND expires_at > UTC_TIMESTAMP()'), 'password reset consumes only an unused unexpired token using a consistent UTC clock');
 
 $deleteSource = file_get_contents(__DIR__ . '/../backend/api/delete-account.php');
 $expect(is_string($deleteSource) && str_contains($deleteSource, "st_require_method('POST')"), 'account deletion requires a CSRF-protected POST');
@@ -60,6 +74,30 @@ $expect(is_string($consentSource) && str_contains($consentSource, 'st_record_con
 $exportSource = file_get_contents(__DIR__ . '/../backend/api/export-data.php');
 $expect(is_string($exportSource) && str_contains($exportSource, 'st_require_login()'), 'account data export requires an authenticated account');
 $expect(is_string($exportSource) && !str_contains($exportSource, 'password_hash'), 'account data export excludes password hashes');
+$platformClaimSource = file_get_contents(__DIR__ . '/../backend/api/platform/claim.php');
+$expect(
+    is_string($platformClaimSource)
+        && str_contains($platformClaimSource, "st_require_method('POST')")
+        && str_contains($platformClaimSource, 'SAFARITRAK_PLATFORM_ADMIN_BOOTSTRAP_TOKEN')
+        && str_contains($platformClaimSource, 'hash_equals($bootstrapToken, $providedToken)')
+        && str_contains($platformClaimSource, 'GET_LOCK'),
+    'first platform-owner claim requires a CSRF-protected one-time secret and a serialized ownership check'
+);
+
+foreach ([
+    'register.php',
+    'resend-verification.php',
+    'forgot-password.php',
+    'org/signup.php',
+] as $developmentLinkEndpoint) {
+    $endpointSource = file_get_contents(__DIR__ . '/../backend/api/' . $developmentLinkEndpoint);
+    $expect(
+        is_string($endpointSource)
+            && str_contains($endpointSource, 'st_is_local_development_request()')
+            && !str_contains($endpointSource, "getenv('SAFARITRAK_DEV_MODE') === '1'"),
+        basename($developmentLinkEndpoint) . ' gates local token links through the shared environment/loopback check'
+    );
+}
 
 $migrationFiles = glob(__DIR__ . '/../backend/sql/migrations/*') ?: [];
 $expect(count($migrationFiles) >= 3, 'versioned migrations are present');
@@ -67,6 +105,27 @@ foreach ($migrationFiles as $migrationFile) {
     $expect((bool) preg_match('/^\\d{4}_[a-z0-9_]+\\.(sql|php)$/', basename($migrationFile)), 'migration filename is versioned');
     $migrationSource = file_get_contents($migrationFile);
     $expect(!preg_match('/\\bDROP\\s+(TABLE|COLUMN|DATABASE)\\b/i', $migrationSource), 'migration has no destructive drop');
+}
+$lfMigration = tempnam(sys_get_temp_dir(), 'safaritrak-migration-lf-');
+$crlfMigration = tempnam(sys_get_temp_dir(), 'safaritrak-migration-crlf-');
+if ($lfMigration === false || $crlfMigration === false) {
+    throw new RuntimeException('Unable to create temporary files for migration checksum tests.');
+}
+try {
+    $migrationContents = "CREATE TABLE example (\n    id INT NOT NULL\n);\n";
+    file_put_contents($lfMigration, $migrationContents);
+    file_put_contents($crlfMigration, str_replace("\n", "\r\n", $migrationContents));
+    $expect(
+        st_migration_file_checksum($lfMigration) === st_migration_file_checksum($crlfMigration),
+        'migration checksums are stable across Windows and Unix line endings'
+    );
+    $expect(
+        st_migration_file_checksum_matches(hash('sha256', file_get_contents($crlfMigration)), $lfMigration),
+        'migration validation accepts existing checksums recorded with Windows line endings'
+    );
+} finally {
+    @unlink($lfMigration);
+    @unlink($crlfMigration);
 }
 
 $db = new PDO('sqlite::memory:');

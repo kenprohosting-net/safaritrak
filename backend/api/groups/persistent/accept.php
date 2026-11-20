@@ -17,11 +17,12 @@ $db = safaritrak_db();
 $db->beginTransaction();
 try {
     $inviteStmt = $db->prepare(
-        'SELECT i.id, i.group_id, i.invited_email, g.organization_id
+        'SELECT i.id, i.group_id, i.invited_email, i.invited_user_id, g.organization_id
          FROM persistent_group_invites i
          JOIN persistent_groups g ON g.id = i.group_id
          WHERE i.token_hash = ? AND i.expires_at > UTC_TIMESTAMP()
-           AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND g.status = "active"
+           AND (i.invited_user_id IS NULL OR i.accepted_at IS NULL)
+           AND i.revoked_at IS NULL AND g.status = "active"
          FOR UPDATE'
     );
     $inviteStmt->execute([hash('sha256', $token)]);
@@ -37,6 +38,10 @@ try {
     if ($invite['invited_email'] !== null && strcasecmp((string) $invite['invited_email'], (string) $email) !== 0) {
         $db->rollBack();
         st_json_error('Sign in with the email address this invitation was sent to.', 403);
+    }
+    if ($invite['invited_user_id'] !== null && (int) $invite['invited_user_id'] !== $userId) {
+        $db->rollBack();
+        st_json_error('Sign in with the username this invitation was sent to.', 403);
     }
 
     if ($invite['organization_id'] !== null) {
@@ -58,9 +63,11 @@ try {
          VALUES (?, ?, "member")
          ON DUPLICATE KEY UPDATE user_id = VALUES(user_id)'
     )->execute([(int) $invite['group_id'], $userId]);
-    $db->prepare(
-        'UPDATE persistent_group_invites SET accepted_by = ?, accepted_at = UTC_TIMESTAMP() WHERE id = ?'
-    )->execute([$userId, (int) $invite['id']]);
+    if ($invite['invited_user_id'] !== null) {
+        $db->prepare(
+            'UPDATE persistent_group_invites SET accepted_by = ?, accepted_at = UTC_TIMESTAMP() WHERE id = ?'
+        )->execute([$userId, (int) $invite['id']]);
+    }
     $db->commit();
 } catch (Throwable $exception) {
     if ($db->inTransaction()) {

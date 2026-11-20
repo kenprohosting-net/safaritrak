@@ -11,12 +11,12 @@ $userId = st_require_login();
 
 $input = st_input();
 $journeyId = (int) ($input['journey_id'] ?? 0);
-$lat = isset($input['lat']) ? (float) $input['lat'] : null;
-$lng = isset($input['lng']) ? (float) $input['lng'] : null;
+$lat = st_parse_coordinate($input['lat'] ?? null, -90, 90);
+$lng = st_parse_coordinate($input['lng'] ?? null, -180, 180);
 $speedKmh = isset($input['speed_kmh']) && $input['speed_kmh'] !== '' ? (float) $input['speed_kmh'] : null;
 
 if ($lat === null || $lng === null) {
-    st_json_error('A location is required.');
+    st_json_error('Valid GPS coordinates are required.', 422);
 }
 
 $db = safaritrak_db();

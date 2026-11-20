@@ -33,6 +33,7 @@ function st_notif_icon(string $type): string {
         'sos_alert'         => 'fa-triangle-exclamation',
         'contact_request'   => 'fa-user-plus',
         'group_invite'      => 'fa-user-group',
+        'school_trip_access' => 'fa-school',
     ];
     return $icons[$type] ?? 'fa-bell';
 }
@@ -62,6 +63,8 @@ function st_notif_link(string $type, ?int $relatedJourneyId, ?int $relatedUserId
             return 'trusted-contacts.php';
         case 'group_invite':
             return 'groups.php?tab=trips';
+        case 'school_trip_access':
+            return 'school-trips.php#invitations';
         case 'sos_alert':
             return 'notifications.php';
         default:
