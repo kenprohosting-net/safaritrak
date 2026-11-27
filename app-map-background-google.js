@@ -91,21 +91,26 @@
 
   function mapStyles(theme = document.documentElement.dataset.theme) {
     const light = theme === 'light';
+    const color = (name, fallback) =>
+      getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
     return [
-      { elementType: 'geometry', stylers: [{ color: light ? '#F8FAFC' : '#0F172A' }] },
-      { elementType: 'labels.text.fill', stylers: [{ color: light ? '#0F172A' : '#F8FAFC' }] },
-      { elementType: 'labels.text.stroke', stylers: [{ color: light ? '#FFFFFF' : '#000000' }, { weight: 2 }] },
-      { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: light ? '#CBD5E1' : '#1E293B' }] },
-      { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: light ? '#F8FAFC' : '#0F172A' }] },
-      { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: light ? '#D1FAE5' : '#064E3B' }] },
-      { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: light ? '#0F172A' : '#F8FAFC' }] },
-      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: light ? '#EA580C' : '#F97316' }] },
-      { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: light ? '#EA580C' : '#F97316' }] },
-      { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: light ? '#E2E8F0' : '#334155' }] },
-      { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: light ? '#0F172A' : '#F8FAFC' }] },
+      { elementType: 'geometry', stylers: [{ color: color('--map-background', light ? '#F4F1EB' : '#050817') }] },
+      { elementType: 'labels.text.fill', stylers: [{ color: color('--map-label', light ? '#45505A' : '#E8E8FF') }] },
+      { elementType: 'labels.text.stroke', stylers: [{ color: color('--map-label-halo', light ? '#F4F1EB' : '#050817') }, { weight: 2 }] },
+      { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: color('--map-boundary', light ? '#817B99' : '#7654C9') }] },
+      { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: color('--map-land', light ? '#E8E4DA' : '#050817') }] },
+      { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: color('--map-urban', light ? '#D6D1C8' : '#10152D') }] },
+      { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: color('--map-park', light ? '#AFC9B2' : '#087A50') }] },
+      { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: color('--map-label', light ? '#45505A' : '#E8E8FF') }] },
+      { featureType: 'road', elementType: 'geometry', stylers: [{ color: color('--map-road-secondary', light ? '#7D35B5' : '#B14DFF') }] },
+      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: color('--map-road-highway', light ? '#A76233' : '#C97835') }] },
+      { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: color('--map-road-major', light ? '#D97520' : '#FF8A24') }] },
+      { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: color('--map-road-residential', light ? '#6D917D' : '#82AD98') }] },
+      { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: color('--map-label', light ? '#45505A' : '#E8E8FF') }] },
       { featureType: 'transit', elementType: 'all', stylers: [{ visibility: 'off' }] },
-      { featureType: 'water', elementType: 'geometry', stylers: [{ color: light ? '#E0F2FE' : '#050B24' }] },
-      { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: light ? '#0F172A' : '#F8FAFC' }] },
+      { featureType: 'water', elementType: 'geometry', stylers: [{ color: color('--map-ocean', light ? '#AFCADB' : '#082D50') }] },
+      { featureType: 'water', elementType: 'geometry.stroke', stylers: [{ color: color('--map-waterway', light ? '#6EA7B7' : '#00D9FF') }, { weight: 1 }] },
+      { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: color('--map-label-water', light ? '#376C7A' : '#E8E8FF') }] },
     ];
   }
 
@@ -115,20 +120,25 @@
     window.SafariTrakMapView?.save(map, mapType === 'satellite' || mapType === 'hybrid' ? 'satellite' : 'flat');
   }
 
-  function markerIcon(kind) {
+  function markerIcon(kind, feature) {
+    const trackingColors = window.SafariTrakMapStyle.getTrackingColors();
+    const routeColors = window.SafariTrakMapStyle.getRouteColors();
     const colors = {
-      user: '#13dfff',
-      start: '#47f5cf',
-      finish: '#FF2D2D',
-      place: '#55ddff',
-      'saved-place': '#55ddff',
-      home: '#55ddff',
-      search: '#ffcf5c',
-      journey: '#F59E0B',
-      'shared-location': '#F59E0B',
-      rental: '#F59E0B',
+      user: trackingColors.user,
+      start: trackingColors.start,
+      finish: trackingColors.destination,
+      place: trackingColors.destination,
+      'saved-place': trackingColors.destination,
+      home: trackingColors.start,
+      search: cssColor('--accent-yellow', '#FFD600'),
+      journey: trackingColors.groupMembers[0],
+      'shared-location': trackingColors.groupMembers[0],
+      rental: trackingColors.destination,
     };
-    const color = colors[kind] || colors.journey;
+    const color = feature?.routeStroke
+      || (feature?.routeColor === 'completed'
+        ? routeColors.completedStroke
+        : feature?.routeColor === 'planned' ? routeColors.stroke : colors[kind] || colors.journey);
     const scale = kind === 'user' ? 9 : 7;
     return {
       path: google.maps.SymbolPath.CIRCLE,
@@ -138,6 +148,10 @@
       strokeWeight: 2,
       scale,
     };
+  }
+
+  function cssColor(name, fallback) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
   }
 
   function clearFeatures() {
@@ -152,7 +166,7 @@
       map,
       position: { lat: Number(point.lat), lng: Number(point.lng) },
       title: String(label || 'Map location'),
-      icon: markerIcon(kind),
+      icon: markerIcon(kind, point),
       label: label ? { text: String(label), className: `app-google-marker-label app-google-marker-label--${kind}` } : undefined,
       zIndex: kind === 'user' ? 1000 : undefined,
     });
@@ -203,22 +217,39 @@
           .map(([lng, lat]) => ({ lat: Number(lat), lng: Number(lng) }));
         if (path.length > 1) {
           const isPlannedRoute = feature.routeColor === 'planned';
+          const isCompletedRoute = feature.routeColor === 'completed';
           const routeColors = window.SafariTrakMapStyle.getRouteColors();
-          const routeStroke = isPlannedRoute
-            ? routeColors.stroke
-            : feature.routeStroke || routeColors.stroke;
-          const routeGlow = isPlannedRoute
-            ? routeColors.glow
-            : feature.routeGlow || routeColors.glow;
-          const glowColor = getPolylineColor(routeGlow, 0.96);
+          const routeStroke = isCompletedRoute
+            ? routeColors.completedStroke
+            : isPlannedRoute
+              ? routeColors.stroke
+              : feature.routeStroke || routeColors.stroke;
+          const routeGlow = isCompletedRoute
+            ? routeColors.completedGlow
+            : isPlannedRoute
+              ? routeColors.glow
+              : feature.routeGlow || routeColors.glow;
+          const glowColor = getPolylineColor(routeGlow, 0.22);
           const strokeColor = getPolylineColor(routeStroke);
+          const approximateDash = feature.routeApproximate
+            ? [{
+              icon: {
+                path: 'M 0,-1 0,1',
+                strokeColor: strokeColor.color || routeColors.stroke,
+                strokeOpacity: 0.9,
+                scale: 3,
+              },
+              offset: '0',
+              repeat: '14px',
+            }]
+            : undefined;
           routeLines.push(new google.maps.Polyline({
             map,
             path,
             geodesic: false,
             strokeColor: glowColor.color,
-            strokeOpacity: glowColor.opacity,
-            strokeWeight: 10,
+            strokeOpacity: feature.routeApproximate ? 0.12 : Math.min(glowColor.opacity, 0.28),
+            strokeWeight: 8,
             zIndex: 21,
           }));
           routeLines.push(new google.maps.Polyline({
@@ -226,9 +257,10 @@
             path,
             geodesic: false,
             strokeColor: strokeColor.color || routeColors.stroke,
-            strokeOpacity: strokeColor.opacity,
-            strokeWeight: isPlannedRoute ? 4 : 6,
+            strokeOpacity: feature.routeApproximate ? 0 : strokeColor.opacity,
+            strokeWeight: isPlannedRoute ? 4 : 5,
             zIndex: 22,
+            ...(approximateDash ? { icons: approximateDash } : {}),
           }));
         }
       }
@@ -284,6 +316,13 @@
 
   function fitFeatures(targetFeatures) {
     if (!map || !targetFeatures.length) return;
+    const routeFeature = targetFeatures.find(feature => Array.isArray(feature.route) && feature.route.length > 1);
+    if (routeFeature && window.SafariTrakRouteDirections?.focusMobileGoogleRoute(
+      map,
+      routeFeature.route,
+      targetFeatures.find(feature => feature.kind === 'start') || routeFeature.route[0]
+    )) return;
+
     const bounds = new google.maps.LatLngBounds();
     let pointCount = 0;
     targetFeatures.forEach(feature => {
@@ -498,6 +537,7 @@
     if (pendingSearchLocation) showSearchLocation(pendingSearchLocation);
     if (journeyFeatures.length) fitFeatures(journeyFeatures);
     document.dispatchEvent(new Event('safaritrak-map-ready'));
+    requestUserLocation(true);
   }
 
   const focusButton = document.getElementById('appMapFocus');

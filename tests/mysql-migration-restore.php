@@ -169,7 +169,26 @@ try {
         -1,
         $removedTables
     );
-    if ($removedColumns !== 3 || $removedTables !== 3) {
+    $schema = preg_replace(
+        '/^[ \t]*INDEX idx_messages_unread_receiver \(receiver_id, read_at, sender_id\),\r?\n/m',
+        '',
+        (string) $schema,
+        1,
+        $removedMessageUnreadIndex
+    );
+    $schema = preg_replace(
+        '/^[ \t]*INDEX idx_notifications_unread \(user_id, is_read\),\r?\n/m',
+        '',
+        (string) $schema,
+        1,
+        $removedNotificationUnreadIndex
+    );
+    if (
+        $removedColumns !== 3
+        || $removedTables !== 3
+        || $removedMessageUnreadIndex !== 1
+        || $removedNotificationUnreadIndex !== 1
+    ) {
         throw new RuntimeException('Could not construct the expected pre-migration schema fixture.');
     }
 
@@ -286,10 +305,20 @@ try {
         'persistent_group_messages' => "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'persistent_group_messages'",
         'persistent_group_location_columns' => "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'persistent_group_members' AND COLUMN_NAME IN ('sharing_location', 'last_lat', 'last_lng', 'location_updated_at')",
         'persistent_group_invitee' => "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'persistent_group_invites' AND COLUMN_NAME = 'invited_user_id'",
+        'message_unread_index' => "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'messages' AND INDEX_NAME = 'idx_messages_unread_receiver'",
+        'notification_unread_index' => "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'notifications' AND INDEX_NAME = 'idx_notifications_unread'",
         'rental_vehicles' => "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rental_vehicles'",
         'rental_bookings' => "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rental_bookings'",
         'migration_ledger' => 'SELECT COUNT(*) FROM schema_migrations',
     ];
+    $migrationDirectory = dirname(__DIR__)
+        . DIRECTORY_SEPARATOR . 'backend'
+        . DIRECTORY_SEPARATOR . 'sql'
+        . DIRECTORY_SEPARATOR . 'migrations';
+    $migrationFiles = array_merge(
+        glob($migrationDirectory . DIRECTORY_SEPARATOR . '*.sql') ?: [],
+        glob($migrationDirectory . DIRECTORY_SEPARATOR . '*.php') ?: []
+    );
     $expected = [
         'auth_rate_limits' => 1,
         'covered_km' => 1,
@@ -301,10 +330,12 @@ try {
         'persistent_group_messages' => 1,
         'persistent_group_location_columns' => 4,
         'persistent_group_invitee' => 1,
+        'message_unread_index' => 3,
+        'notification_unread_index' => 2,
         'rental_vehicles' => 1,
         'rental_bookings' => 1,
         'privacy_consents' => 1,
-        'migration_ledger' => 20,
+        'migration_ledger' => count($migrationFiles) + 1,
     ];
     if ($sentinel !== 'migration_test') {
         throw new RuntimeException('Migration did not preserve the restored sentinel user.');
@@ -316,7 +347,7 @@ try {
         }
     }
     echo "PASS restored user row preserved after migrations\n";
-    echo "PASS auth, journey, invitation, group, rental, privacy, and migration tables verified\n";
+    echo "PASS auth, journey, invitation, group, rental, privacy, unread indexes, and migration tables verified\n";
     $legacyProfile = $restore->prepare(
         'SELECT account_type, review_status FROM organization_profiles WHERE organization_id = ?'
     );

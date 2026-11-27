@@ -186,6 +186,7 @@ CREATE TABLE messages (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_messages_unread_receiver (receiver_id, read_at, sender_id),
     INDEX idx_messages_thread (sender_id, receiver_id, created_at)
 ) ENGINE=InnoDB;
 
@@ -202,6 +203,7 @@ CREATE TABLE notifications (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (related_journey_id) REFERENCES journeys(id) ON DELETE SET NULL,
     FOREIGN KEY (related_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_notifications_unread (user_id, is_read),
     INDEX idx_notifications_user (user_id, created_at)
 ) ENGINE=InnoDB;
 

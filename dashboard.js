@@ -18,7 +18,7 @@ const sidebarInertTargets = [
   document.getElementById('appMapControls'),
 ].filter(Boolean);
 let sidebarBackdrop = document.getElementById('sidebarBackdrop');
-const mobileNavigationMedia = window.matchMedia('(max-width: 800px)');
+const mobileNavigationMedia = window.matchMedia('(max-width: 767px)');
 let sidebarOpener = null;
 
 if (usesStandardNavbar && sidebar && !menuButton) {
@@ -145,7 +145,7 @@ window.SafariTrakUI.setStatus = (container, {
   container.replaceChildren(wrapper);
 };
 
-if (!usesStandardNavbar && !sidebarBackdrop && sidebar) {
+if (!sidebarBackdrop && sidebar) {
   sidebarBackdrop = document.createElement('button');
   sidebarBackdrop.type = 'button';
   sidebarBackdrop.id = 'sidebarBackdrop';
@@ -201,6 +201,10 @@ if (
   more.setAttribute('aria-controls', 'sidebar');
   more.setAttribute('aria-expanded', 'false');
   more.setAttribute('aria-label', 'Open more navigation');
+  if (!items.some(item => item.pages.includes(currentPage))) {
+    more.classList.add('active');
+    more.setAttribute('aria-label', 'Open more navigation; current section is in More');
+  }
   const moreIcon = document.createElement('i');
   moreIcon.className = 'fa-solid fa-ellipsis';
   moreIcon.setAttribute('aria-hidden', 'true');
@@ -209,6 +213,72 @@ if (
   more.append(moreIcon, moreLabel);
   nav.append(more);
   document.body.append(nav);
+}
+
+if (usesStandardNavbar && sidebar && !document.querySelector('.mobile-bottom-nav')) {
+  const sidebarNav = sidebar.querySelector('nav');
+  const mobileNav = document.createElement('nav');
+  mobileNav.className = 'mobile-bottom-nav';
+  mobileNav.setAttribute('aria-label', 'Quick navigation');
+
+  const destinations = [
+    { href: 'index.php', label: 'Explore', icon: 'fa-solid fa-map' },
+    { href: 'my-journeys.php', label: 'Trips', icon: 'fa-solid fa-route' },
+    { href: 'groups.php', label: 'Groups', icon: 'fa-solid fa-people-group' },
+    { href: 'messages.php', label: 'Messages', icon: 'fa-regular fa-message' },
+  ];
+
+  let hasActivePrimaryDestination = false;
+  destinations.forEach(destination => {
+    const source = sidebarNav?.querySelector(`a[href="${destination.href}"]`);
+    if (!source) return;
+    const link = document.createElement('a');
+    link.href = source.href;
+    link.setAttribute('aria-label', source.getAttribute('aria-label') || destination.label);
+    if (source.classList.contains('active')) {
+      link.classList.add('active');
+      link.setAttribute('aria-current', 'page');
+      hasActivePrimaryDestination = true;
+    }
+
+    const icon = document.createElement('i');
+    icon.className = destination.icon;
+    icon.setAttribute('aria-hidden', 'true');
+    const label = document.createElement('span');
+    label.textContent = destination.label;
+    link.append(icon, label);
+
+    const unreadCount = source.querySelector('em')?.textContent.trim();
+    if (unreadCount) {
+      const badge = document.createElement('em');
+      badge.textContent = unreadCount;
+      link.append(badge);
+    }
+    mobileNav.append(link);
+  });
+
+  const sosButton = document.createElement('button');
+  sosButton.type = 'button';
+  sosButton.className = 'mobile-sos-action';
+  sosButton.dataset.sosTrigger = '';
+  sosButton.setAttribute('aria-label', 'Send an emergency SOS alert');
+  sosButton.title = 'SOS — emergency alert';
+  sosButton.innerHTML = '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>SOS</span>';
+  document.body.append(sosButton);
+
+  const moreButton = document.createElement('button');
+  moreButton.type = 'button';
+  moreButton.dataset.mobileMore = '';
+  moreButton.setAttribute('aria-controls', 'sidebar');
+  moreButton.setAttribute('aria-expanded', 'false');
+  moreButton.setAttribute('aria-label', 'Open more navigation');
+  if (!hasActivePrimaryDestination) {
+    moreButton.classList.add('active');
+    moreButton.setAttribute('aria-label', 'Open more navigation; current section is in More');
+  }
+  moreButton.innerHTML = '<i class="fa-solid fa-ellipsis" aria-hidden="true"></i><span>More</span>';
+  mobileNav.append(moreButton);
+  document.body.append(mobileNav);
 }
 
 if (!window.__safaritrakCsrfFetch) {
@@ -249,7 +319,7 @@ if (!window.__safaritrakCsrfFetch) {
 }
 
 function syncSidebarAccessibility() {
-  if (!sidebar || usesStandardNavbar) return;
+  if (!sidebar) return;
   const isMobile = mobileNavigationMedia.matches;
   if (!isMobile && sidebar.classList.contains('open')) {
     sidebar.classList.remove('open');
@@ -320,7 +390,7 @@ function openSidebar(opener = menuButton) {
   menuButton?.setAttribute('aria-label', 'Close navigation');
   document.querySelector('[data-mobile-more]')?.setAttribute('aria-expanded', 'true');
   syncSidebarAccessibility();
-  sidebarCloseButton?.focus();
+  (sidebarCloseButton || sidebar.querySelector('nav a[href], nav summary'))?.focus();
 }
 
 function closeSidebar({ restoreFocus = false } = {}) {
@@ -348,13 +418,110 @@ menuButton?.addEventListener('click', () => {
 sidebarCloseButton?.addEventListener('click', () => closeSidebar({ restoreFocus: true }));
 sidebarBackdrop?.addEventListener('click', () => closeSidebar({ restoreFocus: true }));
 sidebar?.querySelectorAll('a[href]').forEach(link => link.addEventListener('click', () => closeSidebar()));
-document.querySelector('[data-mobile-more]')?.addEventListener('click', event => openSidebar(event.currentTarget));
+document.querySelectorAll('[data-mobile-more]').forEach(button => {
+  button.addEventListener('click', event => {
+    if (sidebar?.classList.contains('open')) {
+      closeSidebar({ restoreFocus: true });
+    } else {
+      openSidebar(event.currentTarget);
+    }
+  });
+});
 syncSidebarAccessibility();
+
+const adminMenu = sidebar?.querySelector('.app-navbar-admin-menu');
+adminMenu?.addEventListener('click', event => event.stopPropagation());
+document.addEventListener('click', event => {
+  if (adminMenu?.open && !adminMenu.contains(event.target)) adminMenu.open = false;
+});
+adminMenu?.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && adminMenu.open) {
+    adminMenu.open = false;
+    adminMenu.querySelector('summary')?.focus();
+  }
+});
+
+const planner = document.getElementById('dashboardPlanner');
+const plannerToggle = document.getElementById('toggleDashboardPlanner');
+plannerToggle?.addEventListener('click', () => {
+  const collapsed = planner?.classList.toggle('is-collapsed') ?? false;
+  plannerToggle.setAttribute('aria-expanded', String(!collapsed));
+  plannerToggle.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} route planner`);
+  plannerToggle.querySelector('span').textContent = collapsed ? 'Show route planner' : 'Hide route planner';
+  plannerToggle.querySelector('i').className = `fa-solid ${collapsed ? 'fa-chevron-down' : 'fa-chevron-up'}`;
+  document.body.classList.toggle('dashboard-planner-collapsed', collapsed);
+});
+
+const explorePanels = document.querySelector('.explore-panels');
+const explorePanelsToggle = document.getElementById('toggleExplorePanels');
+explorePanelsToggle?.addEventListener('click', () => {
+  const collapsed = explorePanels?.classList.toggle('is-collapsed') ?? false;
+  explorePanelsToggle.setAttribute('aria-expanded', String(!collapsed));
+  explorePanelsToggle.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} journey and social panels`);
+  explorePanelsToggle.querySelector('span').textContent = collapsed ? 'Show panels' : 'Hide panels';
+  explorePanelsToggle.querySelector('i').className = `fa-solid ${collapsed ? 'fa-chevron-left' : 'fa-chevron-right'}`;
+});
+
+const sosDialog = document.getElementById('appSosDialog');
+const sosStatus = document.getElementById('appSosStatus');
+const sosConfirmButton = sosDialog?.querySelector('[data-sos-confirm]');
+document.querySelectorAll('[data-sos-trigger]').forEach(button => {
+  button.addEventListener('click', () => {
+    if (!sosDialog) return;
+    sosStatus.textContent = '';
+    sosConfirmButton.disabled = false;
+    sosConfirmButton.hidden = false;
+    sosConfirmButton.textContent = 'Send SOS';
+    sosDialog.querySelector('[data-sos-cancel]').textContent = 'Cancel';
+    sosDialog.showModal();
+  });
+});
+sosDialog?.querySelector('[data-sos-cancel]')?.addEventListener('click', () => sosDialog.close());
+sosConfirmButton?.addEventListener('click', async () => {
+  sosConfirmButton.disabled = true;
+  sosConfirmButton.textContent = 'Sending…';
+  sosStatus.textContent = 'Getting your location and notifying your trusted contacts…';
+
+  let coordinates = { lat: null, lng: null };
+  if (navigator.geolocation) {
+    coordinates = await new Promise(resolve => {
+      navigator.geolocation.getCurrentPosition(
+        position => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
+        () => resolve({ lat: null, lng: null }),
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 },
+      );
+    });
+  }
+
+  try {
+    const response = await fetch('backend/api/safety/trigger-sos.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(coordinates),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || 'The SOS alert could not be sent. Please try again.');
+    }
+    const count = Number(payload.notified_count) || 0;
+    sosStatus.textContent = count
+      ? `SOS alert sent. ${count} trusted contact${count === 1 ? ' was' : 's were'} notified.`
+      : 'SOS alert recorded. No trusted contacts are currently enabled for SOS notifications.';
+    sosConfirmButton.hidden = true;
+    sosDialog.querySelector('[data-sos-cancel]').textContent = 'Close';
+  } catch (error) {
+    console.error('SafariTrak could not send the SOS alert.', error);
+    sosStatus.textContent = error.message || 'The SOS alert could not be sent. Please try again.';
+    sosConfirmButton.disabled = false;
+    sosConfirmButton.textContent = 'Try again';
+  }
+});
 
 window.addEventListener('resize', () => {
   const wasOpen = sidebar?.classList.contains('open');
   syncSidebarAccessibility();
   if (wasOpen && !mobileNavigationMedia.matches) {
+    sidebar.classList.remove('open');
     sidebar?.querySelector('nav a[href]')?.focus();
     sidebarOpener = null;
   }
@@ -406,9 +573,14 @@ document.addEventListener('keydown', event => {
 });
 
 document.querySelectorAll('[data-theme-toggle]').forEach(button => {
+  const isLight = document.documentElement.dataset.theme === 'light';
+  button.setAttribute('aria-pressed', isLight ? 'true' : 'false');
+  button.setAttribute('aria-label', `Switch to ${isLight ? 'dark' : 'light'} theme`);
+  button.setAttribute('title', `Switch to ${isLight ? 'dark' : 'light'} theme`);
   button.addEventListener('click', () => {
     const nextTheme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
     document.documentElement.dataset.theme = nextTheme;
+    button.setAttribute('aria-pressed', nextTheme === 'light' ? 'true' : 'false');
     button.setAttribute('aria-label', `Switch to ${nextTheme === 'dark' ? 'light' : 'dark'} theme`);
     button.setAttribute('title', `Switch to ${nextTheme === 'dark' ? 'light' : 'dark'} theme`);
     try {

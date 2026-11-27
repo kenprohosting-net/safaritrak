@@ -222,15 +222,18 @@ if ($verification['role'] === 'school_admin') {
             ];
         }
         if ($routeStops) {
+            $routeColor = in_array(
+                strtolower((string) ($selectedBus['trip_status'] ?? '')),
+                ['ended', 'completed'],
+                true
+            ) ? 'completed' : 'planned';
             $mapFeatures[] = [
                 'kind' => 'journey',
                 'label' => $selectedBus['route_name'],
                 'lat' => $routeStops[0]['lat'],
                 'lng' => $routeStops[0]['lng'],
                 'routeStops' => $routeStops,
-                'routeStroke' => '#2DD4BF',
-                'routeGlow' => 'rgba(45, 212, 191, 0.85)',
-                'routeCasing' => 'rgba(8, 47, 73, 0.92)',
+                'routeColor' => $routeColor,
             ];
         }
     }
@@ -428,15 +431,18 @@ if ($parentState['student']['home_dropoff_lat'] !== null
     ];
 }
 if ($routeStops) {
+    $routeColor = in_array(
+        strtolower((string) ($trip['status'] ?? $bus['trip_status'] ?? '')),
+        ['ended', 'completed'],
+        true
+    ) ? 'completed' : 'planned';
     $parentState['map_features'][] = [
         'kind' => 'journey',
         'label' => $bus['route_name'],
         'lat' => $routeStops[0]['lat'],
         'lng' => $routeStops[0]['lng'],
         'routeStops' => $routeStops,
-        'routeStroke' => '#2DD4BF',
-        'routeGlow' => 'rgba(45, 212, 191, 0.85)',
-        'routeCasing' => 'rgba(8, 47, 73, 0.92)',
+        'routeColor' => $routeColor,
     ];
 }
 

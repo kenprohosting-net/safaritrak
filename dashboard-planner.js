@@ -23,7 +23,6 @@
   const copyButton = document.getElementById('copyDashboardTripLink');
   const swapButton = document.getElementById('swapPlannerPoints');
   const retryRouteButton = document.getElementById('retryDashboardRoute');
-  const exitFocusButton = document.getElementById('exitDashboardRouteFocus');
   const currentLocationButton = document.getElementById('useCurrentStartLocation');
   const sharedJourneyInput = document.getElementById('sharedJourneyUrl');
   const viewSharedJourneyButton = document.getElementById('viewSharedJourney');
@@ -119,15 +118,6 @@
     setStatus(message);
   }
 
-  function updateRouteFocus() {
-    const hasRoutePoints = Boolean(
-      readPoint(fields.startLat, fields.startLng)
-      && readPoint(fields.endLat, fields.endLng)
-    );
-    document.body.classList.toggle('dashboard-route-focus', hasRoutePoints);
-    exitFocusButton.hidden = !hasRoutePoints;
-  }
-
   async function refreshRoute() {
     const start = readPoint(fields.startLat, fields.startLng);
     const destination = readPoint(fields.endLat, fields.endLng);
@@ -136,8 +126,6 @@
     routeAvailable = false;
     retryRouteButton.hidden = true;
     updateActions(false);
-    updateRouteFocus();
-
     if (!start || !destination) {
       clearRoute(fields.startLabel.value || fields.endLabel.value
         ? 'Choose a starting point and destination from the suggestions.'
@@ -146,7 +134,7 @@
     }
 
     routeRequest = new AbortController();
-    setStatus('Finding a road route (up to 15 seconds)…');
+    setStatus('Finding a road route. An approximate line is shown while directions load.');
     window.SafariTrakPlannedRouteState = { start, destination, points: [] };
     window.SafariTrakDashboardMap?.setPlannedRoute(start, destination, []);
 
@@ -172,7 +160,7 @@
       window.SafariTrakDashboardMap?.setPlannedRoute(start, destination, []);
       updateActions(false);
       retryRouteButton.hidden = false;
-      setStatus(error.message || 'A road route could not be found. Check both locations and retry.', true);
+      setStatus('Road directions are unavailable. An approximate direct line remains on the map; retry before starting or scheduling.', true);
     }
   }
 
@@ -335,9 +323,6 @@
   });
 
   retryRouteButton.addEventListener('click', refreshRoute);
-  exitFocusButton.addEventListener('click', () => {
-    document.body.classList.remove('dashboard-route-focus');
-  });
   startButton.addEventListener('click', () => createJourney('start'));
   scheduleButton.addEventListener('click', () => {
     selectedAction = 'schedule';

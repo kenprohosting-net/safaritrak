@@ -70,11 +70,12 @@ html[data-theme] .app.app--map-layout.app--workspace.app--places > .sidebar {
 }
 
 html[data-theme] .app.app--map-layout.app--workspace.app--places .places-panel {
-    border-color: rgba(255, 255, 255, .1) !important;
+    border-color: var(--glass-surface-border) !important;
     color: #F8FAFC !important;
-    background: rgba(12, 16, 28, .74) !important;
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
+    background: var(--glass-surface) !important;
+    box-shadow: var(--glass-shadow) !important;
+    backdrop-filter: var(--glass-surface-blur) !important;
+    -webkit-backdrop-filter: var(--glass-surface-blur) !important;
 }
 
 .app--places .places-nearby-panel {
@@ -932,4 +933,19 @@ body:has(.app--places) #addPlaceModal .custom-place-modal .modal-body {
     .custom-place-search-row {
         grid-template-columns: minmax(0, 1fr);
     }
+}
+
+html[data-theme] body .app.app--places .places-panel,
+html[data-theme] body .app.app--places > .sidebar.app-navbar,
+html[data-theme] body .app.app--places :is(.places-list-item, .places-saved-card, .places-details-panel) {
+    background: var(--app-glass-surface) !important;
+    backdrop-filter: var(--glass-surface-blur) !important;
+    -webkit-backdrop-filter: var(--glass-surface-blur) !important;
+}
+
+html[data-theme] .app.app--map-layout.app--workspace.app--places .places-panel,
+html[data-theme] .app.app--map-layout.app--workspace.app--places > .sidebar.app-navbar {
+    background: var(--app-glass-surface) !important;
+    backdrop-filter: var(--glass-surface-blur) !important;
+    -webkit-backdrop-filter: var(--glass-surface-blur) !important;
 }

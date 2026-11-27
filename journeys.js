@@ -114,6 +114,11 @@ function selectJourney(journey) {
 
   const routeFeature = features.find(feature => feature.kind === 'start');
   const hasRecordedRoute = Array.isArray(routeFeature?.route) && routeFeature.route.length > 1;
+  if (routeFeature) {
+    routeFeature.routeColor = ['ended', 'completed'].includes(String(journey.status || '').toLowerCase())
+      ? 'completed'
+      : 'planned';
+  }
   selectedMapFeatures = features;
   journeyRouteFocusable = hasCoordinates;
   setJourneyRouteFocus(hasCoordinates, false);
@@ -147,7 +152,9 @@ function selectJourney(journey) {
       throw new Error('The selected trip route endpoints are unavailable.');
     }
     routeFeature.route = route.coordinates;
-    routeFeature.routeColor = 'planned';
+    routeFeature.routeColor = ['ended', 'completed'].includes(String(journey.status || '').toLowerCase())
+      ? 'completed'
+      : 'planned';
     routeFeature.routeApproximate = false;
     window.SafariTrakPageMap?.setJourneyFeatures(features, { focus: true });
     routeStatus.textContent = `Road route · ${(route.distance_meters / 1000).toFixed(1)} km · about ${Math.max(1, Math.round(route.duration_seconds / 60))} min.`;
@@ -159,23 +166,28 @@ function selectJourney(journey) {
   }).catch(error => {
     if (error.name === 'AbortError' || routeSequence !== selectedRouteSequence) return;
     console.error('Selected journey road route failed.', error);
+    if (!hasRecordedRoute && routeFeature) {
+      routeFeature.route = [[startLng, startLat], [endLng, endLat]];
+      routeFeature.routeColor = ['ended', 'completed'].includes(String(journey.status || '').toLowerCase())
+        ? 'completed'
+        : 'planned';
+      routeFeature.routeApproximate = true;
+      window.SafariTrakPageMap?.setJourneyFeatures(features, { focus: true });
+    }
     routeStatus.textContent = hasRecordedRoute
       ? `Road route unavailable. Showing the recorded trip path. ${error.message || ''}`.trim()
-      : `A road route could not be loaded, so no straight-line route is shown. ${error.message || ''}`.trim();
+      : `Road route unavailable. The dashed line is an approximate direction, not a road route. ${error.message || ''}`.trim();
     routeStatus.classList.add('is-error');
   });
 }
 
 function selectGroupJourney(journey) {
   selectedRouteRequest?.abort();
-  selectedRouteRequest = null;
-  selectedRouteSequence += 1;
+  const routeSequence = ++selectedRouteSequence;
+  selectedRouteRequest = new AbortController();
   selectedJourneyId = null;
-  selectedMapFeatures = [];
-  journeyRouteFocusable = false;
-  setJourneyRouteFocus(false, false);
+  const routeStatus = document.getElementById('tripCarouselRouteStatus');
   resetJourneySharing();
-  window.SafariTrakPageMap?.setJourneyFeatures([], { focus: false });
 
   document.getElementById('tripCarouselTitle').textContent =
     `${journey.groupTitle} → ${journey.groupDestination}`;
@@ -183,10 +195,125 @@ function selectGroupJourney(journey) {
   setJourneyStatus(`Group · ${journey.statusLabel}`, journey.statusLabel.toLowerCase());
   setJourneyDate(journey.date);
   document.getElementById('tripCarouselShared').textContent = journey.shared;
-  document.getElementById('tripCarouselRouteStatus').textContent =
-    'Group member routes are available in Group trips.';
-  document.getElementById('tripCarouselRouteStatus').classList.remove('is-error');
+  document.getElementById('openCarouselGroup').href =
+    `groups.php?tab=trips&trip=${encodeURIComponent(String(journey.id))}`;
   document.getElementById('openCarouselGroup').hidden = false;
+  routeStatus.textContent = 'Loading authorized group routes…';
+  routeStatus.classList.remove('is-error');
+
+  fetch(`backend/api/journeys/position.php?group_journey_id=${encodeURIComponent(String(journey.id))}`, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+    signal: selectedRouteRequest.signal,
+  }).then(async response => {
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || `Group route request failed (HTTP ${response.status}).`);
+    }
+    if (routeSequence !== selectedRouteSequence) return;
+
+    const group = payload.data.group_journey;
+    const members = Array.isArray(payload.data.members) ? payload.data.members : [];
+    const memberColors = window.SafariTrakMapStyle.getTrackingColors().groupMembers;
+    const routeColors = window.SafariTrakMapStyle.getRouteColors();
+    const features = [];
+    members.forEach((member, index) => {
+      const points = Array.isArray(member.route) ? member.route : [];
+      if (points.length < 2) return;
+      features.push({
+        group_journey_id: Number(journey.id),
+        lat: Number(points[0][0]),
+        lng: Number(points[0][1]),
+        kind: 'journey',
+        label: `${member.name}’s recorded route`,
+        route: points.map(point => [Number(point[1]), Number(point[0])]),
+        routeStroke: memberColors[index % memberColors.length],
+        routeGlow: memberColors[index % memberColors.length],
+        routeCasing: routeColors.casing,
+      });
+    });
+
+    const startLat = group.meeting_point_lat === null ? Number.NaN : Number(group.meeting_point_lat);
+    const startLng = group.meeting_point_lng === null ? Number.NaN : Number(group.meeting_point_lng);
+    const endLat = group.destination_lat === null ? Number.NaN : Number(group.destination_lat);
+    const endLng = group.destination_lng === null ? Number.NaN : Number(group.destination_lng);
+    const hasEndpoints = [startLat, startLng, endLat, endLng].every(Number.isFinite)
+      && Math.abs(startLat) <= 90 && Math.abs(endLat) <= 90
+      && Math.abs(startLng) <= 180 && Math.abs(endLng) <= 180;
+    const destinationFeature = Number.isFinite(endLat) && Number.isFinite(endLng)
+      ? {
+        group_journey_id: Number(journey.id),
+        lat: endLat,
+        lng: endLng,
+        kind: 'finish',
+        label: `Finish · ${group.destination_label}`,
+      }
+      : null;
+    if (hasEndpoints) {
+      features.push({
+        group_journey_id: Number(journey.id),
+        lat: startLat,
+        lng: startLng,
+        kind: 'start',
+        label: `Start · ${group.meeting_point_label || 'Meeting point'}`,
+      });
+    }
+    if (destinationFeature) features.push(destinationFeature);
+
+    selectedMapFeatures = features;
+    journeyRouteFocusable = features.length > 0;
+    setJourneyRouteFocus(journeyRouteFocusable, false);
+    window.SafariTrakPageMap?.setJourneyFeatures(features, { focus: true });
+
+    if (!hasEndpoints) {
+      routeStatus.textContent = features.some(feature => Array.isArray(feature.route))
+        ? 'Recorded group member routes are shown. Saved meeting-point and destination coordinates are needed for a road-route preview.'
+        : 'No route coordinates are saved for this group trip yet.';
+      routeStatus.classList.toggle('is-error', !features.length);
+      return;
+    }
+
+    routeStatus.textContent = features.some(feature => Array.isArray(feature.route))
+      ? 'Loading the planned road route; recorded member tracks remain visible…'
+      : 'Loading the planned group road route…';
+    const roadRoute = await window.SafariTrakRouteDirections.getDrivingRoute(
+      { lat: startLat, lng: startLng },
+      { lat: endLat, lng: endLng },
+      { signal: selectedRouteRequest.signal }
+    );
+    if (routeSequence !== selectedRouteSequence) return;
+    if (!destinationFeature) return;
+    destinationFeature.route = roadRoute.coordinates;
+    destinationFeature.routeColor = 'planned';
+    selectedMapFeatures = features;
+    window.SafariTrakPageMap?.setJourneyFeatures(features, { focus: true });
+    routeStatus.textContent =
+      `Road route · ${(roadRoute.distance_meters / 1000).toFixed(1)} km · about ${Math.max(1, Math.round(roadRoute.duration_seconds / 60))} min. Group member tracks are shown where available.`;
+  }).catch(error => {
+    if (error.name === 'AbortError' || routeSequence !== selectedRouteSequence) return;
+    console.error('Group journey routes could not be loaded.', error);
+    const finishFeature = selectedMapFeatures.find(feature => feature.kind === 'finish');
+    const [startLat, startLng, endLat, endLng] = [
+      journey.startLat,
+      journey.startLng,
+      journey.endLat,
+      journey.endLng,
+    ].map(Number);
+    const hasSavedEndpoints = [startLat, startLng, endLat, endLng].every(Number.isFinite)
+      && Math.abs(startLat) <= 90 && Math.abs(endLat) <= 90
+      && Math.abs(startLng) <= 180 && Math.abs(endLng) <= 180;
+    if (finishFeature && hasSavedEndpoints) {
+      finishFeature.route = [[startLng, startLat], [endLng, endLat]];
+      finishFeature.routeColor = 'planned';
+      finishFeature.routeApproximate = true;
+      window.SafariTrakPageMap?.setJourneyFeatures(selectedMapFeatures, { focus: true });
+    }
+    routeStatus.textContent = selectedMapFeatures.some(feature => Array.isArray(feature.route))
+      ? `Road route unavailable. The map shows recorded tracks and a dashed approximate direction, not a road route. ${error.message || ''}`.trim()
+      : `Group routes could not be loaded. ${error.message || ''}`.trim();
+    routeStatus.classList.add('is-error');
+  });
 }
 
 function selectCarouselRow(journey) {

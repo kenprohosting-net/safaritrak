@@ -56,9 +56,15 @@ foreach ($journeys as $journey) {
 foreach ($groupJourneys as $journey) {
     $journeyCarouselItems[] = [
         'type' => 'group',
+        'id' => (int) $journey['id'],
         'status' => 'group',
         'groupTitle' => (string) $journey['title'],
+        'start' => (string) ($journey['meeting_point_label'] ?? ''),
         'groupDestination' => (string) $journey['destination_label'],
+        'startLat' => $journey['meeting_point_lat'] === null ? null : (float) $journey['meeting_point_lat'],
+        'startLng' => $journey['meeting_point_lng'] === null ? null : (float) $journey['meeting_point_lng'],
+        'endLat' => $journey['destination_lat'] === null ? null : (float) $journey['destination_lat'],
+        'endLng' => $journey['destination_lng'] === null ? null : (float) $journey['destination_lng'],
         'date' => (string) ($journey['departure_at'] ?? ''),
         'statusLabel' => ucfirst((string) $journey['status']),
         'distance' => $journey['distance_km'] !== null ? number_format((float) $journey['distance_km'], 1) . ' km' : 'Not recorded',

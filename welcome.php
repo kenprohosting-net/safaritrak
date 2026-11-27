@@ -15,7 +15,7 @@ if (!empty($_SESSION['user_id'])) {
   <meta name="theme-color" content="#0a0810">
   <title>SafariTrak | Your journey. Safer together.</title>
   <link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
-  <link rel="stylesheet" href="auth-theme.css">
+  <link rel="stylesheet" href="auth-theme.css?v=<?= hash_file('sha256', __DIR__ . '/auth-theme.css') ?>">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body class="welcome-page">
@@ -31,6 +31,6 @@ if (!empty($_SESSION['user_id'])) {
     <div class="welcome-visual" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="welcome-route"><span class="route-node route-start"></span><span class="route-node route-stop"></span><span class="route-node route-end"><i class="fa-solid fa-flag-checkered"></i></span></div><div class="welcome-map-label"><i class="fa-solid fa-location-dot"></i><span>Share your trip on your terms</span></div></div>
     <footer><span>© <?= date('Y') ?> SafariTrak</span><span>Private by choice · Connected by trust</span></footer>
   </main>
-  <script src="auth-theme.js"></script>
+  <script src="auth-theme.js?v=<?= hash_file('sha256', __DIR__ . '/auth-theme.js') ?>"></script>
 </body>
 </html>

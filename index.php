@@ -104,6 +104,10 @@ require __DIR__ . '/backend/views/app-shell-start.php';
        data-owner-name="<?= htmlspecialchars($userName, ENT_QUOTES, 'UTF-8') ?>"></div>
 
   <aside class="explore-panels" aria-label="Journey and group chat">
+    <button type="button" class="explore-panels-toggle" id="toggleExplorePanels" aria-expanded="true" aria-label="Collapse journey and social panels">
+      <i class="fa-solid fa-chevron-right" aria-hidden="true"></i><span>Hide panels</span>
+    </button>
+    <div class="explore-panels-content" id="explorePanelsContent">
     <section class="explore-panel explore-trip-panel">
       <div class="explore-panel-heading">
         <div><span class="explore-eyebrow">ACTIVE TRIP</span><h2><?= $activeJourney ? htmlspecialchars($activeJourney['start_label'], ENT_QUOTES, 'UTF-8') : 'Your next journey' ?></h2></div>
@@ -160,20 +164,23 @@ require __DIR__ . '/backend/views/app-shell-start.php';
       <a class="explore-text-link" href="groups.php<?= $dashboardGroup ? '?id=' . (int) $dashboardGroup['id'] : '' ?>"><i class="fa-solid fa-comments"></i> View all group messages</a>
     </section>
 
-    <?php if ($recentJourneys): ?>
       <section class="explore-panel explore-recent-panel">
         <div class="explore-panel-heading">
           <div><span class="explore-eyebrow">RECENT</span><h2>Previous trips</h2></div>
           <a class="explore-count" href="my-journeys.php" aria-label="View all trips"><i class="fa-solid fa-arrow-right"></i></a>
         </div>
-        <?php foreach ($recentJourneys as $recent): ?>
-          <a class="explore-recent-trip" href="view-journey.php?id=<?= (int) $recent['id'] ?>">
-            <i class="fa-solid fa-route"></i>
-            <span><strong><?= htmlspecialchars($recent['start_label'], ENT_QUOTES, 'UTF-8') ?> → <?= htmlspecialchars($recent['end_label'], ENT_QUOTES, 'UTF-8') ?></strong><small><?= (new DateTime($recent['started_at']))->format('j M') ?> · <?= ucfirst($recent['status']) ?></small></span>
-          </a>
-        <?php endforeach; ?>
+        <?php if ($recentJourneys): ?>
+          <?php foreach ($recentJourneys as $recent): ?>
+            <a class="explore-recent-trip" href="view-journey.php?id=<?= (int) $recent['id'] ?>">
+              <i class="fa-solid fa-route"></i>
+              <span><strong><?= htmlspecialchars($recent['start_label'], ENT_QUOTES, 'UTF-8') ?> → <?= htmlspecialchars($recent['end_label'], ENT_QUOTES, 'UTF-8') ?></strong><small><?= (new DateTime($recent['started_at']))->format('j M') ?> · <?= ucfirst($recent['status']) ?></small></span>
+            </a>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <p class="explore-empty-note">Your completed trips will appear here.</p>
+        <?php endif; ?>
       </section>
-    <?php endif; ?>
+    </div>
   </aside>
 
   <nav class="explore-shortcuts" aria-label="Explore shortcuts">

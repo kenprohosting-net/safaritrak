@@ -17,6 +17,7 @@
   let featureMarkers = [];
   let features = [];
   let locationRequestStarted = false;
+  let startupLocationRequested = false;
   let pendingSearchLocation;
   let searchMarker;
   let pendingFeatureFit = false;
@@ -88,6 +89,7 @@
     pendingFeatureRender = false;
     removeFeatures();
     const renderedFeatures = [...features, ...journeyFeatures, ...sharedLocationFeatures];
+    let sharedMemberIndex = 0;
     for (const feature of renderedFeatures) {
       if (!validPoint(feature)) continue;
       const kind = ['start', 'finish', 'place', 'saved-place', 'home', 'journey', 'shared-location', 'rental', 'school', 'bus', 'student', 'dropoff'].includes(feature.kind)
@@ -97,6 +99,21 @@
       markerElement.type = 'button';
       markerElement.className = `app-map-marker app-map-marker--${kind}`;
       markerElement.setAttribute('aria-label', String(feature.label || 'Map location'));
+      if (feature.routeStroke) {
+        markerElement.style.setProperty('--marker-color', feature.routeStroke);
+      } else if (feature.routeColor) {
+        const routeColors = window.SafariTrakMapStyle.getRouteColors();
+        markerElement.style.setProperty(
+          '--marker-color',
+          feature.routeColor === 'completed' ? routeColors.completedStroke : routeColors.stroke
+        );
+      } else if (kind === 'shared-location' || kind === 'journey') {
+        const groupColors = window.SafariTrakMapStyle.getTrackingColors().groupMembers;
+        markerElement.style.setProperty(
+          '--marker-color',
+          groupColors[sharedMemberIndex++ % groupColors.length]
+        );
+      }
       const iconClasses = {
         school: 'fa-solid fa-graduation-cap',
         bus: 'fa-solid fa-bus',
@@ -146,13 +163,18 @@
       if (validCoordinates.length > 1) {
         const suffix = String(index);
         const isPlannedRoute = feature.routeColor === 'planned';
+        const isCompletedRoute = feature.routeColor === 'completed';
         const routeColors = window.SafariTrakMapStyle.getRouteColors();
-        const routeStroke = isPlannedRoute
-          ? routeColors.stroke
-          : feature.routeStroke || routeColors.stroke;
-        const routeGlow = isPlannedRoute
-          ? routeColors.glow
-          : feature.routeGlow || routeColors.glow;
+        const routeStroke = isCompletedRoute
+          ? routeColors.completedStroke
+          : isPlannedRoute
+            ? routeColors.stroke
+            : feature.routeStroke || routeColors.stroke;
+        const routeGlow = isCompletedRoute
+          ? routeColors.completedGlow
+          : isPlannedRoute
+            ? routeColors.glow
+            : feature.routeGlow || routeColors.glow;
         map.addSource(`safaritrak-page-route-${suffix}`, {
           type: 'geojson',
           data: {
@@ -168,9 +190,9 @@
             source: `safaritrak-page-route-${suffix}`,
             layout: { 'line-cap': 'round', 'line-join': 'round' },
             paint: {
-              'line-color': feature.routeCasing || '#450A0A',
-              'line-width': 10,
-              'line-opacity': 0.94,
+              'line-color': feature.routeCasing || routeColors.casing,
+                'line-width': 8,
+                'line-opacity': 0.9,
             },
           });
         }
@@ -181,9 +203,10 @@
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
             'line-color': routeGlow,
-            'line-width': isPlannedRoute ? 10 : 12,
-            'line-opacity': isPlannedRoute ? 1 : 0.55,
-            'line-blur': isPlannedRoute ? 2 : 5,
+            'line-width': 8,
+            'line-opacity': isPlannedRoute ? 0.28 : 0.22,
+            'line-blur': 2,
+            ...(feature.routeApproximate ? { 'line-dasharray': [2, 2] } : {}),
           },
         });
         map.addLayer({
@@ -195,6 +218,7 @@
             'line-color': routeStroke,
             'line-width': isPlannedRoute ? 4 : 5,
             'line-opacity': 1,
+            ...(feature.routeApproximate ? { 'line-dasharray': [2, 2] } : {}),
           },
         });
       }
@@ -254,6 +278,15 @@
     if (!map?.isStyleLoaded() || !targetFeatures.length) return;
     if (isJourneyPage) {
       map.setProjection({ type: 'mercator' });
+    }
+    const routeFeature = targetFeatures.find(feature => Array.isArray(feature.route) && feature.route.length > 1);
+    if (routeFeature) {
+      const routeCoordinates = routeFeature.route.filter(point => Array.isArray(point) && point.length === 2)
+        .map(point => point.map(Number));
+      const routeStart = validPoint(routeFeature)
+        ? [Number(routeFeature.lng), Number(routeFeature.lat)]
+        : routeCoordinates[0];
+      if (window.SafariTrakRouteDirections?.focusMobileRoute(map, routeCoordinates, routeStart)) return;
     }
     const coordinates = [];
     targetFeatures.forEach(feature => {
@@ -486,6 +519,7 @@
 
   function initializeMap() {
     try {
+      const isMobile = window.matchMedia('(max-width: 800px)').matches;
       map = new maplibregl.Map({
         container: mapElement,
         style: mapStyle(),
@@ -500,8 +534,8 @@
         pitchWithRotate: false,
         scrollZoom: false,
         boxZoom: false,
-        doubleClickZoom: false,
-        touchZoomRotate: false,
+        doubleClickZoom: isMobile,
+        touchZoomRotate: isMobile,
         touchPitch: false,
         keyboard: false,
         cooperativeGestures: false,
@@ -545,6 +579,10 @@
           'flat'
         ));
         document.dispatchEvent(new Event('safaritrak-map-ready'));
+        if (!startupLocationRequested) {
+          startupLocationRequested = true;
+          requestUserLocation(true);
+        }
       });
       if (isSchoolPage) {
         map.on('click', event => {

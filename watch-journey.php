@@ -43,6 +43,7 @@ $journey = $stmt->fetch();
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
+<script src="map-style.js?v=<?= hash_file('sha256', __DIR__ . '/map-style.js') ?>"></script>
 </head>
 <body>
 <?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
@@ -100,6 +101,7 @@ $journey = $stmt->fetch();
 <div class="card map-full">
   <div class="card-head"><div><label>MAP</label><h3><?= htmlspecialchars($journey['traveler_name']) ?>'s route</h3></div></div>
   <div id="map"></div>
+  <p id="deviceLocationStatus" class="hint" role="status" aria-live="polite" hidden></p>
   <div class="legend"><span><i class="current"></i><?= $journey['status'] === 'active' ? 'Current position' : 'Last known position' ?></span><?php if ($journey['end_lat']): ?><span><i class="destination"></i>Destination</span><?php endif; ?></div>
   <div class="eta-strip">
     <div class="eta-chip"><label>DISTANCE COVERED</label><strong id="coveredKm">-</strong></div>
@@ -688,6 +690,7 @@ $totalDistance = $journey['distance_km'] !== null
                 </div>
 
                 <div id="sharedMap"></div>
+                <p id="journeyRoadRouteStatus" class="map-status" role="status" aria-live="polite">Loading road route…</p>
 
                 <div class="map-status">
 
@@ -821,6 +824,7 @@ const SHARED_END_LNG =
 </script>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="route-directions.js?v=<?= hash_file('sha256', __DIR__ . '/route-directions.js') ?>"></script>
 
 <script>
 

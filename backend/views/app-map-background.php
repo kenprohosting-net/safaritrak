@@ -5,7 +5,7 @@
 <?php endif; ?>
 <?php $showAppMapBackground = $showAppMapBackground ?? true; ?>
 <?php if (!empty($showAppMapBackground)): ?>
-<div id="appMapBackground" data-map-user-id="<?= (int) $currentUser['id'] ?>" data-map-page="<?= in_array(($appMapPage ?? ''), ['journeys', 'groups', 'messages', 'car-hire', 'places', 'profile', 'school'], true) ? htmlspecialchars($appMapPage, ENT_QUOTES, 'UTF-8') : 'default' ?>" role="region" aria-label="Map centered on Nairobi by default; trip or location selections update the view."></div>
+<div id="appMapBackground" data-map-user-id="<?= (int) $currentUser['id'] ?>" data-map-page="<?= in_array(($appMapPage ?? ''), ['journeys', 'groups', 'messages', 'car-hire', 'places', 'profile', 'school'], true) ? htmlspecialchars($appMapPage, ENT_QUOTES, 'UTF-8') : 'default' ?>" role="region" aria-label="Map centered on your current location when available; trip or location selections update the view."></div>
 <?php if (($showAppMapControls ?? true) !== false): ?>
 <div id="appMapControls" class="app-map-controls" aria-label="Map controls">
   <?php if (($showAppMapFocusControl ?? true) !== false): ?>

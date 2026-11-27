@@ -4,6 +4,115 @@
     && Number(point.lat) >= -90 && Number(point.lat) <= 90
     && Number(point.lng) >= -180 && Number(point.lng) <= 180;
 
+  function focusMobileRoute(map, coordinates, start) {
+    if (!map || !window.matchMedia('(max-width: 800px)').matches || !Array.isArray(coordinates)) {
+      return false;
+    }
+
+    const route = coordinates.filter(point => Array.isArray(point) && point.length >= 2
+      && Number.isFinite(Number(point[0])) && Number.isFinite(Number(point[1]))
+      && Number(point[0]) >= -180 && Number(point[0]) <= 180
+      && Number(point[1]) >= -90 && Number(point[1]) <= 90
+    );
+    if (route.length < 2) return false;
+
+    const origin = Array.isArray(start) && start.length >= 2
+      && Number.isFinite(Number(start[0])) && Number.isFinite(Number(start[1]))
+      ? [Number(start[0]), Number(start[1])]
+      : route[0].map(Number);
+    const nextPoint = route.find(point => Math.abs(Number(point[0]) - origin[0]) > 1e-6
+      || Math.abs(Number(point[1]) - origin[1]) > 1e-6);
+    const bearing = nextPoint
+      ? (() => {
+        const toRadians = value => value * Math.PI / 180;
+        const fromLat = toRadians(origin[1]);
+        const toLat = toRadians(Number(nextPoint[1]));
+        const deltaLng = toRadians(Number(nextPoint[0]) - origin[0]);
+        const y = Math.sin(deltaLng) * Math.cos(toLat);
+        const x = Math.cos(fromLat) * Math.sin(toLat)
+          - Math.sin(fromLat) * Math.cos(toLat) * Math.cos(deltaLng);
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+      })()
+      : 0;
+    const canvas = map.getCanvas();
+    map.easeTo({
+      center: origin,
+      zoom: 16,
+      bearing,
+      offset: [-canvas.clientWidth * 0.22, canvas.clientHeight * 0.25],
+      duration: 500,
+      essential: true,
+    });
+    return true;
+  }
+
+  function focusMobileLeafletRoute(map, coordinates, start) {
+    if (!map || !window.matchMedia('(max-width: 800px)').matches
+      || typeof map.setView !== 'function' || typeof map.panBy !== 'function'
+      || typeof map.getSize !== 'function' || !Array.isArray(coordinates)) {
+      return false;
+    }
+
+    const route = coordinates.map(point => Array.isArray(point)
+      ? [Number(point[0]), Number(point[1])]
+      : [Number(point?.lat), Number(point?.lng)]
+    ).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)
+      && Math.abs(lat) <= 90 && Math.abs(lng) <= 180);
+    if (route.length < 2) return false;
+
+    const origin = Array.isArray(start)
+      ? [Number(start[0]), Number(start[1])]
+      : [Number(start?.lat), Number(start?.lng)];
+    const center = origin.every(Number.isFinite)
+      ? origin
+      : route[0];
+    const size = map.getSize();
+    map.setView(center, 16, { animate: false });
+    map.panBy([-size.x * 0.22, size.y * 0.25], { animate: false });
+    return true;
+  }
+
+  function focusMobileGoogleRoute(map, coordinates, start) {
+    if (!map || !window.matchMedia('(max-width: 800px)').matches
+      || typeof map.setCenter !== 'function' || typeof map.setZoom !== 'function'
+      || typeof map.panBy !== 'function' || !Array.isArray(coordinates)) {
+      return false;
+    }
+
+    const route = coordinates.map(point => Array.isArray(point)
+      ? [Number(point[0]), Number(point[1])]
+      : [Number(point?.lng), Number(point?.lat)]
+    ).filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat)
+      && Math.abs(lng) <= 180 && Math.abs(lat) <= 90);
+    if (route.length < 2) return false;
+
+    const origin = Array.isArray(start)
+      ? [Number(start[0]), Number(start[1])]
+      : [Number(start?.lng), Number(start?.lat)];
+    const center = origin.length >= 2 && origin.every(Number.isFinite)
+      && Math.abs(origin[0]) <= 180 && Math.abs(origin[1]) <= 90
+      ? origin
+      : route[0];
+    const nextPoint = route.find(point => Math.abs(point[0] - center[0]) > 1e-6
+      || Math.abs(point[1] - center[1]) > 1e-6);
+    if (nextPoint && typeof map.setHeading === 'function') {
+      const toRadians = value => value * Math.PI / 180;
+      const fromLat = toRadians(center[1]);
+      const toLat = toRadians(nextPoint[1]);
+      const deltaLng = toRadians(nextPoint[0] - center[0]);
+      const y = Math.sin(deltaLng) * Math.cos(toLat);
+      const x = Math.cos(fromLat) * Math.sin(toLat)
+        - Math.sin(fromLat) * Math.cos(toLat) * Math.cos(deltaLng);
+      map.setHeading((Math.atan2(y, x) * 180 / Math.PI + 360) % 360);
+    }
+
+    map.setCenter({ lat: center[1], lng: center[0] });
+    map.setZoom(16);
+    const canvas = map.getDiv?.();
+    if (canvas) map.panBy(Math.round(canvas.clientWidth * 0.22), -Math.round(canvas.clientHeight * 0.25));
+    return true;
+  }
+
   function validateRoute(payload, providerName) {
     const route = payload?.routes?.[0];
     const coordinates = route?.geometry?.coordinates;
@@ -116,5 +225,10 @@
     }
   }
 
-  window.SafariTrakRouteDirections = { getDrivingRoute };
+  window.SafariTrakRouteDirections = {
+    focusMobileGoogleRoute,
+    focusMobileLeafletRoute,
+    focusMobileRoute,
+    getDrivingRoute,
+  };
 })();

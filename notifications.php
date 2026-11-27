@@ -2,7 +2,13 @@
 require __DIR__ . '/backend/includes/auth-guard.php';
 
 $db = safaritrak_db();
-$notifStmt = $db->prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 100');
+$notifStmt = $db->prepare(
+    'SELECT id, type, title, body, related_journey_id, related_user_id, is_read, created_at
+     FROM notifications
+     WHERE user_id = ?
+     ORDER BY created_at DESC
+     LIMIT 100'
+);
 $notifStmt->execute([$currentUser['id']]);
 $allNotifications = $notifStmt->fetchAll();
 

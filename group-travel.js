@@ -9,15 +9,29 @@ async function postJson(url, body) {
 
 document.getElementById('createGroupBtn')?.addEventListener('click', async () => {
   const title = document.getElementById('groupTitle').value.trim();
-  const destination = document.getElementById('groupDestination').value.trim();
+  const destination = document.getElementById('endPoint').value.trim();
+  const startPoint = document.getElementById('startPoint').value.trim();
+  const startLat = document.getElementById('startLat').value;
+  const startLng = document.getElementById('startLng').value;
+  const destinationLat = document.getElementById('endLat').value;
+  const destinationLng = document.getElementById('endLng').value;
   const departure = document.getElementById('groupDeparture').value;
   const errorEl = document.getElementById('createGroupError');
   const btn = document.getElementById('createGroupBtn');
 
   errorEl.style.display = 'none';
 
-  if (!title || !destination) {
-    errorEl.textContent = 'Please enter a trip name and destination.';
+  if (!title || !destination || !startPoint) {
+    errorEl.textContent = 'Please enter a trip name, starting point, and destination.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  const coordinates = [startLat, startLng, destinationLat, destinationLng].map(Number);
+  if ([startLat, startLng, destinationLat, destinationLng].some(value => value.trim() === '')
+    || !coordinates.every(Number.isFinite)
+    || Math.abs(coordinates[0]) > 90 || Math.abs(coordinates[2]) > 90
+    || Math.abs(coordinates[1]) > 180 || Math.abs(coordinates[3]) > 180) {
+    errorEl.textContent = 'Choose both the starting point and destination from the location suggestions.';
     errorEl.style.display = 'block';
     return;
   }
@@ -31,7 +45,12 @@ document.getElementById('createGroupBtn')?.addEventListener('click', async () =>
   try {
     const data = await postJson('backend/api/groups/create.php', {
       title,
+      start_label: startPoint,
+      start_lat: Number(startLat),
+      start_lng: Number(startLng),
       destination_label: destination,
+      destination_lat: Number(destinationLat),
+      destination_lng: Number(destinationLng),
       departure_at: departure || null,
       invite_contact_ids: inviteIds,
       persistent_group_ids: persistentGroupIds,
@@ -120,30 +139,75 @@ document.querySelectorAll('.group-action-btn').forEach(btn => {
 });
 
 if (window.ACTIVE_GROUP_ID) {
-  const memberColor = member => `hsl(${(Number(member.member_id) * 137.508) % 360} 72% 45%)`;
-  const memberRouteColor = member => ['#E60026', '#FF2D2D', '#FF5252', '#FF6B6B', '#FF1744'][
-    Math.abs(Number(member.member_id)) % 5
+  const trackingColors = window.SafariTrakMapStyle.getTrackingColors();
+  const groupMemberColors = trackingColors.groupMembers;
+  const memberRouteColor = member => groupMemberColors[
+    Math.abs(Number(member.member_id)) % groupMemberColors.length
   ];
-  const destinationIcon = L.divIcon({
+  const memberColor = member => member.user_id === window.MY_USER_ID
+    ? trackingColors.user
+    : memberRouteColor(member);
+  const createGroupMarker = (color, size = 16) => L.divIcon({
     className: 'st-marker',
-    html: '<div style="width:16px;height:16px;background:#d69b2d;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.25)"></div>',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
+    html: `<div style="width:${size}px;height:${size}px;background:${color};border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.28)"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
+  const destinationIcon = createGroupMarker(trackingColors.destination);
 
+  const initialCenter = window.ACTIVE_GROUP_START_LAT !== null && window.ACTIVE_GROUP_START_LNG !== null
+    ? [window.ACTIVE_GROUP_START_LAT, window.ACTIVE_GROUP_START_LNG]
+    : [-1.286389, 36.817223];
   const groupMap = L.map('groupMap', {
     zoomControl: false,
     scrollWheelZoom: false,
-    doubleClickZoom: false,
-    touchZoom: false,
+    doubleClickZoom: true,
+    touchZoom: true,
     boxZoom: false,
     keyboard: false
-  }).setView([-1.286389, 36.817223], 6);
+  }).setView(initialCenter, window.matchMedia('(max-width: 800px)').matches ? 12 : 6);
   window.SafariTrakMapStyle.attachLeafletBase(groupMap);
 
   const bounds = [];
   const memberMarkers = {};
   const memberRoutes = {};
+  const plannedRoutePane = groupMap.createPane('group-planned-route');
+  plannedRoutePane.style.zIndex = '350';
+  let plannedRouteLine = null;
+  const mapStatus = document.getElementById('groupMapStatus');
+  const deviceLocationStatus = document.getElementById('groupDeviceLocationStatus');
+  let hasCenteredOnCurrentLocation = false;
+  const centerOnCurrentLocation = point => {
+    if (hasCenteredOnCurrentLocation) return;
+    groupMap.setView(point, 16);
+    hasCenteredOnCurrentLocation = true;
+  };
+  const reportLocationUnavailable = error => {
+    if (!deviceLocationStatus) return;
+    deviceLocationStatus.hidden = false;
+    deviceLocationStatus.textContent = error && error.code === error.PERMISSION_DENIED
+      ? 'Location permission was denied. The group trip map remains available.'
+      : 'Device location is unavailable. The group trip map remains available.';
+  };
+  const startPoint = window.ACTIVE_GROUP_START_LAT !== null && window.ACTIVE_GROUP_START_LNG !== null
+    ? [window.ACTIVE_GROUP_START_LAT, window.ACTIVE_GROUP_START_LNG]
+    : null;
+  const destinationPoint = window.ACTIVE_GROUP_DEST_LAT !== null && window.ACTIVE_GROUP_DEST_LNG !== null
+    ? [window.ACTIVE_GROUP_DEST_LAT, window.ACTIVE_GROUP_DEST_LNG]
+    : null;
+  const plannedRouteColors = window.SafariTrakMapStyle.getRouteColors();
+  const completedRoute = ['ended', 'completed'].includes(String(window.ACTIVE_GROUP_STATUS || '').toLowerCase());
+  const plannedRouteColor = completedRoute
+    ? plannedRouteColors.completedStroke
+    : plannedRouteColors.stroke;
+  const inferredStart = startPoint || window.ACTIVE_GROUP_MEMBERS
+    .map(member => Array.isArray(member.route) ? member.route[0] : null)
+    .find(point => Array.isArray(point) && point.length === 2);
+  if (inferredStart) {
+    const icon = createGroupMarker(trackingColors.start);
+    L.marker(inferredStart, { icon }).addTo(groupMap).bindPopup('<b>Trip start</b>');
+    bounds.push(inferredStart);
+  }
 
   window.ACTIVE_GROUP_MEMBERS.forEach(m => {
     if (m.status !== 'confirmed') return;
@@ -168,13 +232,70 @@ if (window.ACTIVE_GROUP_ID) {
     bounds.push([m.lat, m.lng]);
   });
 
-  if (window.ACTIVE_GROUP_DEST_LAT !== null && window.ACTIVE_GROUP_DEST_LNG !== null) {
-    L.marker([window.ACTIVE_GROUP_DEST_LAT, window.ACTIVE_GROUP_DEST_LNG], { icon: destinationIcon }).addTo(groupMap).bindPopup('<b>Destination</b>');
-    bounds.push([window.ACTIVE_GROUP_DEST_LAT, window.ACTIVE_GROUP_DEST_LNG]);
+  if (destinationPoint) {
+    L.marker(destinationPoint, { icon: destinationIcon }).addTo(groupMap).bindPopup('<b>Destination</b>');
+    bounds.push(destinationPoint);
   }
 
-  if (bounds.length > 0) {
+  const hasPlannedEndpoints = Boolean(inferredStart && destinationPoint);
+  const isMobile = window.matchMedia('(max-width: 800px)').matches;
+  if (bounds.length > 0 && !(isMobile && hasPlannedEndpoints)) {
     groupMap.fitBounds(bounds, { padding: [40, 40] });
+  }
+
+  if (inferredStart && destinationPoint) {
+    mapStatus.textContent = 'Loading the planned road route…';
+    window.SafariTrakRouteDirections.getDrivingRoute(
+      { lat: inferredStart[0], lng: inferredStart[1] },
+      { lat: destinationPoint[0], lng: destinationPoint[1] }
+    ).then(route => {
+      plannedRouteLine = L.polyline(
+        route.coordinates.map(([lng, lat]) => [lat, lng]),
+        {
+          pane: 'group-planned-route',
+          color: plannedRouteColor,
+          weight: 5,
+          opacity: 0.9,
+          dashArray: '9 7',
+        }
+      ).addTo(groupMap);
+      bounds.push(...plannedRouteLine.getLatLngs());
+      if (!hasCenteredOnCurrentLocation) {
+        if (!window.SafariTrakRouteDirections.focusMobileLeafletRoute(
+          groupMap,
+          plannedRouteLine.getLatLngs(),
+          inferredStart
+        )) {
+          groupMap.fitBounds(bounds, { padding: [40, 40] });
+        }
+      }
+      mapStatus.textContent = `Planned road route · ${(route.distance_meters / 1000).toFixed(1)} km · about ${Math.max(1, Math.round(route.duration_seconds / 60))} min. Recorded member tracks appear above it.`;
+    }).catch(error => {
+      plannedRouteLine = L.polyline(
+        [inferredStart, destinationPoint],
+        {
+          pane: 'group-planned-route',
+          color: plannedRouteColor,
+          weight: 5,
+          opacity: 0.75,
+          dashArray: '5 8',
+        }
+      ).addTo(groupMap);
+      if (!hasCenteredOnCurrentLocation) {
+        if (!window.SafariTrakRouteDirections.focusMobileLeafletRoute(
+          groupMap,
+          plannedRouteLine.getLatLngs(),
+          inferredStart
+        )) {
+          groupMap.fitBounds(plannedRouteLine.getBounds(), { padding: [40, 40] });
+        }
+      }
+      mapStatus.textContent = `Road route unavailable; the dashed line is an approximate direction, not a road route. ${error.message || ''}`.trim();
+    });
+  } else if (window.ACTIVE_GROUP_STATUS === 'upcoming') {
+    mapStatus.textContent = 'This scheduled trip needs a saved starting point and destination to show its road route.';
+  } else {
+    mapStatus.textContent = 'Recorded member routes are shown where location updates were saved.';
   }
 
   const amIConfirmedMember = window.ACTIVE_GROUP_STATUS === 'active'
@@ -185,11 +306,18 @@ if (window.ACTIVE_GROUP_ID) {
     navigator.geolocation.watchPosition((position) => {
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
+      centerOnCurrentLocation([lat, lng]);
 
       if (memberMarkers[window.MY_USER_ID]) {
         memberMarkers[window.MY_USER_ID].setLatLng([lat, lng]);
       } else {
-        memberMarkers[window.MY_USER_ID] = L.marker([lat, lng], { icon: memberIcon }).addTo(groupMap).bindPopup('<b>You</b>');
+        const icon = L.divIcon({
+          className: 'st-marker',
+          html: `<div style="width:16px;height:16px;background:${trackingColors.user};border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.28)"></div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8],
+        });
+        memberMarkers[window.MY_USER_ID] = L.marker([lat, lng], { icon }).addTo(groupMap).bindPopup('<b>You</b>');
       }
 
       const now = Date.now();
@@ -216,10 +344,19 @@ if (window.ACTIVE_GROUP_ID) {
           memberRoutes[currentMember.member_id].addLatLng([lat, lng]);
         }
       }
-    }, () => {}, { enableHighAccuracy: true, maximumAge: 10000 });
+    }, reportLocationUnavailable, { enableHighAccuracy: true, maximumAge: 10000 });
+  } else if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(position => {
+      const point = [position.coords.latitude, position.coords.longitude];
+      L.marker(point, { icon: createGroupMarker(trackingColors.user, 18), zIndexOffset: 1000 })
+        .addTo(groupMap)
+        .bindPopup('<b>Your location on this device</b>');
+      centerOnCurrentLocation(point);
+    }, reportLocationUnavailable, { enableHighAccuracy: true, maximumAge: 10000, timeout: 12000 });
+  } else {
+    reportLocationUnavailable(null);
   }
 
-  const mapStatus = document.getElementById('groupMapStatus');
   const refreshMemberRoutes = async () => {
     try {
       const response = await fetch(`backend/api/journeys/position.php?group_journey_id=${encodeURIComponent(window.ACTIVE_GROUP_ID)}`, {
@@ -237,7 +374,9 @@ if (window.ACTIVE_GROUP_ID) {
           memberRoutes[member.group_member_id].setLatLngs(points);
         } else if (points.length > 1) {
           memberRoutes[member.group_member_id] = L.polyline(points, {
-            color: initialMember ? memberRouteColor(initialMember) : '#FF2D2D',
+            color: initialMember ? memberRouteColor(initialMember) : groupMemberColors[
+              Math.abs(Number(member.group_member_id)) % groupMemberColors.length
+            ],
             weight: 5,
             opacity: 0.82,
           }).addTo(groupMap);
@@ -246,11 +385,13 @@ if (window.ACTIVE_GROUP_ID) {
           memberMarkers[member.user_id].setLatLng([member.lat, member.lng]);
         }
       }
-      mapStatus.textContent = 'Member routes updated just now. Only confirmed trip members can view them.';
+      if (window.ACTIVE_GROUP_STATUS === 'active') {
+        mapStatus.textContent = 'Member routes updated just now. Only confirmed trip members can view them.';
+      }
     } catch (error) {
       mapStatus.textContent = error.message || 'Group member routes could not be refreshed.';
     }
   };
   refreshMemberRoutes();
-  window.setInterval(refreshMemberRoutes, 30000);
+  if (window.ACTIVE_GROUP_STATUS === 'active') window.setInterval(refreshMemberRoutes, 30000);
 }

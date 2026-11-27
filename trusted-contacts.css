@@ -63,12 +63,12 @@
 
 html body .app.app--trusted-contacts .trusted-people-panel,
 html body .app.app--trusted-contacts .trusted-sharing-panel {
-    border-color: rgba(255, 255, 255, .13) !important;
+    border-color: var(--glass-surface-border) !important;
     color: #F8FAFC !important;
-    background: rgba(10, 15, 27, .9) !important;
-    box-shadow: 0 20px 46px rgba(0, 0, 0, .38) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
+    background: var(--glass-surface) !important;
+    box-shadow: var(--glass-shadow) !important;
+    backdrop-filter: var(--glass-surface-blur) !important;
+    -webkit-backdrop-filter: var(--glass-surface-blur) !important;
 }
 
 .trusted-people-panel {
@@ -324,6 +324,16 @@ html body .app.app--trusted-contacts .trusted-people-panel .contact-card {
         overflow: visible;
         padding: 20px;
     }
+}
+
+html body .app.app--trusted-contacts .trusted-people-panel,
+html body .app.app--trusted-contacts .trusted-sharing-panel,
+html body .app.app--trusted-contacts .trusted-requests-panel,
+html body .app.app--trusted-contacts .trusted-people-panel .contact-card,
+html body .app.app--trusted-contacts .trusted-people-panel .journey-row {
+    background: var(--app-glass-surface) !important;
+    backdrop-filter: var(--glass-surface-blur) !important;
+    -webkit-backdrop-filter: var(--glass-surface-blur) !important;
 }
 
 @media (max-width: 540px) {

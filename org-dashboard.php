@@ -6,10 +6,11 @@ st_require_org_admin($currentUser);
 
 $myOrg = null;
 $myOrgSuspended = false;
+$isSchool = false;
 
 if (!empty($currentUser['organization_id'])) {
     $orgStmt = $db->prepare(
-        'SELECT o.*, p.account_type, p.review_status
+        'SELECT o.id, o.name, o.is_suspended, p.account_type, p.review_status
          FROM organizations o
          LEFT JOIN organization_profiles p ON p.organization_id = o.id
          WHERE o.id = ? LIMIT 1'
@@ -71,7 +72,8 @@ if ($myOrg && !$myOrgSuspended && ($myOrg['review_status'] ?? 'approved') === 'a
     $sosActive = (int) $sosActiveStmt->fetchColumn();
 
     $activityStmt = $db->prepare(
-        'SELECT * FROM (
+        'SELECT etype, etime, name1, label1, label2, num
+         FROM (
             SELECT "journey_started" AS etype, j.started_at AS etime, u.full_name AS name1, j.start_label AS label1, j.end_label AS label2, NULL AS num
             FROM journeys j JOIN users u ON u.id = j.user_id
             WHERE j.user_id IN (SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active")

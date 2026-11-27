@@ -14,39 +14,41 @@ const sharedMap = L.map('sharedMap').setView(
 
 window.SafariTrakMapStyle.attachLeafletBase(sharedMap);
 
-const travelerIcon = L.divIcon({
-    className: 'st-marker',
-    html:
-        '<div style="' +
-        'width:18px;' +
-        'height:18px;' +
-        'background:#176b5b;' +
-        'border:4px solid white;' +
-        'border-radius:50%;' +
-        'box-shadow:0 2px 10px rgba(0,0,0,.25);' +
-        '"></div>',
-    iconSize: [18, 18],
-    iconAnchor: [9, 9]
-});
+function createJourneyMarker(color) {
+    return L.divIcon({
+        className: 'st-marker',
+        html: `<div style="width:18px;height:18px;background:${color};border:4px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.28)"></div>`,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9]
+    });
+}
 
-const destinationIcon = L.divIcon({
-    className: 'st-marker',
-    html:
-        '<div style="' +
-        'width:18px;' +
-        'height:18px;' +
-        'background:#c94b4b;' +
-        'border:4px solid white;' +
-        'border-radius:50%;' +
-        'box-shadow:0 2px 10px rgba(0,0,0,.25);' +
-        '"></div>',
-    iconSize: [18, 18],
-    iconAnchor: [9, 9]
-});
+const trackingColors = window.SafariTrakMapStyle.getTrackingColors();
+const travelerIcon = createJourneyMarker(trackingColors.user);
+const startIcon = createJourneyMarker(trackingColors.start);
+const destinationIcon = createJourneyMarker(trackingColors.destination);
+const getJourneyRouteStroke = () => {
+    const colors = window.SafariTrakMapStyle.getRouteColors();
+    const status = document.getElementById('journeyStatus')?.textContent?.trim().toLowerCase();
+    return ['ended', 'completed'].includes(status) ? colors.completedStroke : colors.stroke;
+};
 
 let travelerMarker = null;
+let deviceLocationMarker = null;
 let destinationMarker = null;
+let startMarker = null;
+let roadRouteLine = null;
 let firstLocationReceived = false;
+let hasCenteredOnDeviceLocation = false;
+const roadRouteStatus = document.getElementById('journeyRoadRouteStatus');
+
+if (SHARED_START_LAT !== null && SHARED_START_LNG !== null) {
+    startMarker = L.marker([SHARED_START_LAT, SHARED_START_LNG], {
+        icon: startIcon
+    })
+    .addTo(sharedMap)
+    .bindPopup('<b>Trip start</b>');
+}
 
 if (
     SHARED_END_LAT !== null &&
@@ -63,6 +65,56 @@ if (
     )
     .addTo(sharedMap)
     .bindPopup('<b>Destination</b>');
+}
+
+if (SHARED_START_LAT !== null && SHARED_START_LNG !== null
+    && SHARED_END_LAT !== null && SHARED_END_LNG !== null) {
+    window.SafariTrakRouteDirections.getDrivingRoute(
+        { lat: SHARED_START_LAT, lng: SHARED_START_LNG },
+        { lat: SHARED_END_LAT, lng: SHARED_END_LNG }
+    ).then(route => {
+        roadRouteLine = L.polyline(
+            route.coordinates.map(([lng, lat]) => [lat, lng]),
+            { color: getJourneyRouteStroke(), weight: 5, opacity: 0.9, dashArray: '9 7' }
+        ).addTo(sharedMap);
+        if (!hasCenteredOnDeviceLocation) {
+            if (!window.SafariTrakRouteDirections.focusMobileLeafletRoute(
+                sharedMap,
+                roadRouteLine.getLatLngs(),
+                [SHARED_START_LAT, SHARED_START_LNG]
+            )) {
+                sharedMap.fitBounds(roadRouteLine.getBounds(), { padding: [50, 50] });
+            }
+        }
+        if (roadRouteStatus) {
+            roadRouteStatus.textContent = `Road route · ${(route.distance_meters / 1000).toFixed(1)} km · about ${Math.max(1, Math.round(route.duration_seconds / 60))} min.`;
+        }
+    }).catch(error => {
+        roadRouteLine = L.polyline(
+            [[SHARED_START_LAT, SHARED_START_LNG], [SHARED_END_LAT, SHARED_END_LNG]],
+            {
+                color: getJourneyRouteStroke(),
+                weight: 5,
+                opacity: 0.75,
+                dashArray: '5 8'
+            }
+        ).addTo(sharedMap);
+        if (!hasCenteredOnDeviceLocation) {
+            if (!window.SafariTrakRouteDirections.focusMobileLeafletRoute(
+                sharedMap,
+                roadRouteLine.getLatLngs(),
+                [SHARED_START_LAT, SHARED_START_LNG]
+            )) {
+                sharedMap.fitBounds(roadRouteLine.getBounds(), { padding: [50, 50] });
+            }
+        }
+        if (roadRouteStatus) {
+            roadRouteStatus.textContent = `Road route unavailable. The dashed line is an approximate direction, not a road route. ${error.message || ''}`.trim();
+        }
+        console.error('Shared journey road route could not be loaded.', error);
+    });
+} else if (roadRouteStatus) {
+    roadRouteStatus.textContent = 'Saved start or destination coordinates are unavailable for this journey.';
 }
 
 async function getSharedJourney() {
@@ -122,6 +174,9 @@ function updateMap(data) {
                 ? journey.status.charAt(0).toUpperCase() +
                   journey.status.slice(1)
                 : '-';
+    }
+    if (roadRouteLine) {
+        roadRouteLine.setStyle({ color: getJourneyRouteStroke() });
     }
 
     const distanceElement =
@@ -240,16 +295,16 @@ function updateMap(data) {
 
         firstLocationReceived = true;
 
-        sharedMap.setView(
-            position,
-            15
-        );
+        if (!hasCenteredOnDeviceLocation) {
+            sharedMap.setView(position, 15);
+        }
 
         fitMap();
     }
 }
 
 function fitMap() {
+    if (hasCenteredOnDeviceLocation) return;
 
     const points = [];
 
@@ -260,6 +315,10 @@ function fitMap() {
         );
     }
 
+    if (startMarker) {
+        points.push(startMarker.getLatLng());
+    }
+
     if (destinationMarker) {
 
         points.push(
@@ -268,6 +327,14 @@ function fitMap() {
     }
 
     if (points.length >= 2) {
+
+        if (window.SafariTrakRouteDirections.focusMobileLeafletRoute(
+            sharedMap,
+            roadRouteLine?.getLatLngs() || points,
+            travelerMarker?.getLatLng() || startMarker?.getLatLng()
+        )) {
+            return;
+        }
 
         const bounds =
             L.latLngBounds(points);
@@ -281,7 +348,22 @@ function fitMap() {
                 ]
             }
         );
+    } else if (points.length === 1) {
+        sharedMap.setView(points[0], 13);
     }
+}
+
+function centerOnDeviceLocation(position) {
+    const point = [position.coords.latitude, position.coords.longitude];
+    hasCenteredOnDeviceLocation = true;
+    if (!deviceLocationMarker) {
+        deviceLocationMarker = L.marker(point, { icon: travelerIcon, zIndexOffset: 1000 })
+            .addTo(sharedMap)
+            .bindPopup('<b>Your location on this device</b>');
+    } else {
+        deviceLocationMarker.setLatLng(point);
+    }
+    sharedMap.setView(point, 16);
 }
 
 function setStatus(message) {
@@ -344,6 +426,13 @@ document
     );
 
 getSharedJourney();
+if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+        centerOnDeviceLocation,
+        () => setStatus('Device location is unavailable; the shared journey remains visible.'),
+        { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 }
+    );
+}
 
 setInterval(
     getSharedJourney,

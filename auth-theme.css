@@ -24,6 +24,8 @@ body {
   position: fixed;
   z-index: 0;
   inset: 0;
+  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   pointer-events: none;
 }
@@ -404,24 +406,20 @@ html[data-theme] .welcome-page .welcome-visual {
 }
 
 :root {
-  --auth-glass-surface: var(--bg-panel);
+  --auth-glass-surface: var(--app-glass-surface);
   --auth-glass-control: var(--bg-input);
-  --auth-glass-border: var(--border-glass);
+  --auth-glass-border: var(--glass-surface-border);
   --auth-glass-shadow: var(--glass-shadow);
-  --auth-glass-blur: var(--glass-blur);
-  --auth-form-surface: rgba(248, 250, 252, .76);
-}
-
-html[data-theme="dark"],
-html.dark {
-  --auth-form-surface: rgba(12, 16, 28, .76);
+  --auth-glass-blur: var(--glass-surface-blur);
+  --auth-form-surface: var(--app-glass-surface);
 }
 
 html[data-theme="light"] {
-  --auth-glass-surface: var(--bg-panel);
+  --auth-glass-surface: var(--app-glass-surface);
   --auth-glass-control: var(--bg-input);
-  --auth-glass-border: var(--border-glass);
+  --auth-glass-border: var(--glass-surface-border);
   --auth-glass-shadow: var(--glass-shadow);
+  --auth-glass-blur: var(--glass-surface-blur);
 }
 
 html :is(.login-card, .group-invite-card) {
@@ -503,6 +501,451 @@ html body:has(#loginForm) .login-card,
 html body:has(#signupForm) .login-card,
 html body:has(#orgSignupForm) .login-card {
   background: var(--auth-form-surface);
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
+  backdrop-filter: var(--auth-glass-blur) !important;
+  -webkit-backdrop-filter: var(--auth-glass-blur) !important;
+}
+
+html :is(.login-card, .group-invite-card) {
+  width: min(100%, 400px) !important;
+  max-width: 400px;
+  padding: 32px;
+  border: 1px solid var(--auth-glass-border);
+  border-radius: 20px;
+  background: var(--auth-glass-surface) !important;
+  box-shadow: var(--auth-glass-shadow);
+  backdrop-filter: var(--auth-glass-blur) !important;
+  -webkit-backdrop-filter: var(--auth-glass-blur) !important;
+}
+
+html :is(.login-card, .group-invite-card) .input-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  align-items: stretch;
+}
+
+html :is(.login-card, .group-invite-card) .input-group > label.auth-visually-hidden {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  clip: auto !important;
+  border: 0 !important;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  white-space: normal !important;
+}
+
+html :is(.login-card, .group-invite-card) :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="file"]),
+  select,
+  textarea
+) {
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  border-radius: 10px !important;
+  color: #111827 !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html :is(.login-card, .group-invite-card) :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="file"]),
+  select,
+  textarea
+)::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+
+html :is(.login-card, .group-invite-card) :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="file"]),
+  select,
+  textarea
+):is(:focus, :focus-visible) {
+  border-color: rgba(59, 130, 246, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4) !important;
+}
+
+html :is(.login-card, .group-invite-card) :is(.title, .subtitle, .signup-text) {
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+html body:has(#signupForm) .login-btn {
+  border: 1px solid #0f172a !important;
+  color: #fff !important;
+  background: #0f172a !important;
+  box-shadow: none !important;
+}
+
+html body:has(#signupForm) .login-btn:is(:hover, :focus-visible) {
+  background: #1e293b !important;
+}
+
+html body:has(#loginForm) .login-card,
+html body:has(#signupForm) .login-card,
+html body:has(#orgSignupForm) .login-card {
+  backdrop-filter: blur(22px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(160%) !important;
+}
+
+html[data-theme] .welcome-page .welcome-copy {
+  padding: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme="dark"] :is(.login-card, .group-invite-card),
+  html[data-theme="dark"] .welcome-page .welcome-copy {
+    background: rgba(12, 16, 28, 0.96) !important;
+  }
+
+  html[data-theme="light"] :is(.login-card, .group-invite-card),
+  html[data-theme="light"] .welcome-page .welcome-copy {
+    background: rgba(248, 250, 252, 0.96) !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html[data-theme="dark"] :is(.login-card, .group-invite-card),
+  html[data-theme="dark"] .welcome-page .welcome-copy {
+    background: rgba(12, 16, 28, 0.96) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  html[data-theme="light"] :is(.login-card, .group-invite-card),
+  html[data-theme="light"] .welcome-page .welcome-copy {
+    background: rgba(248, 250, 252, 0.96) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+html body:has(#loginForm),
+html body:has(#signupForm) {
+  padding: clamp(16px, 4vh, 36px) 20px 24px;
+}
+
+@media (min-height: 720px) {
+  html body:has(#loginForm) {
+    align-items: center;
+  }
+
+  html body:has(#loginForm) .login-card {
+    display: flex;
+    min-height: min(78vh, 700px);
+    flex-direction: column;
+    justify-content: space-between;
+  }
+}
+
+html body:has(#loginForm) .login-card,
+html body:has(#signupForm) .login-card {
+  width: min(100%, 400px) !important;
+  max-width: 400px;
+  padding: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 20px;
+  color: #fff;
+  background: rgba(8, 13, 24, 0.24) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(10px) saturate(155%) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(155%) !important;
+}
+
+html body:has(#loginForm) .login-card::after,
+html body:has(#signupForm) .login-card::after {
+  display: none;
+}
+
+html body:has(#loginForm) .brand-mark,
+html body:has(#signupForm) .brand-mark {
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+html body:has(#loginForm) .brand-mark i,
+html body:has(#signupForm) .brand-mark i {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  color: #fff;
+  font-size: 1.15rem;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent-primary) 38%, transparent);
+}
+
+html body:has(#loginForm) .brand-mark span,
+html body:has(#signupForm) .brand-mark span {
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+}
+
+html body:has(#loginForm) .title,
+html body:has(#signupForm) .title {
+  margin-bottom: 8px;
+  color: #fff;
+  font-size: clamp(2rem, 9vw, 2.55rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.12;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.22);
+}
+
+html body:has(#loginForm) .subtitle,
+html body:has(#signupForm) .subtitle {
+  margin-bottom: 28px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.96rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+html body:has(#loginForm) .login-form,
+html body:has(#signupForm) .login-form {
+  gap: 14px;
+}
+
+html body:has(#loginForm) .input-group > label.auth-visually-hidden,
+html body:has(#signupForm) .input-group > label.auth-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+html body:has(#loginForm) .input-group,
+html body:has(#signupForm) .input-group {
+  min-height: 56px;
+}
+
+html body:has(#loginForm) .input-group input,
+html body:has(#signupForm) .input-group input {
+  min-height: 56px;
+  padding: 14px 52px 14px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.48) !important;
+  border-radius: 999px !important;
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  font-size: 1rem;
+  font-weight: 400;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+}
+
+html body:has(#loginForm) .input-group input::placeholder,
+html body:has(#signupForm) .input-group input::placeholder {
+  color: rgba(255, 255, 255, 0.94);
+  opacity: 1;
+}
+
+html body:has(#loginForm) .input-group input:focus,
+html body:has(#signupForm) .input-group input:focus {
+  border-color: var(--accent-secondary) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-secondary) 38%, transparent) !important;
+}
+
+html body:has(#loginForm) .input-icon,
+html body:has(#signupForm) .input-icon {
+  top: auto;
+  right: 19px;
+  bottom: 20px;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 1.15rem;
+}
+
+html body:has(#loginForm) .input-icon:focus-visible,
+html body:has(#signupForm) .input-icon:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 4px;
+}
+
+html body:has(#loginForm) .auth-row,
+html body:has(#signupForm) .auth-row {
+  margin-top: 2px;
+  margin-bottom: 4px;
+}
+
+html body:has(#loginForm) .auth-row {
+  justify-content: flex-end;
+}
+
+html body:has(#loginForm) .forgot-link,
+html body:has(#signupForm) .signup-text a {
+  color: var(--accent-tertiary);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+html body:has(#loginForm) .login-btn,
+html body:has(#signupForm) .login-btn {
+  min-height: 58px;
+  margin-top: 4px;
+  border: 0 !important;
+  border-radius: 18px;
+  color: #fff !important;
+  background: linear-gradient(110deg, #C2410C 0%, #0F766E 100%) !important;
+  box-shadow: 0 12px 30px rgba(15, 118, 110, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+  font-size: 1.12rem;
+  font-weight: 700;
+  transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
+}
+
+html body:has(#loginForm) .login-btn:hover,
+html body:has(#signupForm) .login-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 14px 34px rgba(15, 118, 110, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+html body:has(#loginForm) .login-btn:focus-visible,
+html body:has(#signupForm) .login-btn:focus-visible {
+  outline: 3px solid var(--accent-secondary);
+  outline-offset: 3px;
+}
+
+html body:has(#loginForm) .signup-text,
+html body:has(#signupForm) .signup-text {
+  margin-top: 20px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+html body:has(#loginForm) .field-error,
+html body:has(#signupForm) .field-error {
+  color: #fecaca;
+}
+
+html body:has(#loginForm) .auth-theme-toggle,
+html body:has(#signupForm) .auth-theme-toggle {
+  border-color: rgba(255, 255, 255, 0.34);
+  color: #fff;
+  background: rgba(8, 13, 24, 0.42);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+@media (max-width: 520px) {
+  html body:has(#loginForm),
+  html body:has(#signupForm) {
+    padding: 14px;
+  }
+
+  html body:has(#loginForm) .login-card,
+  html body:has(#signupForm) .login-card {
+    padding: 28px 22px;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html body:has(#loginForm) .login-card,
+  html body:has(#signupForm) .login-card {
+    background: rgba(8, 13, 24, 0.96) !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html body:has(#loginForm) .login-card,
+  html body:has(#signupForm) .login-card {
+    background: rgba(8, 13, 24, 0.96) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  html body:has(#loginForm) .input-group input,
+  html body:has(#signupForm) .input-group input {
+    background: rgba(15, 23, 42, 0.96) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+html[data-theme] body:has(#loginForm, #signupForm, .login-card) {
+  color: var(--text-primary);
+  background: var(--bg-app) !important;
+}
+
+html[data-theme] body:has(#loginForm, #signupForm, .login-card) .login-card {
+  color: var(--text-primary);
+  background: var(--bg-panel) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: var(--glass-shadow) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-theme] body:has(#loginForm, #signupForm, .login-card) .login-card::after {
+  display: none !important;
+}
+
+html[data-theme] body:has(#loginForm, #signupForm, .login-card) .login-card :is(h1, h2, p, label, small, a) {
+  color: var(--text-primary);
+}
+
+html[data-theme] body:has(#loginForm, #signupForm, .login-card) .login-card :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  color: var(--text-primary) !important;
+  background: var(--bg-input) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme] body:has(#loginForm, #signupForm, .login-card) .login-card .login-btn {
+  color: var(--accent-text) !important;
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme] body:has(#loginForm, #signupForm, .login-card) .login-card .login-btn:hover {
+  background: var(--accent-primary-hover) !important;
+}
+
+html[data-theme] body:has(#loginForm, #signupForm, .login-card) .auth-theme-toggle {
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border-color: var(--border-glass);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-theme] body :is(.login-card, .group-invite-card, .welcome-page .welcome-copy) {
+  background: var(--app-glass-surface) !important;
+  backdrop-filter: var(--glass-surface-blur) !important;
+  -webkit-backdrop-filter: var(--glass-surface-blur) !important;
+}
+
+html[data-theme] body:has(#loginForm, #signupForm, .login-card) .login-card {
+  background: var(--app-glass-surface) !important;
+  backdrop-filter: var(--glass-surface-blur) !important;
+  -webkit-backdrop-filter: var(--glass-surface-blur) !important;
+}
+
+html[data-theme] body:has(#loginForm, #signupForm, .login-card) .auth-theme-toggle {
+  background: var(--app-glass-surface) !important;
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--border-glass));
+  backdrop-filter: var(--glass-control-blur) !important;
+  -webkit-backdrop-filter: var(--glass-control-blur) !important;
 }

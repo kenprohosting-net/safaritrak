@@ -4,17 +4,9 @@ ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
 require_once __DIR__ . '/backend/config/database.php';
-require_once __DIR__ . '/backend/includes/session.php';
+require_once __DIR__ . '/backend/includes/auth-guard.php';
 
-st_start_session();
-
-$userId = $_SESSION['user_id'] ?? null;
-
-if (!$userId) {
-    header('Location: login.php');
-    exit;
-}
-
+$userId = (int) $currentUser['id'];
 $csrfToken = st_csrf_token();
 
 $journeyId =
@@ -123,28 +115,9 @@ $isCompleted =
 $isCancelled =
     $status === 'cancelled';
 
-$userName =
-    $_SESSION['full_name']
-    ?? $_SESSION['name']
-    ?? $_SESSION['username']
-    ?? 'Traveler';
-
-$userInitial =
-    strtoupper(
-        substr(
-            trim($userName),
-            0,
-            1
-        )
-    );
-
-if ($userInitial === '') {
-    $userInitial = 'T';
-}
-
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 
 <head>
 
@@ -174,8 +147,23 @@ SafariTrak - Journey Tracking
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
 >
 
+<link
+    rel="stylesheet"
+    href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>"
+>
+
 <script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
 <script src="map-style.js?v=<?= hash_file('sha256', __DIR__ . '/map-style.js') ?>"></script>
+<script>
+try {
+    const savedTheme = localStorage.getItem('safaritrak-theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') {
+        document.documentElement.dataset.theme = savedTheme;
+    }
+} catch (error) {
+    console.warn('SafariTrak could not read the saved appearance preference.', error);
+}
+</script>
 
 <style>
 
@@ -243,7 +231,7 @@ body {
 .content {
     max-width: 1250px;
     margin: auto;
-    padding: 22px;
+    padding: 96px 22px 22px;
 }
 
 .heading {
@@ -476,6 +464,14 @@ body {
     box-shadow: 0 3px 12px rgba(0,0,0,.12);
     font-size: 10px;
     font-weight: bold;
+    display: grid;
+    gap: 5px;
+    max-width: min(390px, calc(100% - 28px));
+}
+
+#roadRouteStatus {
+    font-weight: 500;
+    line-height: 1.4;
 }
 
 .modal-overlay {
@@ -569,6 +565,10 @@ body {
 
 @media(max-width:850px) {
 
+    .tracking-page-content {
+        padding: 88px 14px calc(92px + env(safe-area-inset-bottom));
+    }
+
     .tracking-layout {
         grid-template-columns: 1fr;
     }
@@ -585,33 +585,9 @@ body {
 
 <body>
 
-<header class="topbar">
-
-<div class="brand">
-
-<div class="brand-icon">
-<i class="fas fa-route"></i>
-</div>
-
-<div>
-
-<strong>SafariTrak</strong>
-
-<small>
-Live journey tracking
-</small>
-
-</div>
-
-</div>
-
-<div class="profile">
-<?= htmlspecialchars($userInitial) ?>
-</div>
-
-</header>
-
-<main class="content">
+<div class="app app--map-layout">
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
+<main class="content tracking-page-content">
 
 <?php if ($pageError): ?>
 
@@ -928,6 +904,7 @@ Journey cancelled
 <?php endif; ?>
 
 </span>
+<span id="roadRouteStatus" role="status" aria-live="polite">Loading road route…</span>
 
 </div>
 
@@ -940,6 +917,7 @@ Journey cancelled
 <?php endif; ?>
 
 </main>
+</div>
 
 
 <div
@@ -1028,6 +1006,8 @@ Go to My Journeys
 
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="route-directions.js?v=<?= hash_file('sha256', __DIR__ . '/route-directions.js') ?>"></script>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
 
 <script>
 
@@ -1580,9 +1560,24 @@ function createMap() {
                 {
                     color: window.SafariTrakMapStyle.getRouteColors().stroke,
                     weight: 7,
-                    opacity: .85
+                    opacity: .85,
+                    dashArray: '5 8'
                 }
             ).addTo(map);
+
+        const roadRouteStatus = document.getElementById('roadRouteStatus');
+        window.SafariTrakRouteDirections.getDrivingRoute(
+            { lat: START_LAT, lng: START_LNG },
+            { lat: END_LAT, lng: END_LNG }
+        ).then(route => {
+            routeLine.setLatLngs(route.coordinates.map(([lng, lat]) => [lat, lng]));
+            routeLine.setStyle({ dashArray: null, opacity: .95 });
+            map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+            roadRouteStatus.textContent = `Road route · ${(route.distance_meters / 1000).toFixed(1)} km · about ${Math.max(1, Math.round(route.duration_seconds / 60))} min.`;
+        }).catch(error => {
+            roadRouteStatus.textContent = `Road route unavailable. The dashed line is an approximate direction, not a road route. ${error.message || ''}`.trim();
+            console.error('Current journey road route could not be loaded.', error);
+        });
 
 
         map.fitBounds(

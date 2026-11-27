@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SafariTrak | Register Your Organization</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="auth-theme.css">
+  <link rel="stylesheet" href="style.css?v=<?= hash_file('sha256', __DIR__ . '/style.css') ?>">
+  <link rel="stylesheet" href="auth-theme.css?v=<?= hash_file('sha256', __DIR__ . '/auth-theme.css') ?>">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
@@ -90,7 +90,7 @@
   </div>
 
   <script src="auth.js"></script>
-  <script src="auth-theme.js"></script>
+  <script src="auth-theme.js?v=<?= hash_file('sha256', __DIR__ . '/auth-theme.js') ?>"></script>
   <script src="org-signup.js"></script>
 </body>
 </html>

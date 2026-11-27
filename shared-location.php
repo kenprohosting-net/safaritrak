@@ -36,6 +36,9 @@
       const intro = document.getElementById('shareIntro');
       let map;
       let marker;
+      let startMarker;
+      let destinationMarker;
+      let routeAdded = false;
       let currentPoint;
       let refreshTimer;
       let stopped = false;
@@ -47,7 +50,6 @@
           status.textContent = 'This scheduled trip does not have enough location data to show its route.';
           return;
         }
-        if (map) return;
         let coordinates = [start, end];
         let routeAvailable = false;
         try {
@@ -67,54 +69,74 @@
           status.textContent = 'The trip was received, but map rendering is unavailable in this browser.';
           return;
         }
-        map = new maplibregl.Map({
-          container: 'shareMap',
-          style: window.SafariTrakMapStyle.styleUrl,
-          center: start,
-          zoom: 7,
-          attributionControl: true,
-          dragRotate: false,
-          scrollZoom: false,
-          doubleClickZoom: false,
-          touchZoomRotate: false,
-        });
-        map.once('load', () => {
+        if (!map) {
+          map = new maplibregl.Map({
+            container: 'shareMap',
+            style: window.SafariTrakMapStyle.styleUrl,
+            center: start,
+            zoom: 7,
+            attributionControl: true,
+            dragRotate: false,
+            scrollZoom: false,
+            doubleClickZoom: false,
+            touchZoomRotate: false,
+          });
+        }
+        const drawRoute = () => {
+          if (!map.isStyleLoaded()) return;
           window.SafariTrakMapStyle.apply(map);
-          map.addSource('planned-trip-route', {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              properties: {},
-              geometry: { type: 'LineString', coordinates },
-            },
-          });
+          const routeData = {
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates },
+          };
+          if (map.getSource('planned-trip-route')) {
+            map.getSource('planned-trip-route').setData(routeData);
+          } else {
+            map.addSource('planned-trip-route', { type: 'geojson', data: routeData });
+          }
           const routeColors = window.SafariTrakMapStyle.getRouteColors();
-          map.addLayer({
-            id: 'planned-trip-route-glow',
-            type: 'line',
-            source: 'planned-trip-route',
-            layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: { 'line-color': routeColors.glow, 'line-width': 12, 'line-blur': 4, 'line-opacity': 0.8 },
-          });
-          map.addLayer({
-            id: 'planned-trip-route-line',
-            type: 'line',
-            source: 'planned-trip-route',
-            layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: { 'line-color': routeColors.stroke, 'line-width': 5, 'line-opacity': 1 },
-          });
-          marker = new maplibregl.Marker({ color: '#47f5cf' }).setLngLat(start).addTo(map);
-          new maplibregl.Marker({ color: '#FF2D2D' }).setLngLat(end).addTo(map);
+          if (!map.getLayer('planned-trip-route-glow')) {
+            map.addLayer({
+              id: 'planned-trip-route-glow',
+              type: 'line',
+              source: 'planned-trip-route',
+              layout: { 'line-cap': 'round', 'line-join': 'round' },
+              paint: { 'line-color': routeColors.glow, 'line-width': 12, 'line-blur': 4, 'line-opacity': 0.8 },
+            });
+            map.addLayer({
+              id: 'planned-trip-route-line',
+              type: 'line',
+              source: 'planned-trip-route',
+              layout: { 'line-cap': 'round', 'line-join': 'round' },
+              paint: { 'line-color': routeColors.stroke, 'line-width': 5, 'line-opacity': 1 },
+            });
+          }
+          if (!startMarker) startMarker = new maplibregl.Marker({ color: '#47f5cf' }).setLngLat(start).addTo(map);
+          if (!destinationMarker) destinationMarker = new maplibregl.Marker({ color: '#FF2D2D' }).setLngLat(end).addTo(map);
+          if (currentPoint) {
+            if (marker) marker.setLngLat([currentPoint.lng, currentPoint.lat]);
+            else marker = new maplibregl.Marker({ color: '#ff365d' }).setLngLat([currentPoint.lng, currentPoint.lat]).addTo(map);
+          } else if (!marker) {
+            marker = new maplibregl.Marker({ color: '#47f5cf' }).setLngLat(start).addTo(map);
+          }
           const bounds = coordinates.reduce(
             (routeBounds, point) => routeBounds.extend(point),
             new maplibregl.LngLatBounds(coordinates[0], coordinates[0])
           );
           map.fitBounds(bounds, { padding: { top: 130, right: 70, bottom: 70, left: 70 }, maxZoom: 14 });
-        });
+          routeAdded = true;
+        };
+        if (map.isStyleLoaded()) drawRoute();
+        else map.once('load', drawRoute);
         const departure = journey.planned_departure_at
           ? new Date(journey.planned_departure_at.replace(' ', 'T')).toLocaleString()
           : 'Departure time not set';
-        status.textContent = `Scheduled route · ${departure}. ${routeAvailable ? 'Road route shown; live location is not shared.' : 'Showing start and destination; road routing is unavailable.'}`;
+        status.textContent = journey.status === 'planned'
+          ? `Scheduled route · ${departure}. ${routeAvailable ? 'Road route shown; live location is not shared.' : 'Showing start and destination; road routing is unavailable.'}`
+          : routeAvailable
+            ? 'Road route shown. Current shared location is displayed on the map.'
+            : 'Showing start and destination; road routing is unavailable.';
       }
 
       async function refreshLocation() {
@@ -159,30 +181,13 @@
           title.textContent = 'Live journey location';
           intro.textContent = 'Location access is limited to this active journey. This temporary link expires after one hour.';
           if (!map) {
-            if (!window.maplibregl) {
-              status.textContent = 'The location was received, but map rendering is unavailable in this browser.';
-              return;
-            }
-            map = new maplibregl.Map({
-              container: 'shareMap',
-              style: window.SafariTrakMapStyle.styleUrl,
-              center: [point.lng, point.lat],
-              zoom: 15,
-              attributionControl: true,
-              dragRotate: false,
-              scrollZoom: false,
-              doubleClickZoom: false,
-              touchZoomRotate: false,
-            });
-            map.once('load', () => {
-              window.SafariTrakMapStyle.apply(map);
-              marker = new maplibregl.Marker({ color: '#ff365d' })
-                .setLngLat([currentPoint.lng, currentPoint.lat])
-                .addTo(map);
-            });
-          } else if (map.loaded() && marker) {
+            await showPlannedRoute(journey);
+          } else if (!routeAdded) {
+            await showPlannedRoute(journey);
+          }
+          if (map && map.loaded() && marker) {
             marker.setLngLat([point.lng, point.lat]);
-            map.easeTo({ center: [point.lng, point.lat], duration: 450 });
+            if (!routeAdded) map.easeTo({ center: [point.lng, point.lat], duration: 450 });
           }
           status.textContent = `Last location update: ${new Date(point.recorded_at).toLocaleString()}. Refreshes every 30 seconds.`;
         } catch (error) {

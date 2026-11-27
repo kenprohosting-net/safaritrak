@@ -42,6 +42,8 @@ foreach ([
 $shellStart = file_get_contents(__DIR__ . '/../backend/views/app-shell-start.php');
 $shellEnd = file_get_contents(__DIR__ . '/../backend/views/app-shell-end.php');
 $navigation = file_get_contents(__DIR__ . '/../backend/views/app-navigation.php');
+$authGuard = file_get_contents(__DIR__ . '/../backend/includes/auth-guard.php');
+$organizationDashboard = file_get_contents(__DIR__ . '/../org-dashboard.php');
 $adminUsersPage = file_get_contents(__DIR__ . '/../admin-users.php');
 $adminUsersScript = file_get_contents(__DIR__ . '/../admin-users.js');
 $adminDashboardPage = file_get_contents(__DIR__ . '/../admin-dashboard.php');
@@ -49,6 +51,7 @@ $platformClaimApi = file_get_contents(__DIR__ . '/../backend/api/platform/claim.
 $platformOnboardingScript = file_get_contents(__DIR__ . '/../platform-onboarding.js');
 $dashboardCss = file_get_contents(__DIR__ . '/../dashboard.css');
 $themeCss = file_get_contents(__DIR__ . '/../theme.css');
+$authTheme = file_get_contents(__DIR__ . '/../auth-theme.css');
 $mapStyleScript = file_get_contents(__DIR__ . '/../map-style.js');
 $dashboard = file_get_contents(__DIR__ . '/../index.php');
 $dashboardScript = file_get_contents(__DIR__ . '/../dashboard.js');
@@ -63,11 +66,43 @@ $expect(
 $expect(
     is_string($navigation)
     && str_contains($navigation, 'href="index.php" title="Home"')
-    && str_contains($navigation, 'href="logout.php" title="Sign out"')
+    && str_contains($navigation, 'href="logout.php" class="profile-dropdown-item logout-link"')
+    && str_contains($navigation, '<span>Sign out</span>')
     && str_contains($navigation, 'aria-current="page"'),
     'floating navigation keeps accessible Home and sign-out labels and active-page state'
 );
+$expect(
+    is_string($navigation)
+    && str_contains($navigation, '<details class="app-navbar-admin-menu"')
+    && str_contains($navigation, '<div class="app-navbar-admin-submenu"')
+    && str_contains($navigation, "open data-active=\"true\"")
+    && substr_count($navigation, 'href="admin-dashboard.php"') === 1
+    && substr_count($navigation, 'href="admin-users.php"') === 1
+    && substr_count($navigation, 'href="admin-organizations.php"') === 1
+    && substr_count($navigation, 'href="admin-admins.php"') === 1,
+    'platform admin destinations are grouped in one accessible Admin menu'
+);
+$expect(
+    is_string($navigation)
+    && str_contains($navigation, 'data-sos-trigger')
+    && str_contains($navigation, 'app-sos-dialog')
+    && str_contains($navigation, 'backend/api/safety/trigger-sos.php') === false,
+    'the shared navbar exposes one direct SOS control and keeps it separate from the admin menu'
+);
+$expect(
+    is_string($shellStart)
+    && str_contains($shellStart, 'id="toggleDashboardPlanner"')
+    && str_contains($shellStart, 'id="dashboardPlannerContent"')
+    && is_string($dashboard)
+    && str_contains($dashboard, 'id="toggleExplorePanels"')
+    && str_contains($dashboard, 'id="explorePanelsContent"')
+    && is_string($dashboardScript)
+    && str_contains($dashboardScript, 'dashboard-planner-collapsed')
+    && str_contains($dashboardScript, 'explorePanels?.classList.toggle'),
+    'Explore route and social panels expose independent accessible collapse controls'
+);
 $trackingPageSource = file_get_contents(__DIR__ . '/../tracking.php');
+$viewJourneyPageSource = file_get_contents(__DIR__ . '/../view-journey.php');
 $journeyPositionApi = file_get_contents(__DIR__ . '/../backend/api/journeys/update-position.php');
 $journeyLocationApi = file_get_contents(__DIR__ . '/../backend/api/journeys/update-location.php');
 $groupPositionApi = file_get_contents(__DIR__ . '/../backend/api/groups/update-position.php');
@@ -78,8 +113,25 @@ $expect(
     && str_contains($trackingPageSource, 'data.distance_km')
     && str_contains($trackingPageSource, 'data.covered_km')
     && substr_count($trackingPageSource, "'X-CSRF-Token'") === 2
-    && !str_contains($trackingPageSource, './backend/api/journey/update-position.php'),
-    'legacy tracking page uses the existing location endpoint, CSRF token, and response fields'
+    && !str_contains($trackingPageSource, './backend/api/journey/update-position.php')
+    && str_contains($trackingPageSource, "backend/views/app-navigation.php")
+    && str_contains($trackingPageSource, "dashboard.js?v=")
+    && !str_contains($trackingPageSource, '<header class="topbar">'),
+    'legacy tracking preserves its endpoint and CSRF handling while using the shared navigation'
+);
+$expect(
+    is_string($viewJourneyPageSource)
+    && substr_count($viewJourneyPageSource, "backend/views/app-navigation.php") === 2
+    && str_contains($viewJourneyPageSource, 'class="app-navbar-safe-area"')
+    && str_contains($viewJourneyPageSource, 'dashboard.js?v='),
+    'both available and unavailable journey views retain the shared navigation'
+);
+$expect(
+    is_string($trackingPageSource)
+    && str_contains($trackingPageSource, 'dashboard.css?v=')
+    && str_contains($trackingPageSource, 'tracking-page-content')
+    && str_contains($trackingPageSource, 'env(safe-area-inset-bottom)'),
+    'tracking reserves space for the desktop pill and mobile bottom navigation'
 );
 $expect(
     is_string($journeyPositionApi)
@@ -110,10 +162,24 @@ $expect(
     && str_contains($dashboardCss, 'left: 50% !important;')
     && str_contains($dashboardCss, 'width: max-content !important;')
     && str_contains($dashboardCss, 'transform: translateX(-50%);')
-    && str_contains($dashboardCss, 'rgba(16, 185, 129, .16)')
-    && str_contains($dashboardCss, 'body:not(.map-focus-mode) .app > .app-navbar')
-    && str_contains($dashboardCss, 'backdrop-filter: blur(8px) !important;'),
-    'platform navigation is role-gated and styled as the centered green-accent navbar'
+    && str_contains($dashboardCss, 'color-mix(in srgb, var(--accent-primary) 14%, var(--bg-panel))')
+    && str_contains($dashboardCss, 'html[data-theme] body:not(.map-focus-mode) .app > .app-navbar')
+    && str_contains($dashboardCss, 'backdrop-filter: blur(20px) saturate(160%) !important;')
+    && str_contains($navigation, 'class="app-navbar-theme-toggle"')
+    && str_contains($navigation, 'class="app-navbar-sos"')
+    && str_contains($navigation, 'app-navbar-avatar"')
+    && str_contains($navigation, 'SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0')
+    && str_contains($navigation, 'unreadNotificationCount'),
+    'platform navigation is role-gated and styled with the active theme accent'
+);
+$expect(
+    is_string($dashboardCss)
+    && str_contains($dashboardCss, 'rgba(248, 250, 252, 0.88)')
+    && str_contains($dashboardCss, 'html[data-theme] body .app.app--workspace ~ .mobile-bottom-nav')
+    && str_contains($dashboardCss, 'rgba(22, 18, 28, 0.92)')
+    && str_contains($dashboardScript, 'closeSidebar({ restoreFocus: true })')
+    && str_contains($dashboardScript, 'hasActivePrimaryDestination'),
+    'navigation supports the light glass theme, workspace mobile dock, and a togglable More drawer'
 );
 $expect(
     is_string($adminUsersPage)
@@ -137,6 +203,12 @@ $expect(
     && is_string($platformOnboardingScript)
     && str_contains($platformOnboardingScript, 'bootstrap_token: bootstrapToken'),
     'initial platform owner setup is reachable, token-gated, and serialized against concurrent claims'
+);
+$expect(
+    is_string($adminDashboardPage)
+    && str_contains($adminDashboardPage, '<html lang="en" data-theme="dark">')
+    && str_contains($adminDashboardPage, 'backend/views/app-navigation.php'),
+    'platform admin dashboard initializes the responsive shared navbar with a default theme'
 );
 $expect(is_string($dashboardScript) && str_contains($dashboardScript, 'syncSidebarAccessibility') && str_contains($dashboardScript, "toggleAttribute('inert'") && str_contains($dashboardScript, "e.key !== 'Tab'"), 'mobile navigation hides closed links and manages focus while open');
 $expect(
@@ -170,41 +242,91 @@ $expect(
 );
 $expect(
     is_string($themeCss)
-    && str_contains($themeCss, '--bg-app: #F1F5F9;')
+    && str_contains($themeCss, '--bg-app: #EDF4FA;')
     && str_contains($themeCss, '--glass-opacity: 0.4;')
-    && str_contains($themeCss, '--bg-panel: rgba(248, 250, 252, var(--glass-opacity));')
-    && str_contains($themeCss, '--bg-panel: rgba(12, 16, 28, .74);')
-    && str_contains($themeCss, '--glass-blur: blur(8px);')
-    && str_contains($themeCss, '--border-glass: rgba(34, 211, 238, 0.18);')
-    && str_contains($themeCss, '--glass-radius: 16px;')
-    && str_contains($themeCss, '--accent-primary: #F97316;')
-    && str_contains($themeCss, '--accent-secondary: #22D3EE;')
-    && str_contains($themeCss, '--accent-tertiary: #2DD4BF;')
-    && str_contains($themeCss, '--glass-surface: rgba(12, 16, 28, .74);')
-    && str_contains($themeCss, '--glass-surface-blur: blur(16px);')
-    && str_contains($themeCss, '--glass-control: rgba(24, 30, 48, .65);')
-    && str_contains($themeCss, '--glass-control-blur: blur(28px);')
-    && str_contains($themeCss, '--route-stroke: #FF2D2D;')
-    && str_contains($themeCss, '--route-glow: rgba(255, 45, 45, 0.55);')
-    && str_contains($themeCss, '--bg-app: #0B1116;')
-    && str_contains($themeCss, '--accent-primary: #F97316;')
+    && str_contains($themeCss, '--bg-panel: rgba(151, 196, 221, 0.4);')
+    && str_contains($themeCss, '--bg-panel-inner: rgba(211, 231, 244, 0.72);')
+    && str_contains($themeCss, '--glass-blur: var(--glass-surface-blur);')
+    && str_contains($themeCss, '--border-glass: #B8CEDC;')
+    && str_contains($themeCss, '--accent-primary: #007C95;')
+    && str_contains($themeCss, '--accent-secondary: #8B35C9;')
+    && str_contains($themeCss, '--accent-tertiary: #FF8A24;')
+    && str_contains($themeCss, '--sos-red: #D9233A;')
+    && str_contains($themeCss, '--route-stroke: #D7263D;')
+    && str_contains($themeCss, '--route-completed-stroke: #D7263D;')
+    && str_contains($themeCss, '--group-member-8: #52677A;')
+    && str_contains($themeCss, '--bg-app: #050817;')
+    && str_contains($themeCss, '--accent-primary: #00D9FF;')
+    && str_contains($themeCss, '--accent-secondary: #FF24C8;')
+    && str_contains($themeCss, '--success: #19FF79;')
+    && str_contains($themeCss, '--route-stroke: #FF3B4D;')
+    && str_contains($themeCss, '--route-completed-stroke: #FF3B4D;')
+    && str_contains($themeCss, '--sos-red: #FF2638;')
+    && str_contains($themeCss, '--map-background: #050817;')
+    && str_contains($themeCss, '--map-urban: #10152D;')
+    && str_contains($themeCss, '--map-building: #14768B;')
+    && str_contains($themeCss, '--map-building-tall: #08B9A6;')
+    && str_contains($themeCss, '--map-road-highway: #C97835;')
+    && str_contains($themeCss, '--map-road-major: #FF8A24;')
+    && str_contains($themeCss, '--map-road-secondary: #B14DFF;')
+    && str_contains($themeCss, '--map-road-residential: #82AD98;')
+    && str_contains($themeCss, '--map-road-service: #9685AF;')
+    && str_contains($themeCss, '--map-trail: #8E85A7;')
+    && str_contains($themeCss, '--map-building-highlight: #23A9BD;')
+    && str_contains($themeCss, '--map-landuse-commercial: #D6A75F;')
+    && str_contains($themeCss, '--map-landuse-industrial: #57B9C8;')
+    && str_contains($themeCss, '--map-waterway: #00D9FF;')
+    && str_contains($themeCss, '--map-label: #E8E8FF;')
+    && str_contains($themeCss, '--map-boundary: #7654C9;')
+    && str_contains($themeCss, '--map-marker-user: #A020F0;')
+    && str_contains($themeCss, '--map-farmland: #A17A42;')
     && str_contains($dashboardCss, 'background-color: var(--bg-panel) !important;')
     && str_contains($dashboardCss, 'backdrop-filter: var(--glass-blur) !important;'),
-    'shared light and dark themes define the requested palette and layered glass tokens'
+    'shared light and dark themes define Cyber Aurora map colors and existing app surfaces'
+);
+$signupPage = file_get_contents(__DIR__ . '/../signup.php');
+$expect(
+    is_string($authTheme)
+    && str_contains($authTheme, 'width: min(100%, 400px) !important;')
+    && str_contains($authTheme, 'padding: 32px;')
+    && str_contains($authTheme, 'border-radius: 20px;')
+    && str_contains($authTheme, 'background: var(--auth-glass-surface) !important;')
+    && str_contains($authTheme, 'backdrop-filter: var(--auth-glass-blur) !important;')
+    && str_contains($authTheme, 'background: rgba(255, 255, 255, 0.08) !important;')
+    && str_contains($authTheme, 'border-radius: 999px !important;')
+    && str_contains($authTheme, 'backdrop-filter: blur(10px) saturate(155%) !important;')
+    && str_contains($authTheme, 'backdrop-filter: blur(4px) !important;')
+    && str_contains($authTheme, 'background: linear-gradient(110deg, #C2410C 0%, #0F766E 100%) !important;')
+    && str_contains($authTheme, '@supports not ((backdrop-filter:')
+    && str_contains($authTheme, '@media (prefers-reduced-transparency: reduce)')
+    && is_string($signupPage)
+    && str_contains($signupPage, '<h1 class="title">Create Account</h1>')
+    && str_contains($signupPage, '<button type="submit" class="login-btn">Sign Up</button>'),
+    'auth forms use theme-tinted glass controls, accessible labels and reduced-transparency fallbacks'
+);
+$expect(
+    is_string($dashboardCss)
+    && str_contains($dashboardCss, 'html[data-theme] body .app :is(')
+    && str_contains($dashboardCss, '[class$="-panel"]')
+    && str_contains($dashboardCss, '[class$="-card"]')
+    && str_contains($dashboardCss, '@media (prefers-reduced-transparency: reduce)'),
+    'application panels share clear glass styling with reduced-transparency fallbacks'
 );
 $expect(
     is_string($mapStyleScript)
     && str_contains($mapStyleScript, 'function getRouteColors()')
-    && str_contains($mapStyleScript, "getPropertyValue('--route-stroke')")
-    && str_contains($mapStyleScript, 'getRouteColors });'),
+    && str_contains($mapStyleScript, "cssColor('--route-stroke'")
+    && str_contains($mapStyleScript, 'getRouteColors,')
+    && str_contains($mapStyleScript, 'positron-gl-style/style.json'),
     'shared map style exposes route colors from the global theme tokens'
 );
 $expect(
     is_string($dashboardCss)
-    && str_contains($dashboardCss, '--accent-cyan: var(--accent-secondary);')
-    && str_contains($dashboardCss, 'var(--accent-tertiary) 9%, transparent')
+    && str_contains($dashboardCss, '--accent-cyan: var(--accent-primary);')
+    && str_contains($dashboardCss, '--accent-amber: var(--warning);')
+    && str_contains($dashboardCss, '.dashboard-map-marker--current, .dashboard-map-marker--location')
     && str_contains($dashboardCss, '.app--journeys .trip-carousel-panel'),
-    'buttons, navigation, and map panels pick up the map orange, cyan, and teal palette'
+    'navigation and map markers use shared theme and map tokens'
 );
 $termsPage = file_get_contents(__DIR__ . '/../terms.html');
 $privacyPage = file_get_contents(__DIR__ . '/../privacy.html');
@@ -217,7 +339,7 @@ $expect(
     && str_contains($termsPage, 'auth-theme.js')
     && str_contains($privacyPage, 'auth-theme.js')
     && is_string($legalCss)
-    && str_contains($legalCss, 'theme.css?v=7')
+    && str_contains($legalCss, 'theme.css?v=10')
     && str_contains($legalCss, 'var(--bg-app)'),
     'standalone legal pages use the shared theme and persisted theme toggle'
 );
@@ -240,7 +362,7 @@ $expect(is_string($gmailSetup) && str_contains($gmailSetup, 'hash_equals($state,
 $expect(is_string($gmailSetup) && str_contains($gmailSetup, 'The refresh token was saved') && !str_contains($gmailSetup, 'echo $tokenPayload[\'refresh_token\']'), 'OAuth setup confirms completion without returning a refresh token');
 $environmentConfig = file_get_contents(__DIR__ . '/../backend/config/env.php');
 $exampleEnvironment = file_get_contents(__DIR__ . '/../.env.example');
-$expect(is_string($environmentConfig) && str_contains($environmentConfig, "'GOOGLE_CLIENT_SECRET'") && str_contains($environmentConfig, "'GMAIL_SENDER_EMAIL'"), 'backend environment loader accepts only the approved Google mail settings');
+$expect(is_string($environmentConfig) && str_contains($environmentConfig, "'GOOGLE_CLIENT_SECRET'") && str_contains($environmentConfig, "'GMAIL_SENDER_EMAIL'") && str_contains($environmentConfig, "'GOOGLE_MAPS_API_KEY'") && str_contains($environmentConfig, "'SAFARITRAK_GOOGLE_MAPS_API_KEY'"), 'backend environment loader accepts the Maps key alias and approved Google mail settings');
 $expect(is_string($exampleEnvironment) && str_contains($exampleEnvironment, 'GOOGLE_CLIENT_ID=') && str_contains($exampleEnvironment, 'GOOGLE_REFRESH_TOKEN=') && str_contains($exampleEnvironment, 'GMAIL_SENDER_EMAIL='), 'environment example documents blank Gmail OAuth variable names');
 $forgotPasswordApi = file_get_contents(__DIR__ . '/../backend/api/forgot-password.php');
 $resetPasswordApi = file_get_contents(__DIR__ . '/../backend/api/reset-password.php');
@@ -250,7 +372,6 @@ $groupInviteApi = file_get_contents(__DIR__ . '/../backend/api/groups/persistent
 $expect(is_string($forgotPasswordApi) && str_contains($forgotPasswordApi, 'st_send_password_reset_email') && str_contains($resetPasswordApi, 'st_send_password_changed_email') && str_contains($updatePasswordApi, 'st_send_password_changed_email'), 'password reset and account password changes send security email while preserving generic reset responses');
 $expect(is_string($forgotPasswordApi) && str_contains($forgotPasswordApi, "gmdate('Y-m-d H:i:s'") && is_string($resetPasswordApi) && str_contains($resetPasswordApi, 'UTC_TIMESTAMP()'), 'password reset expiry is written and checked in UTC to avoid server timezone mismatches');
 $expect(is_string($contactInviteApi) && str_contains($contactInviteApi, 'st_send_trusted_contact_invitation_email') && is_string($groupInviteApi) && str_contains($groupInviteApi, 'st_send_group_invitation_email') && str_contains($groupInviteApi, "'group-invite-user'"), 'trusted-contact and persistent-group invitations use shared templates and rate limits');
-$authTheme = file_get_contents(__DIR__ . '/../auth-theme.css');
 $authThemeScript = file_get_contents(__DIR__ . '/../auth-theme.js');
 $welcomePage = file_get_contents(__DIR__ . '/../welcome.php');
 $authBackgroundPhotos = [
@@ -270,7 +391,7 @@ $rotationIntervalMatch = [];
 $photoImageRule = [];
 $hasSlowAuthRotation = is_string($authThemeScript)
     && preg_match('/photoRotationIntervalMs = (\d+)/', $authThemeScript, $rotationIntervalMatch) === 1
-    && (int) $rotationIntervalMatch[1] >= 20000;
+    && (int) $rotationIntervalMatch[1] >= 120000;
 $authPhotoRuleIsUnfiltered = is_string($authTheme)
     && preg_match('/\.auth-background-rotator img\s*\{([^}]*)\}/s', $authTheme, $photoImageRule) === 1
     && preg_match('/(?:^|;)\s*(?:-webkit-)?filter\s*:/', $photoImageRule[1]) !== 1;
@@ -283,7 +404,8 @@ $expect(
     && str_contains($authTheme, '@media (max-width: 700px)')
     && str_contains($authTheme, '.welcome-page .welcome-visual')
     && str_contains($authTheme, '.auth-background-rotator img')
-    && str_contains($authTheme, 'backdrop-filter: blur(24px) !important;')
+    && str_contains($authTheme, 'height: 100dvh;')
+    && str_contains($authTheme, 'backdrop-filter: var(--auth-glass-blur) !important;')
     && str_contains($authTheme, 'object-fit: cover;')
     && is_string($welcomePage)
     && str_contains($welcomePage, 'auth-theme.js')
@@ -347,30 +469,37 @@ $expect(is_string($shellEnd) && str_contains($shellEnd, 'dashboard-planner.js'),
 $expect(is_string($dashboardPlanner) && str_contains($dashboardPlanner, 'SafariTrakRouteDirections.getDrivingRoute') && str_contains($dashboardPlanner, 'setPlannedRoute'), 'Explore previews a road route on the map');
 $expect(is_string($directionsApi) && str_contains($directionsApi, 'st_require_login()') && str_contains($directionsApi, 'routing.openstreetmap.de') && str_contains($directionsApi, 'CURLOPT_TIMEOUT => 6'), 'Road directions use an authenticated, bounded server request with a provider fallback');
 $expect(is_string($routeDirections) && str_contains($routeDirections, 'directions.php') && str_contains($routeDirections, 'router.project-osrm.org') && str_contains($routeDirections, 'Promise.any') && str_contains($routeDirections, 'Route search timed out'), 'Shared route client races browser-accessible directions against the authenticated fallback');
-$expect(is_string($fallbackDashboardMapScript) && str_contains($fallbackDashboardMapScript, 'setPlannedRoute: setPlannedDashboardRoute') && str_contains($fallbackDashboardMapScript, 'routeColors.stroke') && str_contains($fallbackDashboardMapScript, 'safaritrak-planned-route-core'), 'Backup flat map draws a fitted red planned road route');
-$expect(is_string($dashboardPlanner) && str_contains($dashboardPlanner, 'routeAvailable') && str_contains($dashboardPlanner, 'retryDashboardRoute') && str_contains($dashboardPlanner, 'dashboard-route-focus'), 'Explore requires a route before trip actions and can focus the map');
-$expect(is_string($dashboardPlanner) && str_contains($dashboardPlanner, 'routeRequestId') && str_contains($dashboardPlanner, 'up to 15 seconds'), 'Explore ignores stale route responses and explains its bounded search time');
+$expect(is_string($fallbackDashboardMapScript) && str_contains($fallbackDashboardMapScript, 'setPlannedRoute: setPlannedDashboardRoute') && str_contains($fallbackDashboardMapScript, 'routeColors.stroke') && str_contains($fallbackDashboardMapScript, 'safaritrak-planned-route-core'), 'Backup flat map draws a fitted active planned road route');
+$expect(is_string($dashboardPlanner) && str_contains($dashboardPlanner, 'routeAvailable') && str_contains($dashboardPlanner, 'retryDashboardRoute') && str_contains($fallbackDashboardMapScript, 'plannedRoute.approximate'), 'Explore keeps trip actions gated and draws an approximate route when directions fail');
+$expect(is_string($dashboardPlanner) && str_contains($dashboardPlanner, 'routeRequestId') && str_contains($dashboardPlanner, 'An approximate line is shown while directions load.'), 'Explore ignores stale route responses and shows the route while directions load');
 $expect(is_string($dashboardPlanner) && str_contains($dashboardPlanner, "fields.startLabel.addEventListener('safaritrak-location-selected'") && str_contains($dashboardPlanner, 'locationSelected(event, fields.endLat, fields.endLng)'), 'Selecting either Explore suggestion directly supplies coordinates and starts route lookup');
 $expect(is_string($locationAutocomplete) && str_contains($locationAutocomplete, 'select(options[activeIndex >= 0 ? activeIndex : 0])') && str_contains($locationAutocomplete, 'Choose a place from the suggestions before finding a route'), 'Explore location suggestions can be selected with Enter and explain the route prerequisite');
 $expect(is_string($locationAutocomplete) && str_contains($locationAutocomplete, 'fetchBrowserSuggestions') && str_contains($locationAutocomplete, 'Promise.any') && str_contains($locationAutocomplete, 'activeController?.abort()'), 'Autocomplete races Google against browser geocoders and cancels stale searches');
 $expect(is_string($locationAutocomplete) && str_contains($locationAutocomplete, 'timeoutMilliseconds = 12000') && str_contains($locationAutocomplete, 'Google Places search timed out.'), 'Autocomplete allows slow public geocoders to return while keeping searches bounded');
 $expect(is_string($locationSuggestionsApi) && str_contains($locationSuggestionsApi, 'session_write_close()') && str_contains($locationSuggestionsApi, 'CURLOPT_TIMEOUT => 3'), 'Server geocoding releases the session lock and bounds provider delays');
 $expect(is_string($directionsApi) && str_contains($directionsApi, 'session_write_close()'), 'Route provider requests do not hold the authenticated session lock');
+$expect(
+    is_string($trackingPageSource)
+    && str_contains($trackingPageSource, 'route-directions.js')
+    && str_contains($trackingPageSource, 'SafariTrakRouteDirections.getDrivingRoute')
+    && str_contains($trackingPageSource, 'approximate direction, not a road route'),
+    'Current individual tracking shows a road route or clearly marked approximate direction'
+);
 $expect(is_string($shellStart) && str_contains($shellStart, 'Type and select both locations from the suggestions to preview a route'), 'Explore explains that route locations must be selected from autocomplete');
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, 'dashboard-route-spinner') && str_contains($dashboardCss, '.explore-shortcuts a:nth-child(3) i') && str_contains($dashboardCss, '.group-hub-tabs'), 'Explore and shared navigation use route loading feedback and a unified groups hub');
 $expect(is_string($dashboardPlanner) && str_contains($dashboardPlanner, 'planned_departure_at: plannedDeparture') && str_contains($dashboardPlanner, 'share-link.php') && is_string($shellStart) && str_contains($shellStart, 'Schedule trip'), 'Explore can schedule and share a saved trip');
 $expect(is_string($shellStart) && str_contains($shellStart, 'id="useCurrentStartLocation"') && str_contains($shellStart, 'id="sharedJourneyUrl"') && str_contains($shellStart, 'View shared journey'), 'Explore offers current-location origin and pasted shared-journey controls');
 $expect(is_string($dashboardPlanner) && str_contains($dashboardPlanner, 'startUsesCurrentLocation') && str_contains($dashboardPlanner, 'getCurrentPosition') && str_contains($dashboardPlanner, 'action === \'start\' && !startUsesCurrentLocation'), 'Starting immediately requires an explicitly selected current device location');
 $expect(is_string($dashboardPlanner) && str_contains($dashboardPlanner, 'public-share.php') && str_contains($dashboardPlanner, 'shared-location.php') && str_contains($dashboardPlanner, 'setInterval') && str_contains($dashboardPlanner, 'showSharedJourney'), 'Pasted shared links are validated, refreshed, and displayed on the map');
-$expect(is_string($googleDashboardMapScript) && str_contains($googleDashboardMapScript, 'showSharedJourney') && str_contains($googleDashboardMapScript, 'strokeColor: routeColors.stroke') && str_contains($googleDashboardMapScript, 'publicJourneyLines'), 'Google map renders shared journey locations and a red route');
-$expect(is_string($fallbackDashboardMapScript) && str_contains($fallbackDashboardMapScript, 'showSharedDashboardJourney') && str_contains($fallbackDashboardMapScript, 'routeColors.stroke') && str_contains($fallbackDashboardMapScript, 'public-shared-current'), 'Fallback map renders shared journey locations and a red route');
+$expect(is_string($googleDashboardMapScript) && str_contains($googleDashboardMapScript, 'showSharedJourney') && str_contains($googleDashboardMapScript, 'strokeColor: routeColors.stroke') && str_contains($googleDashboardMapScript, 'publicJourneyLines'), 'Google map renders shared journey locations and an active route');
+$expect(is_string($fallbackDashboardMapScript) && str_contains($fallbackDashboardMapScript, 'showSharedDashboardJourney') && str_contains($fallbackDashboardMapScript, 'routeColors.stroke') && str_contains($fallbackDashboardMapScript, 'public-shared-current'), 'Fallback map renders shared journey locations and an active route');
 $expect(
     is_string($sharedLocationPage)
     && str_contains($sharedLocationPage, 'data-theme="dark"')
     && str_contains($sharedLocationPage, 'theme.css?v=')
     && str_contains($sharedLocationPage, 'planned-trip-route-glow')
     && str_contains($sharedLocationPage, 'routeColors.stroke'),
-    'Public shared-trip map keeps the basemap and draws the red route'
+    'Public shared-trip map keeps the basemap and draws the active route'
 );
 $expect(is_string($shellEnd) && !str_contains($shellEnd, 'mobile-bottom-nav'), 'shared shell relies on the standard navbar instead of a duplicate mobile bar');
 $expect(is_string($dashboard) && str_contains($dashboard, 'safariDashboardMapConfig'), 'Explore dashboard provides its map configuration');
@@ -385,16 +514,49 @@ $expect(is_string($googleDashboardMapScript) && str_contains($googleDashboardMap
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, '.explore-map-heading.has-error') && str_contains($dashboardCss, 'max-width: min(340px'), 'Explore map billing errors stay in a compact overlay');
 $expect(is_string($googleDashboardMapScript) && str_contains($googleDashboardMapScript, "visibility: 'off'"), 'Explore hides point-of-interest icons and labels');
 $expect(is_string($googleDashboardMapScript) && str_contains($googleDashboardMapScript, 'SafariTrakGoogleLocationMarker.create'), 'Explore uses the pulsing HTML user-location marker');
-$expect(is_string($googleDashboardMapScript) && str_contains($googleDashboardMapScript, 'center: { lat: -1.286389, lng: 36.817223 }') && str_contains($googleDashboardMapScript, 'zoom: 15') && !str_contains($googleDashboardMapScript, 'locateOnMap(true, 16)'), 'Explore opens at Nairobi without requesting device location until the user asks');
+$expect(is_string($googleDashboardMapScript) && str_contains($googleDashboardMapScript, 'center: { lat: -1.286389, lng: 36.817223 }') && str_contains($googleDashboardMapScript, 'zoom: 15') && str_contains($googleDashboardMapScript, 'refreshData().then(() => locateOnMap(true))'), 'Google Explore uses Nairobi as its fallback and requests current location on startup');
 $expect(is_string($googleDashboardMapScript) && str_contains($googleDashboardMapScript, 'scrollwheel: false'), 'Explore disables wheel zoom');
 $expect(is_string($googleDashboardMapScript) && str_contains($googleDashboardMapScript, 'sharedMarkerListeners'), 'Explore does not accumulate shared-location marker listeners');
 $expect(is_string($googleMapLoader) && str_contains($googleMapLoader, 'maps.googleapis.com/maps/api/js'), 'Google Maps JavaScript API loader is configured');
+$expect(
+    is_string($routeDirections)
+    && str_contains($routeDirections, 'function focusMobileRoute')
+    && str_contains($routeDirections, 'offset: [-canvas.clientWidth * 0.22, canvas.clientHeight * 0.25]')
+    && str_contains($routeDirections, 'function focusMobileLeafletRoute')
+    && str_contains($routeDirections, 'map.panBy([-size.x * 0.22, size.y * 0.25]')
+    && str_contains($routeDirections, 'function focusMobileGoogleRoute')
+    && str_contains($routeDirections, 'map.setHeading(')
+    && str_contains($routeDirections, 'map.panBy(Math.round(canvas.clientWidth * 0.22), -Math.round(canvas.clientHeight * 0.25))')
+    && str_contains($routeDirections, 'zoom: 16'),
+    'mobile route framing keeps the origin low-left, follows route bearing, and stays close across map renderers'
+);
+$expect(
+    is_string($shellStart)
+    && str_contains($shellStart, "getenv('SAFARITRAK_GOOGLE_MAPS_API_KEY')")
+    && str_contains($shellStart, 'name="google-maps-api-key"')
+    && str_contains($shellStart, 'name="google-map-id"')
+    && str_contains($shellStart, 'htmlspecialchars($googleMapsApiKey'),
+    'Explore safely provides the configured restricted Maps key and optional Map ID to the browser loader'
+);
 $expect(is_string($shellStart) && str_contains($shellStart, 'maplibre-gl@5.6.2/dist/maplibre-gl.css') && str_contains($shellStart, 'map-style.js') && is_string($shellEnd) && str_contains($shellEnd, 'maplibre-gl@5.6.2/dist/maplibre-gl.js') && str_contains($shellEnd, 'dashboard-map.js'), 'Explore loads the shared styled MapLibre map before dashboard initialization');
 $expect(is_string($googleMapLoader) && str_contains($googleMapLoader, 'libraries=places'), 'Google Places library loads with Maps');
 $expect(is_string($googleMapLoader) && str_contains($googleMapLoader, '}, 30_000)') && str_contains($googleMapLoader, "importLibrary('maps')") && str_contains($googleMapLoader, "typeof window.google?.maps?.Map === 'function'"), 'Google Maps loader waits for its Maps library and tolerates slow API responses');
 $googleStyleRules = json_decode((string) $googleDarkMapStyle, true, 512, JSON_THROW_ON_ERROR);
 $expect(is_array($googleStyleRules) && count($googleStyleRules) >= 12, 'Google Maps dark style import is valid JSON');
-$expect(is_string($googleDarkMapStyle) && str_contains($googleDarkMapStyle, '#0F172A') && str_contains($googleDarkMapStyle, '#1E293B'), 'Google Maps style uses the Cyber Dark land and border colors');
+$expect(is_string($googleDarkMapStyle) && str_contains($googleDarkMapStyle, '#050817') && str_contains($googleDarkMapStyle, '#7654C9') && str_contains($googleDarkMapStyle, '#C97835'), 'Google Maps style uses the Cyber Aurora land, boundary, and highway colors');
+$expect(
+    is_string($googleDashboardMapScript)
+    && is_string($googleAppMapBackground)
+    && str_contains($googleDashboardMapScript, "color('--map-road-major'")
+    && str_contains($googleDashboardMapScript, "color('--map-waterway'")
+    && str_contains($googleDashboardMapScript, "'#B14DFF'")
+    && str_contains($googleDashboardMapScript, "'#FF8A24'")
+    && str_contains($googleAppMapBackground, "color('--map-road-major'")
+    && str_contains($googleAppMapBackground, "color('--map-waterway'")
+    && str_contains($googleAppMapBackground, "'#B14DFF'")
+    && str_contains($googleAppMapBackground, "'#FF8A24'"),
+    'Google map fallbacks use the shared theme-aware road and river colors'
+);
 $expect(is_string($googleDarkMapStyle) && str_contains($googleDarkMapStyle, '"featureType": "poi"') && str_contains($googleDarkMapStyle, '"visibility": "off"'), 'Google Maps style hides point-of-interest icons and labels');
 $expect(is_string($googleLocationMarker) && str_contains($googleLocationMarker, 'OverlayView') && str_contains($googleLocationMarker, 'google-user-location-marker__pulse'), 'Custom current-location marker is an accessible Google Maps HTML overlay');
 $expect(is_string($mapViewState) && str_contains($mapViewState, 'safaritrak-map-view-v5') && str_contains($mapViewState, "mapProjection === 'globe' ? 'globe' : 'flat'"), 'Shared map camera state preserves the selected globe projection and flat-map default');
@@ -408,12 +570,38 @@ $expect(
     && is_string($googleAppMapBackground)
     && str_contains($googleAppMapBackground, 'center: { lat: -1.286389, lng: 36.817223 }')
     && str_contains($googleAppMapBackground, 'zoom: 15'),
-    'Shared maps and Explore open at Nairobi while location and route actions remain explicit'
+    'Shared maps and Explore retain Nairobi as a fallback while requesting current location on startup'
 );
-$expect(is_string($googleAppMapBackground) && !str_contains($googleAppMapBackground, 'requestUserLocation(true);') && str_contains($googleAppMapBackground, "addEventListener('click', () => requestUserLocation(true))"), 'Shared maps request device location only after the user activates the location control');
+$expect(is_string($googleAppMapBackground) && str_contains($googleAppMapBackground, 'requestUserLocation(true);') && str_contains($googleAppMapBackground, "addEventListener('click', () => requestUserLocation(true))"), 'Shared Google maps request current location on startup and retain the manual location control');
+$expect(
+    is_string($mapLibreAppMapBackground)
+    && str_contains($mapLibreAppMapBackground, 'requestUserLocation(true);')
+    && is_string($fallbackDashboardMapScript)
+    && str_contains($fallbackDashboardMapScript, 'locateOnDashboardMap();'),
+    'MapLibre shared maps and Explore request current location on startup'
+);
+$expect(
+    is_string($googleAppMapBackground)
+    && str_contains($googleAppMapBackground, 'focusMobileGoogleRoute')
+    && str_contains($googleAppMapBackground, "feature.routeColor === 'completed'")
+    && is_string($googleDashboardMapScript)
+    && str_contains($googleDashboardMapScript, 'focusMobileGoogleRoute')
+    && str_contains($googleDashboardMapScript, 'routeColors.completedStroke'),
+    'Google Maps fallbacks preserve mobile route focus and completed-route semantics'
+);
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, '.app--explore .sidebar {'), 'Explore navigation floats as a glass panel');
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, '.sidebar:is(:hover, :focus-within)') && str_contains($dashboardCss, 'width: 244px;') && str_contains($dashboardCss, 'font-size: 12px;'), 'Desktop side navigation expands on hover or keyboard focus to show page names');
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, '.app--explore > main > .app-header') && str_contains($dashboardCss, 'background: transparent !important;') && str_contains($dashboardCss, '.app--explore:has(> .sidebar:is(:hover, :focus-within)) .app-search-row') && str_contains($dashboardCss, 'left: 274px;'), 'Explore removes the empty full-width header bar and shifts floating content clear of the expanded navigation');
+$plannerHoverRules = [];
+$plannerHoverRuleCount = is_string($dashboardCss)
+    ? preg_match_all('/\.app--explore:has\(> \.sidebar:is\(:hover, :focus-within\)\) \.app-search-row\s*\{([^}]*)\}/', $dashboardCss, $plannerHoverRules)
+    : false;
+$plannerHoverRulesAreCompact = $plannerHoverRuleCount > 0;
+foreach ($plannerHoverRules[1] ?? [] as $plannerHoverRule) {
+    $plannerHoverRulesAreCompact = $plannerHoverRulesAreCompact
+        && str_contains($plannerHoverRule, 'width: min(320px, calc(100vw - 32px));');
+}
+$expect($plannerHoverRulesAreCompact, 'Explore keeps the compact route planner width when navigation is hovered or focused');
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, '--p: var(--accent-primary)') && str_contains($dashboardCss, '--panel: var(--bg-panel)') && str_contains($dashboardCss, '--bg: var(--bg-app)'), 'Signed-in pages resolve legacy aliases to shared theme tokens');
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, 'journey-filter-bar::after') && str_contains($dashboardCss, '.content .card:has(.journey-list)'), 'Map page filters and repeated records render as separate floating tiles');
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, '.explore-map-heading {'), 'Explore map status uses a glass container');
@@ -421,14 +609,43 @@ $expect(is_string($dashboardCss) && str_contains($dashboardCss, '):is(:hover, :f
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, '@media (prefers-reduced-motion: reduce)'), 'floating outline respects reduced-motion preference');
 $authThemeCss = file_get_contents(__DIR__ . '/../auth-theme.css');
 $expect(is_string($authThemeCss) && str_contains($authThemeCss, '.login-card:is(:hover, :focus-within, .is-engaged)::after'), 'auth panel outline activates only during interaction');
-$expect(is_string($authThemeCss) && str_contains($authThemeCss, '--auth-panel: var(--bg-panel)') && str_contains($authThemeCss, '--auth-glass-surface: var(--bg-panel)') && str_contains($authThemeCss, '--auth-glass-blur: var(--glass-blur)'), 'auth panels use shared translucent surfaces and blur tokens');
+$expect(is_string($authThemeCss) && !str_contains($authThemeCss, 'body:has(#loginForm, #signupForm, .login-card) .auth-background-rotator'), 'auth theme keeps the rotating background slideshow visible');
+$expect(is_string($authThemeCss) && str_contains($authThemeCss, '--auth-panel: var(--bg-panel)') && str_contains($authThemeCss, '--auth-glass-surface: var(--app-glass-surface)') && str_contains($authThemeCss, '--auth-glass-blur: var(--glass-surface-blur)'), 'auth panels use shared translucent surfaces and blur tokens');
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, '--glass-surface: var(--bg-panel)') && str_contains($dashboardCss, '--glass-control: var(--bg-input)') && str_contains($dashboardCss, '--glass-blur: var(--glass-surface-blur)'), 'dashboard glass aliases resolve to shared theme tokens');
-$expect(is_string($themeCss) && str_contains($themeCss, '--bg-panel: rgba(248, 250, 252, var(--glass-opacity));') && str_contains($themeCss, '--bg-panel: rgba(12, 16, 28, .74);') && str_contains($themeCss, '--bg-panel-inner: rgba(255, 255, 255, var(--glass-opacity));') && str_contains($themeCss, '--bg-panel-inner: rgba(24, 30, 48, .65);'), 'light panels remain translucent while dark surfaces use the shared glass tokens');
-$expect(is_string($dashboardCss) && str_contains($dashboardCss, 'backdrop-filter: var(--glass-blur) !important;') && str_contains($dashboardCss, '-webkit-backdrop-filter: var(--glass-blur) !important;') && str_contains($themeCss, '--glass-surface-blur: blur(16px);'), 'shared panel containers keep the requested glass blur');
+$expect(
+    is_string($themeCss)
+    && str_contains($themeCss, '--bg-panel: rgba(151, 196, 221, 0.4);')
+    && str_contains($themeCss, '--bg-panel: rgba(16, 21, 45, 0.4);')
+    && str_contains($themeCss, '--glass-surface-blur: blur(8px);'),
+    'light and dark themes use map-tinted 40%-opaque surfaces and an 8px blur'
+);
+$expect(
+    is_string($themeCss)
+    && substr_count($themeCss, '--glass-control-blur: blur(12px);') >= 2
+    && str_contains($dashboardCss, 'button:not(.app-sos-confirm):not(.app-sos-cancel):not(.app-navbar-sos):not(.sos-button)')
+    && str_contains($dashboardCss, 'background-color: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-panel-inner)) !important;'),
+    'shared secondary controls use stronger glass blur and theme-accent surfaces'
+);
+$expect(
+    is_string($dashboardCss)
+    && str_contains($dashboardCss, '@media (min-width: 768px) and (max-width: 1100px)')
+    && str_contains($dashboardCss, '.app--explore .explore-panels')
+    && str_contains($dashboardCss, 'width: min(320px, calc(50vw - 24px)) !important;')
+    && str_contains($dashboardCss, 'visibility: visible !important;'),
+    'tablet widths use a visible compact navigation and side-by-side Explore panels'
+);
+$expect(
+    is_string($dashboardCss)
+    && str_contains($dashboardCss, 'background: var(--app-glass-surface) !important;')
+    && str_contains($dashboardCss, 'backdrop-filter: var(--glass-surface-blur) !important;')
+    && is_string($authThemeCss)
+    && str_contains($authThemeCss, 'backdrop-filter: var(--glass-surface-blur) !important;'),
+    'application and authentication panels use the shared glass treatment'
+);
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, '[class$="-panel"]') && str_contains($dashboardCss, '[class$="-card"]') && str_contains($dashboardCss, '.fleet-vehicle,') && str_contains($dashboardCss, 'html :is(.dashboard-planner-field, .dashboard-planner-departure)') && str_contains($dashboardCss, 'background: var(--bg-panel) !important;') && str_contains($dashboardCss, 'input:not([type="checkbox"])'), 'all app panels, forms, and text controls share the glass treatment');
-$expect(is_string($dashboardCss) && str_contains($dashboardCss, '.content [class$="-panel"]') && str_contains($dashboardCss, 'border-radius: var(--glass-radius) !important;') && str_contains($dashboardCss, 'theme.css?v=7'), 'nested app panels use the updated global glass styling');
+$expect(is_string($dashboardCss) && str_contains($dashboardCss, '.content [class$="-panel"]') && str_contains($dashboardCss, 'border-radius: var(--glass-radius) !important;') && str_contains($dashboardCss, 'theme.css?v=10'), 'nested app panels use the updated global theme styling');
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, 'html[data-theme] .app--map-layout:not(.app--explore)') && str_contains($dashboardCss, 'background: transparent !important;'), 'map-backed pages leave the shared map visible beneath their panels');
-$expect(is_string($authThemeCss) && str_contains($authThemeCss, '--auth-glass-surface: var(--bg-panel)') && str_contains($authThemeCss, '--auth-glass-control: var(--bg-input)') && str_contains($authThemeCss, '--auth-glass-blur: var(--glass-blur)'), 'authentication panels and fields share the matching dark and light glass treatment');
+$expect(is_string($authThemeCss) && str_contains($authThemeCss, '--auth-glass-surface: var(--app-glass-surface)') && str_contains($authThemeCss, '--auth-glass-control: var(--bg-input)') && str_contains($authThemeCss, '--auth-glass-blur: var(--glass-surface-blur)'), 'authentication panels and fields share the matching dark and light glass treatment');
 $expect(is_string($authThemeCss) && str_contains($authThemeCss, 'body:has(.login-card)') && str_contains($authThemeCss, 'overflow: visible'), 'auth sheets scroll with the page instead of showing an inner side rail');
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, 'google-user-location-marker__pulse'), 'current-location marker has a neon pulse treatment');
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, '.app--map-layout:not(.app--explore) > main > header') && str_contains($dashboardCss, 'width: max-content'), 'signed-in page header is a compact corner control group');
@@ -444,13 +661,27 @@ $expect(
 $expect(
     is_string($mapStyle)
     && str_contains($mapStyle, 'dark-matter-gl-style/style.json')
-    && str_contains($mapStyle, 'motorway|_mot_|trunk|primary|_pri_')
-    && str_contains($mapStyle, 'secondary|tertiary|_sec_')
-    && str_contains($mapStyle, "majorRoad ? '#F97316' : secondaryRoad ? '#64748B' : '#334155'")
-    && str_contains($mapStyle, "'#22D3EE'")
+    && str_contains($mapStyle, 'positron-gl-style/style.json')
+    && str_contains($mapStyle, "cssColor('--map-road-highway'")
+    && str_contains($mapStyle, "cssColor('--map-road-secondary'")
+    && str_contains($mapStyle, "cssColor('--map-road-major'")
+    && str_contains($mapStyle, "cssColor('--map-road-service'")
+    && str_contains($mapStyle, "cssColor('--map-waterway'")
+    && str_contains($mapStyle, "['to-number', ['get', 'height'], 0]")
+    && str_contains($mapStyle, 'palette.buildingTall')
+    && str_contains($mapStyle, "cssColor('--route-stroke'")
+    && str_contains($mapStyle, "id.startsWith('road_pri')")
+    && str_contains($mapStyle, 'palette.roadMajor')
+    && str_contains($mapStyle, "['tertiary', 'tertiary_link']")
+    && str_contains($mapStyle, 'palette.landuseRetail')
+    && str_contains($mapStyle, "id.startsWith('road_service')")
+    && str_contains($mapStyle, "cssColor('--map-farmland'")
+    && str_contains($mapStyle, "cssColor('--route-completed-stroke'")
+    && str_contains($mapStyle, '`--group-member-${index}`')
+    && str_contains($mapStyle, "cssColor('--map-marker-sos'")
     && str_contains($mapLibreAppMapBackground, 'SafariTrakMapStyle.apply(map)')
     && str_contains($fallbackDashboardMapScript, 'SafariTrakMapStyle.apply(dashboardMapState.map)'),
-    'Explore and shared maps use the reference orange, slate, and cyan CARTO map colors'
+    'Explore and shared maps use the shared Cyber Aurora CARTO palette'
 );
 $legacyMapScripts = [
     file_get_contents(__DIR__ . '/../group-travel.js'),
@@ -458,14 +689,33 @@ $legacyMapScripts = [
     file_get_contents(__DIR__ . '/../watch-journey.js'),
     file_get_contents(__DIR__ . '/../view-shared.js'),
     file_get_contents(__DIR__ . '/../view-journey.js'),
-    file_get_contents(__DIR__ . '/../view-journay.js'),
     file_get_contents(__DIR__ . '/../tracking.php'),
     file_get_contents(__DIR__ . '/../watch-journey.php'),
 ];
 $expect(
+    is_string($authGuard)
+    && str_contains($authGuard, 'EXISTS (SELECT 1 FROM platform_admins')
+    && str_contains($authGuard, 'SELECT oa.organization_id FROM organization_admins')
+    && str_contains($authGuard, 'st_destroy_current_session($db)')
+    && !str_contains($authGuard, 'SELECT * FROM users'),
+    'authenticated pages load only required user fields, resolve roles in one query, and revoke invalid sessions'
+);
+$expect(
+    is_string($organizationDashboard)
+    && str_contains($organizationDashboard, '$isSchool = false;')
+    && str_contains($organizationDashboard, 'SELECT o.id, o.name, o.is_suspended')
+    && !str_contains($organizationDashboard, 'SELECT o.*, p.account_type'),
+    'organization onboarding and review states render without undefined account-type state'
+);
+$expect(
+    is_string($dashboardCss)
+    && str_contains($dashboardCss, 'top: 142px !important;'),
+    'shared map controls clear standard page headers at phone widths'
+);
+$expect(
     !str_contains(implode("\n", array_filter($legacyMapScripts, 'is_string')), 'tile.openstreetmap.org')
     && !str_contains(implode("\n", array_filter($legacyMapScripts, 'is_string')), 'basemaps.cartocdn.com/dark_all/')
-    && substr_count(implode("\n", array_filter($legacyMapScripts, 'is_string')), 'SafariTrakMapStyle.attachLeafletBase(') >= 8,
+    && substr_count(implode("\n", array_filter($legacyMapScripts, 'is_string')), 'SafariTrakMapStyle.attachLeafletBase(') >= 7,
     'legacy Leaflet map views use the shared multicolor MapLibre basemap'
 );
 $expect(
@@ -507,12 +757,12 @@ $expect(is_string($googleAppMapBackground) && str_contains($googleAppMapBackgrou
 $navigation = file_get_contents(__DIR__ . '/../backend/views/app-navigation.php');
 $expect(is_string($navigation) && str_contains($navigation, 'href="index.php"') && str_contains($navigation, 'href="places.php"'), 'Authenticated pages share the Explore navigation');
 $expect(!is_string($navigation) || !str_contains($navigation, 'safety.php'), 'Standalone Safety navigation is removed');
-$expect(is_string($googleAppMapBackground) && str_contains($googleAppMapBackground, 'center: { lat: -1.286389, lng: 36.817223 }'), 'Shared Google map starts at Nairobi');
+$expect(is_string($googleAppMapBackground) && str_contains($googleAppMapBackground, 'center: { lat: -1.286389, lng: 36.817223 }'), 'Shared Google map retains Nairobi as its location-unavailable fallback');
 $expect(is_string($googleAppMapBackground) && str_contains($googleAppMapBackground, 'gestureHandling: \'greedy\''), 'Shared Google map preserves map panning');
 $expect(is_string($googleAppMapBackground) && str_contains($googleAppMapBackground, 'scrollwheel: false'), 'Shared Google map disables wheel zoom');
 $expect(is_string($googleAppMapBackground) && str_contains($googleAppMapBackground, 'focusFeatures') && str_contains($googleAppMapBackground, 'map.fitBounds(bounds, padding)'), 'Shared Google map fits bounds only when a page explicitly focuses selected features');
 $expect(is_string($dashboardCss) && (bool) preg_match('/#appMapBackground\s*\{\s*position:\s*fixed;/', $dashboardCss), 'Shared map background is positioned on desktop as well as mobile');
-$expect(is_string($googleAppMapBackground) && str_contains($googleAppMapBackground, "addEventListener('click', () => requestUserLocation(true))"), 'Shared Google map recenters to device location only from the location control');
+$expect(is_string($googleAppMapBackground) && str_contains($googleAppMapBackground, "addEventListener('click', () => requestUserLocation(true))"), 'Shared Google map retains its manual current-location control');
 $expect(is_string($googleAppMapBackground) && str_contains($googleAppMapBackground, 'google.maps.Polyline'), 'Shared Google map renders supplied recorded routes');
 $expect(is_string($mapLibreAppMapBackground) && str_contains($mapLibreAppMapBackground, 'function focusFeatures') && str_contains($mapLibreAppMapBackground, 'map.fitBounds('), 'Backup page map focuses and fits the selected trip route');
 $expect(is_string($myJourneysSource = file_get_contents(__DIR__ . '/../my-journeys.php')) && str_contains($myJourneysSource, "\$appMapPage = 'journeys'") && str_contains($appMapBackgroundView, 'data-map-page='), 'My Trips identifies itself before the shared map script initializes');
@@ -547,27 +797,35 @@ $expect(
     && str_contains($journeysScript, 'moveCarousel(1)')
     && str_contains($journeysScript, 'SafariTrakRouteDirections.getDrivingRoute')
     && str_contains($journeysScript, 'routeStatus.textContent = hasRecordedRoute')
-    && !str_contains($journeysScript, 'routeFeature.route = [[startLng, startLat], [endLng, endLat]]'),
-    'My Trips filters and cycles trips, requests road routes, and never draws a straight-line fallback'
+    && str_contains($journeysScript, 'routeFeature.route = [[startLng, startLat], [endLng, endLat]]')
+    && str_contains($journeysScript, 'approximate direction, not a road route'),
+    'My Trips filters and cycles trips and clearly marks approximate fallback directions'
 );
 $expect(
     is_string($journeysScript)
-    && str_contains($journeysScript, "routeFeature.routeColor = 'planned'")
+    && str_contains($journeysScript, "routeFeature.routeColor = ['ended', 'completed'].includes")
+    && str_contains($journeysScript, "? 'completed'")
+    && str_contains($journeysScript, ": 'planned'")
     && str_contains($journeysScript, 'setJourneyFeatures(features, { focus: true })')
     && str_contains($mapLibreAppMapBackground, "feature.routeColor === 'planned'")
+    && str_contains($mapLibreAppMapBackground, "feature.routeColor === 'completed'")
     && !str_contains($mapLibreAppMapBackground, 'plannedRoute ?')
     && str_contains($mapLibreAppMapBackground, 'safaritrak-selected-journey-${mapElement.dataset.mapUserId}')
     && str_contains($mapLibreAppMapBackground, 'sessionStorage.setItem')
     && str_contains($mapLibreAppMapBackground, 'getRouteColors()')
+    && str_contains($mapLibreAppMapBackground, 'routeColors.casing')
+    && str_contains($mapLibreAppMapBackground, "feature.routeApproximate ? { 'line-dasharray': [2, 2] } : {}")
     && str_contains($googleDashboardMapScript, 'safaritrak-selected-journey-')
     && str_contains($fallbackDashboardMapScript, 'safaritrak-selected-journey-')
+    && str_contains($googleAppMapBackground, 'approximateDash')
     && str_contains($mapLibreAppMapBackground, 'getRouteColors()')
     && str_contains($mapLibreAppMapBackground, "'line-width': isPlannedRoute ? 4 : 5")
-    && str_contains($mapLibreAppMapBackground, "'line-width': isPlannedRoute ? 10 : 12")
+    && str_contains($mapLibreAppMapBackground, "'line-width': 8")
+    && str_contains($mapLibreAppMapBackground, "'line-opacity': isPlannedRoute ? 0.28 : 0.22")
     && str_contains($googleAppMapBackground, 'getRouteColors()')
-    && str_contains($googleAppMapBackground, 'strokeWeight: isPlannedRoute ? 4 : 6')
+    && str_contains($googleAppMapBackground, 'strokeWeight: isPlannedRoute ? 4 : 5')
     && !str_contains($mapLibreAppMapBackground, "routeColor: 'planned'"),
-    'Selected journey routes persist per user, use themed red styling, and preserve explicit route colors'
+    'Selected journeys preserve per-user route state and use purple active or turquoise completed styling'
 );
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, 'width: 72px') && str_contains($dashboardCss, '.app--explore .sidebar') && str_contains($dashboardCss, 'content: attr(title)'), 'Desktop navigation is an icon rail with accessible hover labels across pages');
 $expect(is_string($dashboardCss) && str_contains($dashboardCss, 'visibility: hidden') && str_contains($dashboardCss, '.sidebar-close'), 'Mobile navigation is visually hidden when closed and exposes its close control when open');
@@ -823,7 +1081,7 @@ $expect(
     'Live journey map uses the shared Nairobi reference camera when no user view is saved'
 );
 $expect(is_string($liveJourneyMap) && str_contains($liveJourneyMap, 'hasUserMovedMap') && str_contains($liveJourneyMap, 'state.hasFittedJourney = false'), 'Live journey prioritizes fitting its route over a stale saved camera until the user moves the map');
-$expect(is_string($liveJourneyMap) && str_contains($liveJourneyMap, "'line-color': routeColors.stroke") && str_contains($liveJourneyMap, 'safaritrak-route-core') && str_contains($liveJourneyMap, 'directEstimate'), 'Live journey keeps a red route visible while road routing loads or fails');
+$expect(is_string($liveJourneyMap) && str_contains($liveJourneyMap, "'line-color': routeColors.stroke") && str_contains($liveJourneyMap, 'safaritrak-route-core') && str_contains($liveJourneyMap, 'directEstimate'), 'Live journey keeps the active route visible while road routing loads or fails');
 $routeCoordinatesAssignment = strpos($liveJourneyMap, 'state.routeCoordinates = coordinates;');
 $routeStyleReadyGuard = strpos($liveJourneyMap, 'if (!state.styleReady) return;');
 $expect(is_string($liveJourneyMap) && $routeCoordinatesAssignment !== false && $routeStyleReadyGuard !== false && $routeCoordinatesAssignment < $routeStyleReadyGuard, 'Live journey retains route geometry until the map style can render it');
@@ -919,8 +1177,8 @@ $expect(
     && str_contains($appMapBackgroundView, '$showAppMapControls ?? true')
     && is_string($accountWorkspaceCss)
     && str_contains($accountWorkspaceCss, 'width: min(820px, 92vw)')
-    && str_contains($accountWorkspaceCss, 'rgba(12, 16, 28, .3)')
-    && str_contains($accountWorkspaceCss, 'backdrop-filter: blur(8px) !important;')
+    && str_contains($accountWorkspaceCss, 'background: var(--glass-surface) !important;')
+    && str_contains($accountWorkspaceCss, 'backdrop-filter: var(--glass-surface-blur) !important;')
     && str_contains($accountWorkspaceCss, 'grid-template-columns: repeat(2, minmax(0, 1fr))')
     && str_contains($mapLibreAppMapBackground, "mapElement.dataset.mapPage === 'profile'")
     && str_contains($mapLibreAppMapBackground, '!isProfilePage')
@@ -940,6 +1198,12 @@ $verifyEmailPage = file_get_contents(__DIR__ . '/../verify-email.php');
 $groupMessagesApi = file_get_contents(__DIR__ . '/../backend/api/groups/persistent/messages.php');
 $groupTripApi = file_get_contents(__DIR__ . '/../backend/api/groups/create.php');
 $groupTripClient = file_get_contents(__DIR__ . '/../group-travel.js');
+$trackingClient = file_get_contents(__DIR__ . '/../tracking.js');
+$groupTripPage = file_get_contents(__DIR__ . '/../group-travel.php');
+$journeysRouteClient = file_get_contents(__DIR__ . '/../journeys.js');
+$watchJourneyPage = file_get_contents(__DIR__ . '/../watch-journey.php');
+$watchJourneyClient = file_get_contents(__DIR__ . '/../watch-journey.js');
+$sharedJourneyClient = file_get_contents(__DIR__ . '/../view-journey.js');
 $orgSignupApi = file_get_contents(__DIR__ . '/../backend/api/org/signup.php');
 $orgReviewApi = file_get_contents(__DIR__ . '/../backend/api/platform/org-status.php');
 $schoolInviteApi = file_get_contents(__DIR__ . '/../backend/api/org/invite.php');
@@ -980,7 +1244,7 @@ $expect(is_string($groupReadMigration) && str_contains($groupReadMigration, 'las
 $expect(is_string($persistentGroupsMigration) && str_contains($persistentGroupsMigration, '"school", "approved"'), 'migration 0007 preserves existing organization access as approved school accounts');
 $expect(is_string($groupsNavigation) && str_contains($groupsNavigation, 'href="groups.php"') && is_string($groupsPage), 'persistent groups have a real route in shared navigation');
 $expect(is_string($settingsSource) && str_contains($settingsSource, 'settings-account-shortcut') && str_contains($settingsSource, 'trusted-contacts.php') && is_string($appShellStart) && !str_contains($appShellStart, 'href="trusted-contacts.php"'), 'Trusted people is grouped under account access instead of a separate profile-menu item');
-$expect(is_string($dashboardCss) && str_contains($dashboardCss, '.dashboard-route-focus .app--explore .explore-panels') && str_contains($dashboardCss, '.dashboard-route-focus .app--explore .app-search-row'), 'Explore docks the route planner and hides competing panels while planning');
+$expect(is_string($dashboardCss) && str_contains($dashboardCss, '.app--explore .explore-panels') && !str_contains($dashboardCss, '.dashboard-route-focus'), 'Explore keeps panels in place while fitting the selected route beside them');
 $expect(
     is_string($dashboardCss)
     && str_contains($dashboardCss, '--accent-amber: var(--badge-warning-text)')
@@ -1051,8 +1315,57 @@ $expect(is_string($registerApi) && str_contains($registerApi, 'Local development
 $resendVerificationApi = file_get_contents(__DIR__ . '/../backend/api/resend-verification.php');
 $expect(is_string($resendVerificationApi) && str_contains($resendVerificationApi, 'dev_verification_link') && str_contains($resendVerificationApi, 'st_is_local_development_request()') && str_contains($resendVerificationApi, 'new verification link has been requested'), 'resend verification exposes local links only to loopback development requests while preserving generic responses');
 $expect(is_string($verifyEmailPage) && str_contains($verifyEmailPage, 'group-invite.php?token=') && str_contains($verifyEmailPage, 'organization-invite.php?token='), 'verified invitees return to the correct invitation without an open redirect');
-$expect(is_string($groupTripClient) && str_contains($groupTripClient, 'backend/api/groups/create.php') && str_contains($groupTripClient, 'persistent_group_ids') && str_contains($groupTripClient, 'memberRouteColor') && str_contains($groupTripClient, "'#FF2D2D'"), 'temporary group trips use the correct API path, invite persistent-group members, and draw bright red routes');
+$expect(is_string($groupTripClient) && str_contains($groupTripClient, 'backend/api/groups/create.php') && str_contains($groupTripClient, 'persistent_group_ids') && str_contains($groupTripClient, 'memberRouteColor') && str_contains($groupTripClient, 'getTrackingColors()') && str_contains($groupTripClient, 'focusMobileLeafletRoute') && str_contains($groupTripClient, 'completedStroke'), 'group journeys use distinct member colors, completed-route styling, and mobile route focus');
+$expect(
+    is_string($trackingClient)
+    && str_contains($trackingClient, 'if (!hasCenteredOnCurrentLocation)')
+    && str_contains($trackingClient, 'reportLocationUnavailable')
+    && is_string($groupTripClient)
+    && str_contains($groupTripClient, 'navigator.geolocation.getCurrentPosition')
+    && is_string($groupTripPage)
+    && str_contains($groupTripPage, 'id="groupDeviceLocationStatus"')
+    && is_string($watchJourneyClient)
+    && str_contains($watchJourneyClient, 'hasCenteredOnDeviceLocation = true')
+    && is_string($watchJourneyPage)
+    && str_contains($watchJourneyPage, 'id="deviceLocationStatus"')
+    && is_string($sharedJourneyClient)
+    && str_contains($sharedJourneyClient, 'centerOnDeviceLocation'),
+    'standalone tracking, group, and shared-journey maps center on device location when available'
+);
 $expect(is_string($groupTripApi) && str_contains($groupTripApi, 'persistent_group_members') && str_contains($groupTripApi, 'One or more selected groups'), 'group-trip API verifies group membership before inviting members');
+$expect(
+    is_string($groupTripPage)
+    && str_contains($groupTripPage, 'id="startPoint" data-location-autocomplete')
+    && str_contains($groupTripPage, 'id="endPoint" data-location-autocomplete')
+    && str_contains($groupTripPage, 'ACTIVE_GROUP_START_LAT')
+    && str_contains($groupTripPage, 'route-directions.js'),
+    'Group trip planning saves selectable route endpoints and loads route directions'
+);
+$expect(
+    is_string($groupTripApi)
+    && str_contains($groupTripApi, 'meeting_point_label, meeting_point_lat, meeting_point_lng')
+    && str_contains($groupTripApi, "'start_location'")
+    && str_contains($groupTripClient, 'SafariTrakRouteDirections.getDrivingRoute')
+    && str_contains($groupTripClient, 'group-planned-route'),
+    'Group journeys persist an origin and draw a road route for scheduled, active, and ended trips'
+);
+$expect(
+    is_string($journeysRouteClient)
+    && str_contains($journeysRouteClient, 'backend/api/journeys/position.php?group_journey_id=')
+    && str_contains($journeysRouteClient, 'group_journey_id: Number(journey.id)')
+    && str_contains($journeysRouteClient, 'SafariTrakRouteDirections.getDrivingRoute'),
+    'Selecting a group journey loads its authorized tracks and road route on My Trips'
+);
+$expect(
+    is_string($watchJourneyPage)
+    && str_contains($watchJourneyPage, 'journeyRoadRouteStatus')
+    && str_contains($watchJourneyPage, 'route-directions.js')
+    && is_string($watchJourneyClient)
+    && str_contains($watchJourneyClient, 'SafariTrakRouteDirections.getDrivingRoute')
+    && is_string($sharedJourneyClient)
+    && str_contains($sharedJourneyClient, 'SafariTrakRouteDirections.getDrivingRoute'),
+    'Shared current and ended individual journeys render their road route with recorded positions'
+);
 $expect(is_string($orgSignupApi) && str_contains($orgSignupApi, 'account_type') && str_contains($orgSignupApi, '"pending"'), 'new school and car-hire accounts wait for platform review');
 $expect(is_string($orgReviewApi) && str_contains($orgReviewApi, "'approve', 'reject'") && str_contains($orgReviewApi, 'reviewed_by'), 'platform admins can approve or reject organization applications');
 $expect(is_string($schoolInviteApi) && str_contains($schoolInviteApi, 'account_type') && str_contains($schoolInviteApi, 'organization_invites'), 'school admins can create expiring enrollment links');

@@ -5,23 +5,24 @@ const initialCenter = (JOURNEY_START_LAT !== null && JOURNEY_START_LNG !== null)
 const map = L.map('map', {
   zoomControl: false,
   scrollWheelZoom: false,
-  doubleClickZoom: false,
-  touchZoom: false,
+  doubleClickZoom: true,
+  touchZoom: true,
   boxZoom: false,
   keyboard: false,
 }).setView(initialCenter, 12);
 window.SafariTrakMapStyle.attachLeafletBase(map);
 
+const trackingColors = window.SafariTrakMapStyle.getTrackingColors();
 const currentIcon = L.divIcon({
   className: 'st-marker',
-  html: '<div style="width:18px;height:18px;background:#176b5b;border:4px solid white;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,.25)"></div>',
+  html: `<div style="width:18px;height:18px;background:${trackingColors.user};border:4px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.28)"></div>`,
   iconSize: [18, 18],
   iconAnchor: [9, 9]
 });
 
 const destinationIcon = L.divIcon({
   className: 'st-marker',
-  html: '<div style="width:18px;height:18px;background:#d69b2d;border:4px solid white;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,.25)"></div>',
+  html: `<div style="width:18px;height:18px;background:${trackingColors.destination};border:4px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.28)"></div>`,
   iconSize: [18, 18],
   iconAnchor: [9, 9]
 });
@@ -31,11 +32,19 @@ const marker = L.marker(initialCenter, { icon: currentIcon }).addTo(map).bindPop
 if (JOURNEY_END_LAT !== null && JOURNEY_END_LNG !== null) {
   L.marker([JOURNEY_END_LAT, JOURNEY_END_LNG], { icon: destinationIcon }).addTo(map).bindPopup('<b>Destination</b>');
   if (JOURNEY_START_LAT !== null && JOURNEY_START_LNG !== null) {
-    map.fitBounds([[JOURNEY_START_LAT, JOURNEY_START_LNG], [JOURNEY_END_LAT, JOURNEY_END_LNG]], { padding: [40, 40] });
+    const route = [[JOURNEY_START_LAT, JOURNEY_START_LNG], [JOURNEY_END_LAT, JOURNEY_END_LNG]];
+    if (!window.SafariTrakRouteDirections?.focusMobileLeafletRoute(
+      map,
+      route,
+      [JOURNEY_START_LAT, JOURNEY_START_LNG]
+    )) {
+      map.fitBounds(route, { padding: [40, 40] });
+    }
   }
 }
 
 let lastPositionTime = 0;
+let hasCenteredOnCurrentLocation = false;
 
 async function pushPosition(lat, lng, speedKmh) {
   try {
@@ -63,6 +72,10 @@ function handlePosition(position) {
   const speedKmh = (speedMs !== null && speedMs !== undefined) ? Math.round(speedMs * 3.6) : null;
 
   marker.setLatLng([lat, lng]);
+  if (!hasCenteredOnCurrentLocation) {
+    map.setView([lat, lng], 16);
+    hasCenteredOnCurrentLocation = true;
+  }
 
   const speedEl = document.getElementById('currentSpeed');
   if (speedEl) {
@@ -81,14 +94,25 @@ function locate() {
   navigator.geolocation.getCurrentPosition(p => {
     handlePosition(p);
     map.setView([p.coords.latitude, p.coords.longitude], 15);
+    hasCenteredOnCurrentLocation = true;
     marker.openPopup();
   }, () => alert('Please allow SafariTrak to access your location.'), { enableHighAccuracy: true, timeout: 10000 });
+}
+
+function reportLocationUnavailable(error) {
+  const status = document.getElementById('trackingStatus');
+  if (!status) return;
+  status.textContent = error && error.code === error.PERMISSION_DENIED
+    ? 'Location permission was denied. The trip map remains available.'
+    : 'Device location is unavailable. The trip map remains available.';
 }
 
 document.getElementById('myLocation')?.addEventListener('click', locate);
 
 if (navigator.geolocation) {
-  navigator.geolocation.watchPosition(handlePosition, () => {}, { enableHighAccuracy: true, maximumAge: 10000 });
+  navigator.geolocation.watchPosition(handlePosition, reportLocationUnavailable, { enableHighAccuracy: true, maximumAge: 10000 });
+} else {
+  reportLocationUnavailable(null);
 }
 
 document.getElementById('confirmEndJourneyBtn')?.addEventListener('click', async () => {

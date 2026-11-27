@@ -35,7 +35,7 @@ foreach ($myGroups as $g) {
 }
 if (!$activeTrip) {
     foreach ($myGroups as $g) {
-        if ($g['status'] === 'active' && $g['my_status'] === 'confirmed') {
+        if ($g['my_status'] === 'confirmed') {
             $activeTrip = $g;
             break;
         }
@@ -97,6 +97,7 @@ $persistentGroups = $persistentGroupsStmt->fetchAll(PDO::FETCH_ASSOC);
 <title>SafariTrak | Group Travel</title>
 <link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="theme.css?v=<?= hash_file('sha256', __DIR__ . '/theme.css') ?>">
 <?php if ($activeTrip): ?>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css">
@@ -186,8 +187,9 @@ $persistentGroups = $persistentGroupsStmt->fetchAll(PDO::FETCH_ASSOC);
     <div class="card-head"><div><label><?= $activeTrip && $activeTrip['status'] !== 'active' ? 'SELECTED TRIP' : 'THIS TRIP' ?></label><h3><?= $activeTrip ? htmlspecialchars($activeTrip['title']) : 'No active group trip' ?></h3></div><?php if ($activeTrip): ?><span class="status"><?= (int) $activeTrip['confirmed_count'] ?> members · <?= htmlspecialchars(ucfirst($activeTrip['status'])) ?></span><?php endif; ?></div>
     <?php if ($activeTrip): ?>
     <div id="groupMap"></div>
+    <p id="groupDeviceLocationStatus" class="hint" role="status" aria-live="polite" hidden></p>
     <p id="groupMapStatus" class="hint" role="status" aria-live="polite">Routes show location updates shared by confirmed group members.</p>
-    <div class="legend">    <span><i class="current"></i>Each member has a distinct route color</span><?php if ($activeTrip['destination_lat']): ?><span><i class="destination"></i>Destination</span><?php endif; ?></div>
+    <div class="legend"><span><i class="current"></i>Each member has a distinct recorded route</span><?php if ($activeTrip['destination_lat'] !== null): ?><span><i class="destination"></i>Destination</span><?php endif; ?></div>
     <?php else: ?>
     <div class="empty" style="margin:21px"><i class="fa-solid fa-user-group"></i><div><b>No trip in progress</b><p>When one of your group journeys is started, the live map will show up here.</p></div></div>
     <?php endif; ?>
@@ -217,7 +219,8 @@ $persistentGroups = $persistentGroupsStmt->fetchAll(PDO::FETCH_ASSOC);
     <div class="modal-head"><div><h3>Create a group journey</h3><p>Set up a trip and invite the people travelling with you.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
       <div class="form-field" style="margin-bottom:12px"><label>Trip name</label><input type="text" id="groupTitle" placeholder="e.g. Family trip to Diani"></div>
-      <div class="form-field" style="margin-bottom:12px"><label>Destination</label><input type="text" id="groupDestination" placeholder="e.g. Diani Beach"></div>
+      <div class="form-field" style="margin-bottom:12px"><label for="startPoint">Starting point</label><input type="search" id="startPoint" data-location-autocomplete autocomplete="off" placeholder="Choose a meeting point" required><input type="hidden" id="startLat"><input type="hidden" id="startLng"></div>
+      <div class="form-field" style="margin-bottom:12px"><label for="endPoint">Destination</label><input type="search" id="endPoint" data-location-autocomplete autocomplete="off" placeholder="Choose a destination" required><input type="hidden" id="endLat"><input type="hidden" id="endLng"></div>
       <div class="form-field" style="margin-bottom:12px"><label>Departure</label><input type="datetime-local" id="groupDeparture"></div>
       <div class="form-field">
         <label>Invite from your trusted contacts</label>
@@ -307,6 +310,10 @@ $persistentGroups = $persistentGroupsStmt->fetchAll(PDO::FETCH_ASSOC);
 <script>
 window.ACTIVE_GROUP_ID = <?= $activeTrip ? (int) $activeTrip['id'] : 'null' ?>;
 window.ACTIVE_GROUP_STATUS = <?= $activeTrip ? json_encode($activeTrip['status'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null' ?>;
+window.ACTIVE_GROUP_START_LABEL = <?= $activeTrip ? json_encode($activeTrip['meeting_point_label'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null' ?>;
+window.ACTIVE_GROUP_START_LAT = <?= ($activeTrip && $activeTrip['meeting_point_lat'] !== null) ? (float) $activeTrip['meeting_point_lat'] : 'null' ?>;
+window.ACTIVE_GROUP_START_LNG = <?= ($activeTrip && $activeTrip['meeting_point_lng'] !== null) ? (float) $activeTrip['meeting_point_lng'] : 'null' ?>;
+window.ACTIVE_GROUP_DESTINATION_LABEL = <?= $activeTrip ? json_encode($activeTrip['destination_label'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : 'null' ?>;
 window.ACTIVE_GROUP_DEST_LAT = <?= ($activeTrip && $activeTrip['destination_lat'] !== null) ? (float) $activeTrip['destination_lat'] : 'null' ?>;
 window.ACTIVE_GROUP_DEST_LNG = <?= ($activeTrip && $activeTrip['destination_lng'] !== null) ? (float) $activeTrip['destination_lng'] : 'null' ?>;
 window.ACTIVE_GROUP_MEMBERS = <?= json_encode(array_map(function ($m) {
@@ -326,6 +333,8 @@ window.MY_USER_ID = <?= (int) $myId ?>;
 <?php if ($activeTrip): ?><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><?php endif; ?>
 <script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
 <script src="notifications-widget.js?v=<?= hash_file('sha256', __DIR__ . '/notifications-widget.js') ?>"></script>
+<script src="location-autocomplete.js?v=<?= hash_file('sha256', __DIR__ . '/location-autocomplete.js') ?>"></script>
+<script src="route-directions.js?v=<?= hash_file('sha256', __DIR__ . '/route-directions.js') ?>"></script>
 <script src="group-travel.js"></script>
 </body>
 </html>

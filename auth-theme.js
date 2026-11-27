@@ -15,7 +15,7 @@
     'assets/images/safaritrak-auth-05.jpg',
   ];
   const photoStorageKey = 'safaritrak-auth-background-index';
-  const photoRotationIntervalMs = 22000;
+  const photoRotationIntervalMs = 120000;
   let photoIndex = Math.floor(Math.random() * backgroundPhotos.length);
   try {
     const savedPhotoIndex = Number.parseInt(localStorage.getItem(photoStorageKey) || '', 10);

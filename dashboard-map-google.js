@@ -112,20 +112,25 @@
 
   function mapStyles(theme = document.documentElement.dataset.theme) {
     const light = theme === 'light';
+    const color = (name, fallback) =>
+      getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
     return [
-      { elementType: 'geometry', stylers: [{ color: light ? '#F8FAFC' : '#0F172A' }] },
-      { elementType: 'labels.text.fill', stylers: [{ color: light ? '#0F172A' : '#F8FAFC' }] },
-      { elementType: 'labels.text.stroke', stylers: [{ color: light ? '#FFFFFF' : '#000000' }, { weight: 2 }] },
-      { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: light ? '#E2E8F0' : '#1E293B' }] },
-      { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: light ? '#F8FAFC' : '#0F172A' }] },
-      { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: light ? '#D1FAE5' : '#064E3B' }] },
-      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: light ? '#EA580C' : '#F97316' }] },
-      { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: light ? '#EA580C' : '#F97316' }] },
-      { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: light ? '#E2E8F0' : '#334155' }] },
-      { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: light ? '#0F172A' : '#F8FAFC' }] },
+      { elementType: 'geometry', stylers: [{ color: color('--map-background', light ? '#F4F1EB' : '#050817') }] },
+      { elementType: 'labels.text.fill', stylers: [{ color: color('--map-label', light ? '#45505A' : '#E8E8FF') }] },
+      { elementType: 'labels.text.stroke', stylers: [{ color: color('--map-label-halo', light ? '#F4F1EB' : '#050817') }, { weight: 2 }] },
+      { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: color('--map-boundary', light ? '#817B99' : '#7654C9') }] },
+      { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: color('--map-land', light ? '#E8E4DA' : '#050817') }] },
+      { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: color('--map-urban', light ? '#D6D1C8' : '#10152D') }] },
+      { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: color('--map-park', light ? '#AFC9B2' : '#087A50') }] },
+      { featureType: 'road', elementType: 'geometry', stylers: [{ color: color('--map-road-secondary', light ? '#7D35B5' : '#B14DFF') }] },
+      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: color('--map-road-highway', light ? '#A76233' : '#C97835') }] },
+      { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: color('--map-road-major', light ? '#D97520' : '#FF8A24') }] },
+      { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: color('--map-road-residential', light ? '#6D917D' : '#82AD98') }] },
+      { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: color('--map-label', light ? '#45505A' : '#E8E8FF') }] },
       { featureType: 'transit', elementType: 'all', stylers: [{ visibility: 'off' }] },
-      { featureType: 'water', elementType: 'geometry', stylers: [{ color: light ? '#E0F2FE' : '#050B24' }] },
-      { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: light ? '#0F172A' : '#F8FAFC' }] },
+      { featureType: 'water', elementType: 'geometry', stylers: [{ color: color('--map-ocean', light ? '#AFCADB' : '#082D50') }] },
+      { featureType: 'water', elementType: 'geometry.stroke', stylers: [{ color: color('--map-waterway', light ? '#6EA7B7' : '#00D9FF') }, { weight: 1 }] },
+      { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: color('--map-label-water', light ? '#376C7A' : '#E8E8FF') }] },
     ];
   }
 
@@ -244,23 +249,25 @@
     state.markers.delete(id);
   }
 
-  function setRoute(points) {
+  function setRoute(points, status = 'active') {
     state.routeLine?.setMap(null);
     state.routeGlowLine?.setMap(null);
     const routeColors = window.SafariTrakMapStyle.getRouteColors();
+    const completed = ['ended', 'completed'].includes(String(status || '').toLowerCase());
+    const routeStroke = completed ? routeColors.completedStroke : routeColors.stroke;
     const path = points.filter(validPoint).map(point => ({ lat: Number(point.lat), lng: Number(point.lng) }));
     state.routeGlowLine = path.length > 1 ? new google.maps.Polyline({
       map: state.map,
       path,
-      strokeColor: routeColors.stroke,
-      strokeOpacity: 0.42,
+      strokeColor: routeStroke,
+      strokeOpacity: 0.28,
       strokeWeight: 12,
       zIndex: 9,
     }) : null;
     state.routeLine = path.length > 1 ? new google.maps.Polyline({
       map: state.map,
       path,
-      strokeColor: routeColors.stroke,
+      strokeColor: routeStroke,
       strokeOpacity: 0.96,
       strokeWeight: 5,
       zIndex: 10,
@@ -281,15 +288,16 @@
     state.plannedRouteGlowLine?.setMap(null);
     state.plannedStartMarker?.setMap(null);
     state.plannedDestinationMarker?.setMap(null);
-    state.plannedStartMarker = setMarker('planned-start', start, 'Trip start', '#47f5cf', 'start', 8);
-    state.plannedDestinationMarker = setMarker('planned-destination', destination, 'Trip destination', '#FF2D2D', 'finish', 8);
+    const trackingColors = window.SafariTrakMapStyle.getTrackingColors();
+    state.plannedStartMarker = setMarker('planned-start', start, 'Trip start', trackingColors.start, 'start', 8);
+    state.plannedDestinationMarker = setMarker('planned-destination', destination, 'Trip destination', trackingColors.destination, 'finish', 8);
     const routeColors = window.SafariTrakMapStyle.getRouteColors();
     state.plannedRouteGlowLine = path.length > 1 ? new google.maps.Polyline({
       map: state.map,
       path,
       strokeColor: routeColors.stroke,
-      strokeOpacity: 0.42,
-      strokeWeight: 13,
+      strokeOpacity: 0.22,
+      strokeWeight: 8,
       zIndex: 29,
     }) : null;
     state.plannedRouteLine = path.length > 1 ? new google.maps.Polyline({
@@ -305,7 +313,9 @@
     bounds.extend({ lat: Number(start.lat), lng: Number(start.lng) });
     bounds.extend({ lat: Number(destination.lat), lng: Number(destination.lng) });
     path.forEach(point => bounds.extend(point));
-    state.map.fitBounds(bounds, 90);
+    if (!window.SafariTrakRouteDirections?.focusMobileGoogleRoute(state.map, path, start)) {
+      state.map.fitBounds(bounds, 90);
+    }
   }
 
   function clearPlannedRoute() {
@@ -327,11 +337,12 @@
     const start = { lat: Number(journey.start_lat), lng: Number(journey.start_lng) };
     const finish = { lat: Number(journey.end_lat), lng: Number(journey.end_lng) };
     if (!validPoint(start) || !validPoint(finish)) return;
-    setMarker('public-shared-start', start, `Start · ${journey.start_label}`, '#47f5cf', 'start', 8);
-    setMarker('public-shared-finish', finish, `Finish · ${journey.end_label}`, '#FF2D2D', 'finish', 8);
+    const trackingColors = window.SafariTrakMapStyle.getTrackingColors();
+    setMarker('public-shared-start', start, `Start · ${journey.start_label}`, trackingColors.start, 'start', 8);
+    setMarker('public-shared-finish', finish, `Finish · ${journey.end_label}`, trackingColors.destination, 'finish', 8);
     const current = validPoint(journey.location) ? journey.location : null;
     if (current) {
-      setMarker('public-shared-current', current, 'Current shared location', '#ffcf5c', 'user', 8);
+      setMarker('public-shared-current', current, 'Current shared location', trackingColors.groupMembers[0], 'shared', 8);
     } else {
       clearMarker('public-shared-current');
     }
@@ -345,21 +356,29 @@
       new google.maps.Polyline({
         map: state.map,
         path,
-        strokeColor: routeColors.stroke,
-        strokeOpacity: 0.42,
-        strokeWeight: 13,
+        strokeColor: ['ended', 'completed'].includes(String(journey.status || '').toLowerCase())
+          ? routeColors.completedStroke
+          : routeColors.stroke,
+        strokeOpacity: 0.22,
+        strokeWeight: 8,
         zIndex: 34,
       }),
       new google.maps.Polyline({
         map: state.map,
         path,
-        strokeColor: routeColors.stroke,
+        strokeColor: ['ended', 'completed'].includes(String(journey.status || '').toLowerCase())
+          ? routeColors.completedStroke
+          : routeColors.stroke,
         strokeOpacity: 0.96,
         strokeWeight: 5,
         zIndex: 35,
       }),
     ] : [];
     if (shouldFit) {
+      if (window.SafariTrakRouteDirections?.focusMobileGoogleRoute(state.map, path, start)) {
+        state.publicJourney.fit = false;
+        return;
+      }
       const bounds = new google.maps.LatLngBounds();
       [start, finish, ...(current ? [current] : []), ...path].forEach(point => bounds.extend(point));
       state.map.fitBounds(bounds, 90);
@@ -376,9 +395,14 @@
   }
 
   function updateTrip(trip) {
-    setRoute(trip.route || []);
-    setMarker('trip-start', trip.start, `Start · ${trip.start_label}`, '#47f5cf', 'start', 8);
-    setMarker('trip-destination', trip.destination, `Destination · ${trip.destination_label}`, '#FF2D2D', 'finish', 8);
+    const focusRoute = !state.routeLine && Array.isArray(trip.route) && trip.route.length > 1;
+    setRoute(trip.route || [], trip.status);
+    if (focusRoute) {
+      window.SafariTrakRouteDirections?.focusMobileGoogleRoute(state.map, trip.route, trip.start);
+    }
+    const trackingColors = window.SafariTrakMapStyle.getTrackingColors();
+    setMarker('trip-start', trip.start, `Start · ${trip.start_label}`, trackingColors.start, 'start', 8);
+    setMarker('trip-destination', trip.destination, `Destination · ${trip.destination_label}`, trackingColors.destination, 'finish', 8);
     if (trip.current && !state.deviceLocation) setUserMarker(trip.current, 'Your last reported journey location');
     const speed = document.getElementById('dashboardSpeed');
     const remaining = document.getElementById('dashboardRemaining');
@@ -414,7 +438,9 @@
       const live = Number.isFinite(timestamp) && Date.now() - timestamp <= 90_000;
       const freshness = live ? 'Live' : 'Last known';
       const title = `${location.name}, ${freshness.toLowerCase()} location shared with you`;
-      const marker = setMarker(id, location, title, '#22D3EE', 'shared', 9);
+      const marker = setMarker(id, location, title, window.SafariTrakMapStyle.getTrackingColors().groupMembers[
+        Math.abs(Number(location.journey_id)) % window.SafariTrakMapStyle.getTrackingColors().groupMembers.length
+      ], 'shared', 9);
       if (marker && !state.sharedMarkerListeners.has(id)) {
         state.sharedMarkerListeners.set(id, marker.addListener('click', () => setStatus(marker.getTitle())));
       }
@@ -546,7 +572,7 @@
     document.addEventListener('safaritrak-location-selected', event => {
       if (event.target.id === 'destination') showDashboardSearchLocation(event.detail);
     });
-    refreshData();
+    refreshData().then(() => locateOnMap(true));
     state.refreshTimer = window.setInterval(refreshData, 15_000);
     setMapMode(saved?.projection === 'satellite' ? 'satellite' : 'flat');
   }

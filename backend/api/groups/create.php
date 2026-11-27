@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../includes/response.php';
 require_once __DIR__ . '/../../includes/session.php';
 require_once __DIR__ . '/../../includes/notify.php';
 require_once __DIR__ . '/../../includes/geo.php';
+require_once __DIR__ . '/../../includes/geo.php';
 
 st_start_session();
 st_require_method('POST');
@@ -13,8 +14,11 @@ $userId = st_require_login();
 $input = st_input();
 $title = trim($input['title'] ?? '');
 $destinationLabel = trim($input['destination_label'] ?? '');
-$destinationLat = isset($input['destination_lat']) && $input['destination_lat'] !== '' ? (float) $input['destination_lat'] : null;
-$destinationLng = isset($input['destination_lng']) && $input['destination_lng'] !== '' ? (float) $input['destination_lng'] : null;
+$startLabel = trim($input['start_label'] ?? '');
+$startLat = st_parse_coordinate($input['start_lat'] ?? null, -90, 90);
+$startLng = st_parse_coordinate($input['start_lng'] ?? null, -180, 180);
+$destinationLat = st_parse_coordinate($input['destination_lat'] ?? null, -90, 90);
+$destinationLng = st_parse_coordinate($input['destination_lng'] ?? null, -180, 180);
 $departureAt = !empty($input['departure_at']) ? $input['departure_at'] : null;
 if (isset($input['invite_contact_ids']) && !is_array($input['invite_contact_ids'])) {
     st_json_error('Selected trusted contacts must be sent as a list.', 422);
@@ -43,6 +47,12 @@ if ($title === '') {
 }
 if ($destinationLabel === '') {
     $errors['destination_label'] = 'Enter a destination.';
+}
+if ($startLabel === '' || $startLat === null || $startLng === null) {
+    $errors['start_location'] = 'Choose a starting point from the location suggestions.';
+}
+if ($destinationLat === null || $destinationLng === null) {
+    $errors['destination_location'] = 'Choose a destination from the location suggestions.';
 }
 
 if (!empty($errors)) {
@@ -87,10 +97,22 @@ if (!empty($persistentGroupIds)) {
 }
 
 $insert = $db->prepare(
-    'INSERT INTO group_journeys (organizer_id, title, destination_label, destination_lat, destination_lng, departure_at, status)
-     VALUES (?, ?, ?, ?, ?, ?, "upcoming")'
+    'INSERT INTO group_journeys
+        (organizer_id, title, destination_label, destination_lat, destination_lng,
+         meeting_point_label, meeting_point_lat, meeting_point_lng, departure_at, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, "upcoming")'
 );
-$insert->execute([$userId, $title, $destinationLabel, $destinationLat, $destinationLng, $departureAt]);
+$insert->execute([
+    $userId,
+    $title,
+    $destinationLabel,
+    $destinationLat,
+    $destinationLng,
+    $startLabel,
+    $startLat,
+    $startLng,
+    $departureAt,
+]);
 $groupId = (int) $db->lastInsertId();
 
 $organizerStmt = $db->prepare('SELECT full_name FROM users WHERE id = ?');

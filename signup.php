@@ -37,8 +37,8 @@ if ($contactInviteToken !== '') {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SafariTrak | Sign Up</title>
-  <link rel="stylesheet" href="style.css?v=14">
-  <link rel="stylesheet" href="auth-theme.css">
+  <link rel="stylesheet" href="style.css?v=<?= hash_file('sha256', __DIR__ . '/style.css') ?>">
+  <link rel="stylesheet" href="auth-theme.css?v=<?= hash_file('sha256', __DIR__ . '/auth-theme.css') ?>">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
@@ -48,7 +48,7 @@ if ($contactInviteToken !== '') {
       <i class="fa-solid fa-route"></i>
       <span>SafariTrak</span>
     </div>
-    <h1 class="title">Join SafariTrak</h1>
+    <h1 class="title">Create Account</h1>
     <p class="subtitle">Create an account to start tracking your journeys</p>
     <?php if ($contactInviteValid): ?>
       <p class="auth-invite-notice">You were invited by <?= htmlspecialchars($contactInviteName, ENT_QUOTES, 'UTF-8') ?>. After signing up and verifying your email, accept their trusted-contact request.</p>
@@ -81,7 +81,7 @@ if ($contactInviteToken !== '') {
       <p class="field-error" id="signupUsernameError">Enter a username</p>
 
       <div class="input-group">
-        <label class="auth-visually-hidden" for="email">Email address</label>
+        <label class="auth-visually-hidden" for="email">Email</label>
         <input type="email" id="email" placeholder="Email Address" required>
         <i class="fa-regular fa-envelope input-icon"></i>
       </div>
@@ -95,7 +95,7 @@ if ($contactInviteToken !== '') {
       <p class="field-error" id="signupPhoneError">Enter a valid phone number</p>
 
       <div class="input-group">
-        <label class="auth-visually-hidden" for="signupPassword">Password (at least 12 characters)</label>
+        <label class="auth-visually-hidden" for="signupPassword">Password</label>
         <input type="password" id="signupPassword" placeholder="At least 12 characters" minlength="12" maxlength="1024" autocomplete="new-password" required>
         <button type="button" class="input-icon no-border" id="toggleSignupPassword" aria-label="Show password">
           <i class="fa-regular fa-eye-slash"></i>
@@ -111,7 +111,7 @@ if ($contactInviteToken !== '') {
       </div>
       <p class="field-error" id="termsError">You need to accept the terms to continue</p>
 
-      <button type="submit" class="login-btn">Create Account</button>
+      <button type="submit" class="login-btn">Sign Up</button>
     </form>
 
     <p class="signup-text">
@@ -123,6 +123,6 @@ if ($contactInviteToken !== '') {
   </div>
 
   <script src="auth.js"></script>
-  <script src="auth-theme.js"></script>
+  <script src="auth-theme.js?v=<?= hash_file('sha256', __DIR__ . '/auth-theme.js') ?>"></script>
 </body>
 </html>

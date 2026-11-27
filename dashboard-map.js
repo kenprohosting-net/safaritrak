@@ -6,6 +6,7 @@ const dashboardMapState = {
   map: null,
   route: [],
   plannedRoute: null,
+  plannedRouteRenderScheduled: false,
   publicJourney: null,
   markers: new Map(),
   projection: 'flat',
@@ -132,7 +133,7 @@ function drawDashboardRoute(route) {
       type: 'line',
       source: 'safaritrak-dashboard-route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': routeColors.glow, 'line-width': 9, 'line-blur': 5, 'line-opacity': 0.8 },
+      paint: { 'line-color': routeColors.glow, 'line-width': 8, 'line-blur': 2, 'line-opacity': 0.24 },
     });
     map.addLayer({
       id: 'safaritrak-dashboard-route-core',
@@ -179,16 +180,37 @@ function drawDashboardPlannedRoute(plannedRoute) {
       type: 'line',
       source: sourceId,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': routeColors.glow, 'line-width': 7, 'line-blur': 3, 'line-opacity': 0.72 },
+      paint: {
+        'line-color': routeColors.glow,
+        'line-width': 8,
+        'line-blur': 2,
+        'line-opacity': 0.24,
+        ...(plannedRoute.approximate ? { 'line-dasharray': [2, 2] } : {}),
+      },
     });
     map.addLayer({
       id: 'safaritrak-planned-route-core',
       type: 'line',
       source: sourceId,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': routeColors.stroke, 'line-width': 5, 'line-opacity': 1 },
+      paint: {
+        'line-color': routeColors.stroke,
+        'line-width': 5,
+        'line-opacity': 1,
+        ...(plannedRoute.approximate ? { 'line-dasharray': [2, 2] } : {}),
+      },
     });
   }
+  map.setPaintProperty(
+    'safaritrak-planned-route-glow',
+    'line-dasharray',
+    plannedRoute.approximate ? [2, 2] : null
+  );
+  map.setPaintProperty(
+    'safaritrak-planned-route-core',
+    'line-dasharray',
+    plannedRoute.approximate ? [2, 2] : null
+  );
 
   const routeBounds = [
     [Number(plannedRoute.start.lng), Number(plannedRoute.start.lat)],
@@ -197,11 +219,19 @@ function drawDashboardPlannedRoute(plannedRoute) {
   ];
   const longitudes = routeBounds.map(([lng]) => lng);
   const latitudes = routeBounds.map(([, lat]) => lat);
+  const isMobile = window.matchMedia('(max-width: 800px)').matches;
+  if (window.SafariTrakRouteDirections?.focusMobileRoute(
+    map,
+    coordinates,
+    [Number(plannedRoute.start.lng), Number(plannedRoute.start.lat)]
+  )) return;
   map.fitBounds([
     [Math.min(...longitudes), Math.min(...latitudes)],
     [Math.max(...longitudes), Math.max(...latitudes)],
   ], {
-    padding: 110,
+    padding: isMobile
+      ? { top: 220, right: 20, bottom: 380, left: 20 }
+      : { top: 108, right: 56, bottom: 112, left: 400 },
     maxZoom: 16,
     duration: dashboardReducedMotion.matches ? 0 : 650,
   });
@@ -214,12 +244,36 @@ function setPlannedDashboardRoute(start, destination, points) {
   ) {
     throw new TypeError('Valid starting and destination coordinates are required.');
   }
+  const drivingRouteAvailable = Array.isArray(points) && points.length > 1;
+  const routePoints = drivingRouteAvailable ? points : [
+    { lat: Number(start.lat), lng: Number(start.lng) },
+    { lat: Number(destination.lat), lng: Number(destination.lng) },
+  ];
   dashboardMapState.plannedRoute = {
     start: { lat: Number(start.lat), lng: Number(start.lng) },
     destination: { lat: Number(destination.lat), lng: Number(destination.lng) },
-    points: Array.isArray(points) ? points : [],
+    points: routePoints,
+    approximate: !drivingRouteAvailable,
   };
-  if (!dashboardMapState.map?.isStyleLoaded()) return;
+  const map = dashboardMapState.map;
+  if (!map?.isStyleLoaded()) {
+    if (map && !dashboardMapState.plannedRouteRenderScheduled) {
+      dashboardMapState.plannedRouteRenderScheduled = true;
+      const renderWhenReady = () => {
+        if (!map.isStyleLoaded()) {
+          map.once('idle', renderWhenReady);
+          return;
+        }
+        dashboardMapState.plannedRouteRenderScheduled = false;
+        const pendingRoute = dashboardMapState.plannedRoute;
+        if (pendingRoute) {
+          setPlannedDashboardRoute(pendingRoute.start, pendingRoute.destination, pendingRoute.points);
+        }
+      };
+      map.once('idle', renderWhenReady);
+    }
+    return;
+  }
 
   setJourneyMarker('planned-start', dashboardMapState.plannedRoute.start, 'Trip start', 'dashboard-map-marker dashboard-map-marker--start', 'fa-flag');
   setJourneyMarker('planned-destination', dashboardMapState.plannedRoute.destination, 'Trip destination', 'dashboard-map-marker dashboard-map-marker--destination', 'fa-location-dot');
@@ -237,7 +291,7 @@ function clearPlannedDashboardRoute() {
   if (source) source.setData({ type: 'FeatureCollection', features: [] });
 }
 
-function drawPublicDashboardRoute(points) {
+function drawPublicDashboardRoute(points, routeColor) {
   const map = dashboardMapState.map;
   if (!map?.isStyleLoaded()) return;
   const coordinates = points
@@ -250,22 +304,26 @@ function drawPublicDashboardRoute(points) {
   const source = map.getSource(sourceId);
   if (source) source.setData(data);
   else map.addSource(sourceId, { type: 'geojson', data });
+  const casingColor = getComputedStyle(document.documentElement)
+    .getPropertyValue('--map-road-casing').trim() || '#17191D';
   if (!map.getLayer('safaritrak-public-journey-route-casing')) {
     map.addLayer({
       id: 'safaritrak-public-journey-route-casing',
       type: 'line',
       source: sourceId,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#450A0A', 'line-width': 9, 'line-opacity': 0.96 },
+      paint: { 'line-color': casingColor, 'line-width': 8, 'line-opacity': 0.96 },
     });
     map.addLayer({
       id: 'safaritrak-public-journey-route',
       type: 'line',
       source: sourceId,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': routeColors.stroke, 'line-width': 5, 'line-opacity': 1 },
+      paint: { 'line-color': routeColor, 'line-width': 4, 'line-opacity': 1 },
     });
   }
+  map.setPaintProperty('safaritrak-public-journey-route-casing', 'line-color', casingColor);
+  map.setPaintProperty('safaritrak-public-journey-route', 'line-color', routeColor);
 }
 
 function showSharedDashboardJourney(journey, points = [], fit = false) {
@@ -307,8 +365,23 @@ function showSharedDashboardJourney(journey, points = [], fit = false) {
     dashboardMapState.markers.get('public-shared-current')?.remove();
     dashboardMapState.markers.delete('public-shared-current');
   }
-  drawPublicDashboardRoute(points);
+  const completedJourney = ['ended', 'completed'].includes(String(journey.status || '').toLowerCase());
+  drawPublicDashboardRoute(
+    points,
+    completedJourney ? routeColors.completedStroke : routeColors.stroke
+  );
   if (shouldFit) {
+    const routeCoordinates = points
+      .filter(point => Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lng)))
+      .map(point => [Number(point.lng), Number(point.lat)]);
+    if (window.SafariTrakRouteDirections?.focusMobileRoute(
+      map,
+      routeCoordinates.length > 1 ? routeCoordinates : [[start.lng, start.lat], [finish.lng, finish.lat]],
+      [start.lng, start.lat]
+    )) {
+      dashboardMapState.publicJourney.fit = false;
+      return;
+    }
     const coordinates = [
       [start.lng, start.lat],
       [finish.lng, finish.lat],
@@ -382,6 +455,14 @@ async function refreshDashboardJourney() {
 function setSharedLocations(locations) {
   const activeIds = new Set();
   dashboardMapState.sharedLocations = locations;
+  const groupColors = window.SafariTrakMapStyle.getTrackingColors().groupMembers;
+  const memberIds = [...new Set(locations
+    .map(location => Number(location.journey_id))
+    .filter(Number.isFinite))].sort((a, b) => a - b);
+  const memberColorById = new Map(memberIds.map((id, index) => [
+    id,
+    groupColors[index % groupColors.length],
+  ]));
   for (const location of locations) {
     if (!Number.isFinite(location.lat) || !Number.isFinite(location.lng)) continue;
     const id = `shared-${location.journey_id}`;
@@ -395,6 +476,7 @@ function setSharedLocations(locations) {
       const element = document.createElement('button');
       element.type = 'button';
       element.className = 'dashboard-shared-marker';
+      element.style.setProperty('--member-color', memberColorById.get(Number(location.journey_id)) || groupColors[0]);
       element.setAttribute('aria-label', accessibleLabel);
       element.title = accessibleLabel;
       const avatar = document.createElement('span');
@@ -560,10 +642,26 @@ function reloadDashboardStyle() {
   map.once('style.load', () => {
     applyDashboardNeonStyle();
     setDashboardProjection(dashboardMapState.projection);
-    if (dashboardMapState.route.length > 0) {
-      const route = dashboardMapState.route.map(([lng, lat]) => ({ lng, lat }));
-      drawDashboardRoute(route);
-    }
+    map.once('idle', () => {
+      if (dashboardMapState.route.length > 0) {
+        const route = dashboardMapState.route.map(([lng, lat]) => ({ lng, lat }));
+        drawDashboardRoute(route);
+      }
+      if (dashboardMapState.plannedRoute) {
+        setPlannedDashboardRoute(
+          dashboardMapState.plannedRoute.start,
+          dashboardMapState.plannedRoute.destination,
+          dashboardMapState.plannedRoute.points
+        );
+      }
+      if (dashboardMapState.publicJourney) {
+        showSharedDashboardJourney(
+          dashboardMapState.publicJourney.journey,
+          dashboardMapState.publicJourney.points,
+          dashboardMapState.publicJourney.fit
+        );
+      }
+    });
   });
 }
 
@@ -575,6 +673,7 @@ function initDashboardMap() {
   }
 
   try {
+    const isMobile = window.matchMedia('(max-width: 800px)').matches;
     try {
       const mapUserId = dashboardMapElement.closest('[data-map-user-id]')?.dataset.mapUserId;
       const savedJourneyFeatures = JSON.parse(
@@ -612,8 +711,8 @@ function initDashboardMap() {
       attributionControl: false,
       scrollZoom: false,
       boxZoom: false,
-      doubleClickZoom: false,
-      touchZoomRotate: false,
+      doubleClickZoom: isMobile,
+      touchZoomRotate: isMobile,
       touchPitch: false,
       keyboard: false,
       cooperativeGestures: false,
@@ -664,6 +763,7 @@ function initDashboardMap() {
       if (dashboardMapConfig?.dataset.tripId) requests.push(refreshDashboardJourney());
       const results = await Promise.allSettled(requests);
       reportDashboardRefresh(results, Boolean(dashboardMapConfig?.dataset.tripId));
+      locateOnDashboardMap();
       if (!dashboardMapState.refreshTimer) {
         dashboardMapState.refreshTimer = window.setInterval(() => {
           Promise.allSettled([

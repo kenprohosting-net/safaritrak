@@ -1405,17 +1405,24 @@ html[data-theme] .app.app--rental-workspace.app--fleet-dashboard .fleet-rail,
 html[data-theme] .app.app--rental-workspace.app--fleet-dashboard .fleet-dashboard-card,
 html[data-theme] .app.app--rental-workspace.app--fleet-dashboard .fleet-kpi-card,
 html[data-theme] .app.app--rental-workspace.app--fleet-dashboard .fleet-activity-sidebar {
-    border-color: rgba(255, 255, 255, .1) !important;
-    background: rgba(12, 16, 28, .74) !important;
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
+    border-color: var(--glass-surface-border) !important;
+    background: var(--glass-surface) !important;
+    box-shadow: var(--glass-shadow) !important;
+    backdrop-filter: var(--glass-surface-blur) !important;
+    -webkit-backdrop-filter: var(--glass-surface-blur) !important;
 }
 
 html[data-theme] .app.app--rental-workspace.app--car-hire .rental-vehicle-card {
-    border-color: rgba(255, 255, 255, .12) !important;
-    background: rgba(24, 30, 48, .65) !important;
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
+    border-color: var(--glass-surface-border) !important;
+    background: var(--glass-surface) !important;
+    box-shadow: var(--glass-shadow) !important;
+    backdrop-filter: var(--glass-surface-blur) !important;
+    -webkit-backdrop-filter: var(--glass-surface-blur) !important;
+}
+
+html[data-theme] .app.app--rental-workspace.app--car-hire .rental-vehicle-card:is(:hover, .is-selected) {
+    border-color: color-mix(in srgb, var(--accent-primary) 65%, var(--glass-surface-border)) !important;
+    background: color-mix(in srgb, var(--accent-primary) 12%, var(--glass-surface)) !important;
 }
 
 html[data-theme] .app.app--rental-workspace :is(
@@ -1493,4 +1500,25 @@ html[data-theme] .app.app--rental-workspace .groups-dialog-card textarea {
     background: rgba(24, 30, 48, .65) !important;
     backdrop-filter: blur(28px) !important;
     -webkit-backdrop-filter: blur(28px) !important;
+}
+
+html[data-theme] body .app.app--rental-workspace :is(
+    .rental-marketplace-panel,
+    .rental-preview,
+    .fleet-rail,
+    .fleet-dashboard-card,
+    .fleet-kpi-card,
+    .fleet-activity-sidebar,
+    .rental-vehicle-card,
+    .groups-dialog-card,
+    .rental-date-bar,
+    .rental-search,
+    .rental-preview-specs span,
+    .rental-booking-item,
+    .fleet-activity-item
+),
+html[data-theme] body .app.app--rental-workspace > #sidebar {
+    background: var(--app-glass-surface) !important;
+    backdrop-filter: var(--glass-surface-blur) !important;
+    -webkit-backdrop-filter: var(--glass-surface-blur) !important;
 }

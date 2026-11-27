@@ -50,7 +50,7 @@ $showAppMapBackground = $journey !== null;
 if (!$journey) {
     ?>
     <!doctype html>
-    <html lang="en">
+    <html lang="en" data-theme="dark">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -68,8 +68,9 @@ if (!$journey) {
     <?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
 
     <div class="app app--map-layout">
+        <?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
-        <main>
+        <main class="app-navbar-safe-area">
 
             <div class="content">
 
@@ -105,6 +106,7 @@ if (!$journey) {
 
     </div>
 
+    <script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
     </body>
     </html>
     <?php
@@ -325,6 +327,7 @@ $userName = $currentUser['full_name'] ?? 'Traveler';
                     id="sharedMap"
                     class="shared-map"
                 ></div>
+                <p id="journeyRoadRouteStatus" class="shared-status" role="status" aria-live="polite">Loading road route…</p>
 
                 <div class="shared-info">
 
@@ -427,6 +430,7 @@ const SHARED_END_LNG =
 </script>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="route-directions.js?v=<?= hash_file('sha256', __DIR__ . '/route-directions.js') ?>"></script>
 
 <script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
 
